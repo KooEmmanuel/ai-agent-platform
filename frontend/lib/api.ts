@@ -131,9 +131,7 @@ class ApiClient {
   ): Promise<T> {
     // Use backend routes directly for dynamic routes that aren't working in frontend
     // Use frontend routes for static routes that are working
-    const isDynamicRoute = endpoint.includes('/agents/') && endpoint.match(/\/agents\/\d+/) ||
-                          endpoint.includes('/tools/') && endpoint.match(/\/tools\/\d+/) ||
-                          endpoint.includes('/playground/') && endpoint.match(/\/playground\/\d+\//)
+    const isDynamicRoute = endpoint.match(/\/\d+/) // Any route with a numeric ID
     
     const url = isDynamicRoute 
       ? `/api/v1${endpoint.replace('/api/v1', '')}`
