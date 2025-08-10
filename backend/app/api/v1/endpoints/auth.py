@@ -14,6 +14,7 @@ from app.core.database import get_db, User
 from app.core.firebase import verify_firebase_token
 from app.core.auth import get_current_user
 from app.services.credit_service import CreditService
+from app.core.config import settings
 
 router = APIRouter()
 
@@ -91,7 +92,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     else:
         expire = datetime.utcnow() + timedelta(minutes=15)
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, "AGNT4FLW98F4PGHTUI3WHI", algorithm="HS256")
+    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
 
 @router.get("/me", response_model=dict)
@@ -106,4 +107,9 @@ async def get_current_user_info(
         "picture": current_user.picture,
         "is_verified": current_user.is_verified,
         "created_at": current_user.created_at.isoformat()
-    } 
+    }
+
+@router.get("/test")
+async def test_auth():
+    """Test endpoint that doesn't require authentication"""
+    return {"message": "Auth endpoint is working", "status": "ok"} 

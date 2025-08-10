@@ -59,10 +59,12 @@ app.add_middleware(
         "http://localhost:3000",          # Development frontend
         "http://localhost:3001",          # Alternative dev port
         "https://kwickbuild.up.railway.app",  # Backend itself
+        "*",  # Allow all origins for development (remove in production)
     ],
     allow_credentials=True,  # Allow credentials for authentication
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # Include API routes

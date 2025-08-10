@@ -10,6 +10,7 @@ import jwt
 from typing import Optional
 
 from app.core.database import get_db, User
+from app.core.config import settings
 
 security = HTTPBearer()
 
@@ -22,8 +23,8 @@ async def get_current_user(
         # Decode JWT token
         payload = jwt.decode(
             credentials.credentials, 
-            "AGNT4FLW98F4PGHTUI3WHI", 
-            algorithms=["HS256"]
+            settings.SECRET_KEY, 
+            algorithms=[settings.ALGORITHM]
         )
         user_id = payload.get("sub")
         
