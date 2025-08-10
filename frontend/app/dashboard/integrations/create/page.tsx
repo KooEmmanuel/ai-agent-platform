@@ -107,6 +107,7 @@ export default function CreateIntegrationPage() {
         // Send to backend to get new access token
         const response = await fetch(`/api/v1/auth/firebase/`, {
           method: 'POST',
+          redirect: 'follow', // Explicitly follow redirects
           headers: {
             'Content-Type': 'application/json'
           },
@@ -133,6 +134,7 @@ export default function CreateIntegrationPage() {
     // First attempt with existing token
     let response = await fetch(url, {
       ...options,
+      redirect: 'follow', // Explicitly follow redirects
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
@@ -149,6 +151,7 @@ export default function CreateIntegrationPage() {
         // Retry with new token
         response = await fetch(url, {
           ...options,
+          redirect: 'follow', // Explicitly follow redirects
           headers: {
             'Authorization': `Bearer ${newToken}`,
             'Content-Type': 'application/json',
