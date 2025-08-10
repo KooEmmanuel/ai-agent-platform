@@ -1,0 +1,397 @@
+"""
+Database configuration and models for the AI Agent Platform
+"""
+
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey, JSON, Float, func, UniqueConstraint
+from sqlalchemy.orm import relationship
+from typing import AsyncGenerator
+import uuid
+from datetime import datetime
+
+from app.core.config import settings
+
+# Create async engine
+engine = create_async_engine(
+    settings.DATABASE_URL,
+    echo=settings.DEBUG,
+    pool_pre_ping=True
+)
+
+# Create async session factory
+AsyncSessionLocal = async_sessionmaker(
+    engine,
+    class_=AsyncSession,
+    expire_on_commit=False
+)
+
+# Create base class for models
+Base = declarative_base()
+
+# System user ID for default tools
+SYSTEM_USER_ID = 1
+
+# Database dependency
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+        finally:
+            await session.close()
+
+# Initialize database
+async def init_db():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+# Close database
+async def close_db():
+    await engine.dispose()
+
+# Models
+class User(Base):
+    __tablename__ = "users"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    firebase_uid = Column(String, unique=True, index=True)
+    email = Column(String, unique=True, index=True)
+    name = Column(String)
+    picture = Column(String, nullable=True)
+    is_verified = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    credits = relationship("UserCredits", back_populates="user", uselist=False)
+    credit_transactions = relationship("CreditTransaction", back_populates="user")
+    agents = relationship("Agent", back_populates="user")
+    conversations = relationship("Conversation", back_populates="user")
+    tools = relationship("Tool", back_populates="user")
+    user_tools = relationship("UserTool", back_populates="user")
+    integrations = relationship("Integration", back_populates="user")
+    notification_preferences = relationship("NotificationPreference", back_populates="user", uselist=False)
+    push_subscriptions = relationship("PushSubscription", back_populates="user")
+    notification_history = relationship("NotificationHistory", back_populates="user")
+    user_preferences = relationship("UserPreferences", back_populates="user")
+    subscription = relationship("UserSubscription", back_populates="user", uselist=False)
+    billing_history = relationship("BillingHistory", back_populates="user")
+
+class UserCredits(Base):
+    __tablename__ = "user_credits"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    total_credits = Column(Float, default=1000.0)  # Free tier starts with 1000 credits
+    used_credits = Column(Float, default=0.0)
+    available_credits = Column(Float, default=1000.0)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    user = relationship("User", back_populates="credits")
+
+class CreditTransaction(Base):
+    __tablename__ = "credit_transactions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    transaction_type = Column(String)  # 'usage', 'purchase', 'refund', 'bonus'
+    amount = Column(Float)  # Positive for credits added, negative for credits used
+    description = Column(String)
+    agent_id = Column(Integer, ForeignKey("agents.id"), nullable=True)
+    conversation_id = Column(Integer, ForeignKey("conversations.id"), nullable=True)
+    tool_used = Column(String, nullable=True)  # Which tool was used
+    meta_data = Column(JSON, nullable=True)  # Additional data about the transaction
+    created_at = Column(DateTime, default=func.now())
+    
+    # Relationships
+    user = relationship("User", back_populates="credit_transactions")
+    agent = relationship("Agent", back_populates="credit_transactions")
+    conversation = relationship("Conversation", back_populates="credit_transactions")
+
+class Agent(Base):
+    __tablename__ = "agents"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    name = Column(String)
+    description = Column(Text, nullable=True)
+    instructions = Column(Text)
+    model = Column(String, default="gpt-4o-mini")  # AI model to use
+    tools = Column(JSON)  # Array of tool configurations
+    context_config = Column(JSON, nullable=True)  # Context and memory configuration
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    user = relationship("User", back_populates="agents")
+    conversations = relationship("Conversation", back_populates="agent")
+    credit_transactions = relationship("CreditTransaction", back_populates="agent")
+    user_preferences = relationship("UserPreferences", back_populates="agent")
+
+class Tool(Base):
+    __tablename__ = "tools"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    category = Column(String, nullable=False)  # search, scheduling, custom, etc.
+    tool_type = Column(String, nullable=False)  # function, api, webhook, etc.
+    config = Column(JSON, nullable=False)  # Tool configuration
+    is_public = Column(Boolean, default=False)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    user = relationship("User", back_populates="tools")
+    user_tools = relationship("UserTool", back_populates="tool")
+
+class UserTool(Base):
+    __tablename__ = "user_tools"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    tool_id = Column(Integer, ForeignKey("tools.id"), nullable=False)
+    is_favorite = Column(Boolean, default=False)
+    custom_config = Column(JSON, nullable=True)  # User's custom configuration for this tool
+    created_at = Column(DateTime, default=func.now())
+    
+    # Relationships
+    user = relationship("User", back_populates="user_tools")
+    tool = relationship("Tool", back_populates="user_tools")
+    
+    # Unique constraint to prevent duplicate user-tool relationships
+    __table_args__ = (
+        UniqueConstraint('user_id', 'tool_id', name='uq_user_tool'),
+    )
+
+class Integration(Base):
+    __tablename__ = "integrations"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    agent_id = Column(Integer, ForeignKey("agents.id"), nullable=False)
+    platform = Column(String, nullable=False)  # whatsapp, telegram, discord, etc.
+    config = Column(JSON, nullable=False)  # Platform-specific configuration
+    webhook_url = Column(String, nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    user = relationship("User", back_populates="integrations")
+    agent = relationship("Agent")
+
+class Conversation(Base):
+    __tablename__ = "conversations"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    agent_id = Column(Integer, ForeignKey("agents.id"))
+    session_id = Column(String, nullable=True)  # Session tracking
+    title = Column(String)
+    context_summary = Column(Text, nullable=True)  # Conversation summary
+    memory_metadata = Column(JSON, nullable=True)  # Memory metadata
+    retention_policy = Column(JSON, nullable=True)  # Retention settings
+    meta_data = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    user = relationship("User", back_populates="conversations")
+    agent = relationship("Agent", back_populates="conversations")
+    messages = relationship("Message", back_populates="conversation")
+    credit_transactions = relationship("CreditTransaction", back_populates="conversation")
+
+class UserPreferences(Base):
+    __tablename__ = "user_preferences"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    agent_id = Column(Integer, ForeignKey("agents.id"), nullable=True)
+    category = Column(String)  # "product_preferences", "communication_style", etc.
+    preferences = Column(JSON)  # Actual preference data
+    is_persistent = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    user = relationship("User", back_populates="user_preferences")
+    agent = relationship("Agent", back_populates="user_preferences")
+
+class Message(Base):
+    __tablename__ = "messages"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    conversation_id = Column(Integer, ForeignKey("conversations.id"))
+    role = Column(String)  # 'user', 'assistant', 'system'
+    content = Column(Text)
+    meta_data = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    
+    # Relationships
+    conversation = relationship("Conversation", back_populates="messages")
+
+
+class NotificationPreference(Base):
+    __tablename__ = "notification_preferences"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    email_notifications = Column(Boolean, default=True)
+    push_notifications = Column(Boolean, default=False)
+    weekly_reports = Column(Boolean, default=True)
+    marketing_emails = Column(Boolean, default=False)
+    agent_alerts = Column(Boolean, default=True)
+    integration_alerts = Column(Boolean, default=True)
+    credit_alerts = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    user = relationship("User", back_populates="notification_preferences")
+
+
+class PushSubscription(Base):
+    __tablename__ = "push_subscriptions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    endpoint = Column(Text)
+    p256dh_key = Column(Text)
+    auth_key = Column(Text)
+    user_agent = Column(Text, nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=func.now())
+    
+    # Relationships
+    user = relationship("User", back_populates="push_subscriptions")
+
+
+class NotificationHistory(Base):
+    __tablename__ = "notification_history"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    notification_type = Column(String)  # 'email', 'push', 'weekly_report'
+    subject = Column(String, nullable=True)
+    content = Column(Text)
+    status = Column(String, default='sent')  # 'sent', 'failed', 'pending'
+    error_message = Column(Text, nullable=True)
+    meta_data = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    
+    # Relationships
+    user = relationship("User", back_populates="notification_history")
+
+
+class EmailTemplate(Base):
+    __tablename__ = "email_templates"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True)  # 'weekly_report', 'agent_alert', etc.
+    subject = Column(String)
+    html_content = Column(Text)
+    text_content = Column(Text, nullable=True)
+    variables = Column(JSON, nullable=True)  # List of template variables
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class SubscriptionPlan(Base):
+    __tablename__ = "subscription_plans"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True)  # 'free', 'starter', 'pro', 'enterprise'
+    display_name = Column(String)  # 'Free Plan', 'Starter Plan', etc.
+    description = Column(Text, nullable=True)
+    price = Column(Float, default=0.0)  # Monthly price in USD
+    currency = Column(String, default='USD')
+    billing_interval = Column(String, default='month')  # 'month', 'year'
+    
+    # Plan limits
+    monthly_credits = Column(Integer, default=1000)
+    max_agents = Column(Integer, default=3)  # -1 for unlimited
+    max_custom_tools = Column(Integer, default=0)  # -1 for unlimited
+    max_integrations = Column(Integer, default=-1)  # -1 for unlimited
+    
+    # Features
+    features = Column(JSON, nullable=True)  # List of features
+    support_level = Column(String, default='community')  # 'community', 'email', 'priority'
+    custom_branding = Column(Boolean, default=False)
+    api_access = Column(Boolean, default=False)
+    priority_support = Column(Boolean, default=False)
+    
+    # Stripe/Payment integration
+    stripe_price_id = Column(String, nullable=True)  # Stripe price ID
+    stripe_product_id = Column(String, nullable=True)  # Stripe product ID
+    
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    subscriptions = relationship("UserSubscription", back_populates="plan")
+
+
+class UserSubscription(Base):
+    __tablename__ = "user_subscriptions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    plan_id = Column(Integer, ForeignKey("subscription_plans.id"))
+    
+    # Subscription status
+    status = Column(String, default='active')  # 'active', 'canceled', 'past_due', 'trialing'
+    current_period_start = Column(DateTime)
+    current_period_end = Column(DateTime)
+    cancel_at_period_end = Column(Boolean, default=False)
+    canceled_at = Column(DateTime, nullable=True)
+    
+    # Payment integration
+    stripe_subscription_id = Column(String, nullable=True)
+    stripe_customer_id = Column(String, nullable=True)
+    
+    # Credits tracking for current billing period
+    credits_reset_at = Column(DateTime)  # When credits were last reset
+    credits_used_this_period = Column(Float, default=0.0)
+    
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    user = relationship("User", back_populates="subscription")
+    plan = relationship("SubscriptionPlan", back_populates="subscriptions")
+
+
+class BillingHistory(Base):
+    __tablename__ = "billing_history"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    subscription_id = Column(Integer, ForeignKey("user_subscriptions.id"))
+    
+    # Invoice details
+    amount = Column(Float)
+    currency = Column(String, default='USD')
+    status = Column(String)  # 'paid', 'pending', 'failed', 'refunded'
+    description = Column(String)
+    
+    # Payment integration
+    stripe_invoice_id = Column(String, nullable=True)
+    stripe_payment_intent_id = Column(String, nullable=True)
+    
+    # Dates
+    invoice_date = Column(DateTime)
+    paid_at = Column(DateTime, nullable=True)
+    
+    created_at = Column(DateTime, default=func.now())
+    
+    # Relationships
+    user = relationship("User", back_populates="billing_history")
+    subscription = relationship("UserSubscription") 
