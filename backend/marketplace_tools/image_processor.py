@@ -13,8 +13,16 @@ from typing import Any, Dict, List, Optional, Union
 from datetime import datetime
 from pathlib import Path
 from PIL import Image, ImageFilter, ImageEnhance, ImageOps
-import cv2
-import numpy as np
+
+# Optional OpenCV import for advanced features
+try:
+    import cv2
+    import numpy as np
+    OPENCV_AVAILABLE = True
+except ImportError:
+    OPENCV_AVAILABLE = False
+    cv2 = None
+    np = None
 from io import BytesIO
 
 from .base import BaseTool
@@ -324,40 +332,41 @@ class ImageProcessorTool(BaseTool):
                 file_size = path.stat().st_size
                 
                 # Get color information
-                if mode in ['RGB', 'RGBA']:
-                    # Convert to numpy array for analysis
-                    img_array = np.array(img)
-                    
-                    # Calculate color statistics
-                    if len(img_array.shape) == 3:
-                        red_channel = img_array[:, :, 0]
-                        green_channel = img_array[:, :, 1]
-                        blue_channel = img_array[:, :, 2]
+                color_stats = None
+                if mode in ['RGB', 'RGBA'] and OPENCV_AVAILABLE and np is not None:
+                    try:
+                        # Convert to numpy array for analysis
+                        img_array = np.array(img)
                         
-                        color_stats = {
-                            'red': {
-                                'mean': float(np.mean(red_channel)),
-                                'std': float(np.std(red_channel)),
-                                'min': int(np.min(red_channel)),
-                                'max': int(np.max(red_channel))
-                            },
-                            'green': {
-                                'mean': float(np.mean(green_channel)),
-                                'std': float(np.std(green_channel)),
-                                'min': int(np.min(green_channel)),
-                                'max': int(np.max(green_channel))
-                            },
-                            'blue': {
-                                'mean': float(np.mean(blue_channel)),
-                                'std': float(np.std(blue_channel)),
-                                'min': int(np.min(blue_channel)),
-                                'max': int(np.max(blue_channel))
+                        # Calculate color statistics
+                        if len(img_array.shape) == 3:
+                            red_channel = img_array[:, :, 0]
+                            green_channel = img_array[:, :, 1]
+                            blue_channel = img_array[:, :, 2]
+                            
+                            color_stats = {
+                                'red': {
+                                    'mean': float(np.mean(red_channel)),
+                                    'std': float(np.std(red_channel)),
+                                    'min': int(np.min(red_channel)),
+                                    'max': int(np.max(red_channel))
+                                },
+                                'green': {
+                                    'mean': float(np.mean(green_channel)),
+                                    'std': float(np.std(green_channel)),
+                                    'min': int(np.min(green_channel)),
+                                    'max': int(np.max(green_channel))
+                                },
+                                'blue': {
+                                    'mean': float(np.mean(blue_channel)),
+                                    'std': float(np.std(blue_channel)),
+                                    'min': int(np.min(blue_channel)),
+                                    'max': int(np.max(blue_channel))
+                                }
                             }
-                        }
-                    else:
+                    except Exception as e:
+                        logger.warning(f"Color analysis failed (OpenCV not available): {str(e)}")
                         color_stats = None
-                else:
-                    color_stats = None
                 
                 # Get EXIF data if available
                 exif_data = {}

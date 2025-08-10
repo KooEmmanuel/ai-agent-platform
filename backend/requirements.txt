@@ -48,7 +48,6 @@ aiosmtplib==3.0.1
 
 # Image processing
 Pillow==10.1.0
-opencv-python==4.8.1.78
 
 # Text analysis and NLP
 nltk==3.8.1
