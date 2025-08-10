@@ -40,9 +40,9 @@ google-api-python-client==2.108.0
 gspread==5.12.0
 gspread-dataframe==3.3.1
 
-# Database support
-asyncpg==0.29.0  # Async PostgreSQL driver
-psycopg2-binary==2.9.9  # Sync PostgreSQL driver (fallback)
+# Database support - Prioritize async drivers
+asyncpg==0.29.0  # Primary async PostgreSQL driver
+# psycopg2-binary==2.9.9  # Commented out to avoid conflicts
 mysql-connector-python==8.2.0
 
 # Email support

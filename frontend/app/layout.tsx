@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { ClientProviders } from '../components/ui/ClientProviders'
+import { MobileViewportFix } from '../components/ui/MobileViewportFix'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -35,6 +36,7 @@ export default function RootLayout({
         <ClientProviders>
           {children}
         </ClientProviders>
+        <MobileViewportFix />
       </body>
     </html>
   )

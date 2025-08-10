@@ -16,28 +16,51 @@ from app.core.config import settings
 def get_async_database_url():
     """Convert sync database URL to async URL if needed"""
     url = settings.DATABASE_URL
+    print(f"🔍 Original DATABASE_URL: {url}")
     
-    # If it's a PostgreSQL URL with psycopg2, convert to asyncpg
-    if url.startswith('postgresql://') and 'psycopg2' not in url:
-        # Already async URL
-        return url
-    elif url.startswith('postgresql://'):
-        # Convert sync PostgreSQL URL to async
-        return url.replace('postgresql://', 'postgresql+asyncpg://')
+    # Handle different PostgreSQL URL formats
+    if url.startswith('postgresql://'):
+        if '+asyncpg' in url:
+            # Already async URL
+            print(f"✅ Already async URL: {url}")
+            return url
+        elif '+psycopg2' in url:
+            # Convert psycopg2 to asyncpg
+            async_url = url.replace('+psycopg2', '+asyncpg')
+            print(f"🔄 Converted psycopg2 to asyncpg: {async_url}")
+            return async_url
+        else:
+            # Plain postgresql:// URL - add asyncpg
+            async_url = url.replace('postgresql://', 'postgresql+asyncpg://')
+            print(f"🔄 Added asyncpg to URL: {async_url}")
+            return async_url
     elif url.startswith('postgres://'):
-        # Convert sync PostgreSQL URL to async
-        return url.replace('postgres://', 'postgresql+asyncpg://')
-    
-    return url
+        # Convert postgres:// to postgresql+asyncpg://
+        async_url = url.replace('postgres://', 'postgresql+asyncpg://')
+        print(f"🔄 Converted postgres:// to async: {async_url}")
+        return async_url
+    else:
+        # For SQLite or other databases, return as is
+        print(f"✅ Non-PostgreSQL URL (returning as-is): {url}")
+        return url
 
-# Create async engine
-engine = create_async_engine(
-    get_async_database_url(),
-    echo=settings.DEBUG,
-    pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=20
-)
+# Create async engine with error handling
+try:
+    database_url = get_async_database_url()
+    print(f"🚀 Creating async engine with URL: {database_url}")
+    
+    engine = create_async_engine(
+        database_url,
+        echo=settings.DEBUG,
+        pool_pre_ping=True,
+        pool_size=10,
+        max_overflow=20
+    )
+    print("✅ Async engine created successfully")
+except Exception as e:
+    print(f"❌ Error creating async engine: {e}")
+    print(f"🔍 DATABASE_URL: {settings.DATABASE_URL}")
+    raise
 
 # Create async session factory
 AsyncSessionLocal = async_sessionmaker(
