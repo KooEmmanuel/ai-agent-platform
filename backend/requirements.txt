@@ -41,7 +41,8 @@ gspread==5.12.0
 gspread-dataframe==3.3.1
 
 # Database support
-psycopg2-binary==2.9.9
+asyncpg==0.29.0  # Async PostgreSQL driver
+psycopg2-binary==2.9.9  # Sync PostgreSQL driver (fallback)
 mysql-connector-python==8.2.0
 
 # Email support

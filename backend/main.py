@@ -11,7 +11,7 @@ import uvicorn
 from loguru import logger
 
 from app.core.config import settings
-from app.core.database import init_db, close_db
+from app.core.database import init_db, close_db, check_db_connection, test_db_connection
 from app.api.v1.api import api_router
 from app.core.auth import get_current_user
 
@@ -78,6 +78,26 @@ async def root():
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "service": "ai-agent-platform"}
+
+@app.get("/health/db")
+async def database_health_check():
+    """Database health check endpoint"""
+    db_status = await check_db_connection()
+    return {
+        "service": "ai-agent-platform",
+        "database": db_status,
+        "timestamp": "2025-08-10T02:58:00Z"
+    }
+
+@app.get("/health/db/detailed")
+async def database_detailed_health_check():
+    """Detailed database health check endpoint"""
+    db_status = await test_db_connection()
+    return {
+        "service": "ai-agent-platform",
+        "database": db_status,
+        "timestamp": "2025-08-10T02:58:00Z"
+    }
 
 if __name__ == "__main__":
     uvicorn.run(

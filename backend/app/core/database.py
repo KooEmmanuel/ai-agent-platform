@@ -12,11 +12,31 @@ from datetime import datetime
 
 from app.core.config import settings
 
+# Create async engine with proper driver handling
+def get_async_database_url():
+    """Convert sync database URL to async URL if needed"""
+    url = settings.DATABASE_URL
+    
+    # If it's a PostgreSQL URL with psycopg2, convert to asyncpg
+    if url.startswith('postgresql://') and 'psycopg2' not in url:
+        # Already async URL
+        return url
+    elif url.startswith('postgresql://'):
+        # Convert sync PostgreSQL URL to async
+        return url.replace('postgresql://', 'postgresql+asyncpg://')
+    elif url.startswith('postgres://'):
+        # Convert sync PostgreSQL URL to async
+        return url.replace('postgres://', 'postgresql+asyncpg://')
+    
+    return url
+
 # Create async engine
 engine = create_async_engine(
-    settings.DATABASE_URL,
+    get_async_database_url(),
     echo=settings.DEBUG,
-    pool_pre_ping=True
+    pool_pre_ping=True,
+    pool_size=10,
+    max_overflow=20
 )
 
 # Create async session factory
@@ -48,6 +68,51 @@ async def init_db():
 # Close database
 async def close_db():
     await engine.dispose()
+
+# Check database connection
+async def check_db_connection():
+    """Check if database is connected and accessible"""
+    try:
+        async with engine.begin() as conn:
+            # Try to execute a simple query
+            result = await conn.execute("SELECT 1")
+            await result.fetchone()
+            return {"status": "connected", "message": "Database connection successful"}
+    except Exception as e:
+        return {"status": "error", "message": f"Database connection failed: {str(e)}"}
+
+# Test database connection
+async def test_db_connection():
+    """Test database connection and return detailed status"""
+    try:
+        # Test basic connection
+        async with engine.begin() as conn:
+            result = await conn.execute("SELECT version()")
+            version = await result.fetchone()
+            
+        # Test if tables exist
+        async with engine.begin() as conn:
+            result = await conn.execute("""
+                SELECT table_name 
+                FROM information_schema.tables 
+                WHERE table_schema = 'public'
+                LIMIT 5
+            """)
+            tables = await result.fetchall()
+            
+        return {
+            "status": "connected",
+            "message": "Database connection successful",
+            "version": version[0] if version else "Unknown",
+            "tables_count": len(tables),
+            "sample_tables": [table[0] for table in tables[:3]]
+        }
+    except Exception as e:
+        return {
+            "status": "error", 
+            "message": f"Database connection failed: {str(e)}",
+            "error_type": type(e).__name__
+        }
 
 # Models
 class User(Base):
