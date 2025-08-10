@@ -54,12 +54,31 @@ try:
         echo=settings.DEBUG,
         pool_pre_ping=True,
         pool_size=10,
-        max_overflow=20
+        max_overflow=20,
+        connect_args={
+            "server_settings": {
+                "application_name": "ai_agent_platform"
+            }
+        }
     )
     print("✅ Async engine created successfully")
 except Exception as e:
     print(f"❌ Error creating async engine: {e}")
     print(f"🔍 DATABASE_URL: {settings.DATABASE_URL}")
+    
+    # Try to extract connection info for debugging
+    try:
+        from urllib.parse import urlparse
+        parsed = urlparse(settings.DATABASE_URL)
+        print(f"🔍 Parsed URL - Host: {parsed.hostname}, Port: {parsed.port}, Database: {parsed.path}")
+    except Exception as parse_error:
+        print(f"🔍 Could not parse DATABASE_URL: {parse_error}")
+    
+    # Check if it's a Railway internal hostname issue
+    if "railway.internal" in settings.DATABASE_URL:
+        print("⚠️  Detected Railway internal hostname - this might be a networking issue")
+        print("💡 Try using the external DATABASE_URL from Railway dashboard")
+    
     raise
 
 # Create async session factory
@@ -85,8 +104,14 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 # Initialize database
 async def init_db():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        print("✅ Database tables created successfully")
+    except Exception as e:
+        print(f"❌ Error initializing database: {e}")
+        print("💡 This might be a connection issue. Check your Railway database configuration.")
+        raise
 
 # Close database
 async def close_db():
