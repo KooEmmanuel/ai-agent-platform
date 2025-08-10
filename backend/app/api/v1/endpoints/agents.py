@@ -236,32 +236,92 @@ def get_default_context_config():
         }
     }
 
+@router.get("/test")
+async def test_agents_endpoint():
+    """Test endpoint to verify the agents router is working"""
+    return {"message": "Agents endpoint is working", "status": "ok"}
+
+@router.get("/simple")
+async def list_agents_simple(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Simple version of list agents to test serialization"""
+    print(f"🔍 list_agents_simple called for user {current_user.id} ({current_user.email})")
+    
+    try:
+        print(f"📊 Executing database query for user {current_user.id}")
+        result = await db.execute(
+            select(Agent).where(Agent.user_id == current_user.id)
+        )
+        agents = result.scalars().all()
+        print(f"✅ Found {len(agents)} agents for user {current_user.id}")
+        
+        # Return simple data without complex serialization
+        simple_agents = []
+        for agent in agents:
+            simple_agents.append({
+                "id": agent.id,
+                "name": agent.name,
+                "description": agent.description,
+                "instructions": agent.instructions,
+                "is_active": agent.is_active,
+                "created_at": agent.created_at.isoformat() if agent.created_at else None,
+                "updated_at": agent.updated_at.isoformat() if agent.updated_at else None,
+                "tool_count": len(agent.tools) if agent.tools else 0
+            })
+        
+        print(f"✅ Returning {len(simple_agents)} agents (simple format)")
+        return {"agents": simple_agents, "count": len(simple_agents)}
+        
+    except Exception as e:
+        print(f"❌ Error in list_agents_simple: {e}")
+        print(f"❌ Error type: {type(e).__name__}")
+        import traceback
+        print(f"❌ Traceback: {traceback.format_exc()}")
+        raise
+
 @router.get("/", response_model=List[AgentResponse])
 async def list_agents(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """List all agents for the current user"""
-    result = await db.execute(
-        select(Agent).where(Agent.user_id == current_user.id)
-    )
-    agents = result.scalars().all()
+    print(f"🔍 list_agents called for user {current_user.id} ({current_user.email})")
     
-    return [
-        AgentResponse(
-            id=agent.id,
-            name=agent.name,
-            description=agent.description,
-            instructions=agent.instructions,
-            is_active=agent.is_active,
-            tools=agent.tools or [],
-            context_config=agent.context_config,
-            created_at=agent.created_at.isoformat(),
-            updated_at=agent.updated_at.isoformat() if agent.updated_at else None,
-            tool_count=len(agent.tools or [])
+    try:
+        print(f"📊 Executing database query for user {current_user.id}")
+        result = await db.execute(
+            select(Agent).where(Agent.user_id == current_user.id)
         )
-        for agent in agents
-    ]
+        agents = result.scalars().all()
+        print(f"✅ Found {len(agents)} agents for user {current_user.id}")
+        
+        response_data = [
+            AgentResponse(
+                id=agent.id,
+                name=agent.name,
+                description=agent.description,
+                instructions=agent.instructions,
+                is_active=agent.is_active,
+                tools=agent.tools or [],
+                context_config=agent.context_config,
+                created_at=agent.created_at.isoformat(),
+                updated_at=agent.updated_at.isoformat() if agent.updated_at else None,
+                tool_count=len(agent.tools or [])
+            )
+            for agent in agents
+        ]
+        
+        print(f"✅ Returning {len(response_data)} agents")
+        return response_data
+        
+    except Exception as e:
+        print(f"❌ Error in list_agents: {e}")
+        print(f"❌ Error type: {type(e).__name__}")
+        import traceback
+        print(f"❌ Traceback: {traceback.format_exc()}")
+        raise
 
 @router.get("/{agent_id}", response_model=AgentResponse)
 async def get_agent(
