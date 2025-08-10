@@ -31,6 +31,7 @@ COPY app/ ./app/
 COPY main.py .
 COPY alembic.ini .
 COPY alembic/ ./alembic/
+COPY marketplace_tools/ ./marketplace_tools/
 
 # Create non-root user
 RUN adduser --disabled-password --gecos '' appuser \

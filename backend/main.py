@@ -99,7 +99,20 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
-    return {"status": "healthy", "service": "ai-agent-platform"}
+    try:
+        # Simple health check without heavy imports
+        return {
+            "status": "healthy", 
+            "service": "ai-agent-platform",
+            "timestamp": "2025-08-10T03:00:00Z"
+        }
+    except Exception as e:
+        return {
+            "status": "unhealthy",
+            "service": "ai-agent-platform", 
+            "error": str(e),
+            "timestamp": "2025-08-10T03:00:00Z"
+        }
 
 @app.get("/health/db")
 async def database_health_check():

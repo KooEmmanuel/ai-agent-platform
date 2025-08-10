@@ -84,6 +84,9 @@ next.config.js
 tailwind.config.js
 tsconfig.json
 
+# Keep marketplace_tools (needed for backend)
+!marketplace_tools/
+
 # Other
 *.md
 .env.example 
