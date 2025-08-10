@@ -140,7 +140,7 @@ export default function IntegrationDetailPage() {
     
     setLoadingEmbedCode(true)
     try {
-      const response = await makeAuthenticatedRequest(`${API_BASE_URL}/api/v1/web-widget/script/${integrationId}`)
+      const response = await makeAuthenticatedRequest(`${API_BASE_URL}/v1/web-widget/script/${integrationId}`)
       
       if (response.ok) {
         const data = await response.json()
