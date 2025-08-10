@@ -16,7 +16,7 @@ export default function HeroSection() {
   }, [])
 
   return (
-    <section className="relative min-h-[60vh] sm:min-h-[70vh] lg:min-h-[80vh] bg-white overflow-hidden">
+    <section className="relative min-h-[60vh] sm:min-h-[65vh] lg:min-h-[60vh] bg-white overflow-hidden">
       {/* Background dot grid pattern */}
       <div
         className="absolute inset-0"
@@ -35,10 +35,10 @@ export default function HeroSection() {
         }}
       />
 
-      <div className="relative container mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-20">
+      <div className="relative container mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:pt-16 lg:pb-8">
         <div className="grid lg:grid-cols-2 gap-8 sm:gap-12 lg:gap-20 items-center">
           {/* Left Content */}
-          <div className="space-y-4 sm:space-y-6 text-center lg:text-left">
+          <div className="space-y-3 sm:space-y-4 text-center lg:text-left">
             <div className="space-y-3 sm:space-y-4">
               <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold leading-tight">
                 Build your ideas{" "}
@@ -77,11 +77,11 @@ export default function HeroSection() {
           {/* Right Interactive Flow Diagram */}
           <div className="relative order-first lg:order-last">
             {isLoaded ? (
-              <div className="w-full h-[300px] sm:h-[400px] lg:h-[500px]">
+              <div className="w-full h-[300px] sm:h-[400px] lg:h-[400px]">
                 <HeroFlow />
               </div>
             ) : (
-              <div className="w-full h-[300px] sm:h-[400px] lg:h-[500px] rounded-2xl bg-gray-100 animate-pulse flex items-center justify-center">
+              <div className="w-full h-[300px] sm:h-[400px] lg:h-[400px] rounded-2xl bg-gray-100 animate-pulse flex items-center justify-center">
                 <div className="text-gray-400">Loading...</div>
               </div>
             )}
