@@ -269,22 +269,30 @@
   --background-end-rgb: 255, 255, 255;
 }
 
-@media (prefers-color-scheme: dark) {
+/* Force light mode - disabled dark mode support */
+/* @media (prefers-color-scheme: dark) {
   :root {
     --foreground-rgb: 255, 255, 255;
     --background-start-rgb: 0, 0, 0;
     --background-end-rgb: 0, 0, 0;
   }
-}
+} */
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+  color: #111827; /* Force dark text */
+  background: #ffffff; /* Force white background */
+}
+
+/* Force light mode for form inputs */
+input, textarea, select {
+  color: #111827 !important; /* Dark text */
+  background-color: #ffffff !important; /* White background */
+  border-color: #d1d5db !important; /* Light border */
+}
+
+/* Ensure proper contrast for all text elements */
+* {
+  color-scheme: light !important;
 }
 
 @layer utilities {

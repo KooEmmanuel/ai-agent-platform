@@ -30,8 +30,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body className={`${inter.className} [--font-pacifico:var(--font-pacifico)]`}>
+    <html lang="en" className="light">
+      <body className={`${inter.className} [--font-pacifico:var(--font-pacifico)] bg-white text-gray-900`}>
         <ClientProviders>
           {children}
         </ClientProviders>
