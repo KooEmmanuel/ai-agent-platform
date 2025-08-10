@@ -105,7 +105,7 @@ export default function CreateIntegrationPage() {
         const idToken = await currentUser.getIdToken(true) // force refresh
         
         // Send to backend to get new access token
-        const response = await fetch(`${API_BASE_URL}/api/v1/auth/firebase`, {
+        const response = await fetch(`/api/v1/auth/firebase/`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -168,7 +168,7 @@ export default function CreateIntegrationPage() {
 
   const fetchAgents = async () => {
     try {
-      const response = await makeAuthenticatedRequest(`${API_BASE_URL}/api/v1/agents`)
+      const response = await makeAuthenticatedRequest(`/api/v1/agents/`)
       
       if (response.ok) {
         const agentsData = await response.json()
@@ -215,7 +215,7 @@ export default function CreateIntegrationPage() {
       
       console.log('Creating integration:', integrationData)
       
-      const response = await makeAuthenticatedRequest(`${API_BASE_URL}/api/v1/integrations`, {
+      const response = await makeAuthenticatedRequest(`/api/v1/integrations/`, {
         method: 'POST',
         body: JSON.stringify(integrationData)
       })
