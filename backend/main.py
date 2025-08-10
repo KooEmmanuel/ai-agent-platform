@@ -26,13 +26,13 @@ async def lifespan(app: FastAPI):
     await init_db()
     logger.info("Database initialized successfully")
     
-    # Check if tools exist and seed if needed
+    # Load marketplace tools from JSON (no seeding needed)
     try:
-        from seed_default_tools import seed_default_tools
-        await seed_default_tools()
-        logger.info("Default tools check completed")
+        from app.services.marketplace_tools_service import marketplace_tools_service
+        tools_count = len(marketplace_tools_service.get_all_tools())
+        logger.info(f"Loaded {tools_count} marketplace tools from JSON")
     except Exception as e:
-        logger.warning(f"Could not seed default tools: {e}")
+        logger.warning(f"Could not load marketplace tools: {e}")
     
     yield
     

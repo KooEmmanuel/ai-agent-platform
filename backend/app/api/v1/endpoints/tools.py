@@ -10,6 +10,7 @@ from pydantic import BaseModel
 
 from app.core.database import get_db, User, Tool, UserTool, SYSTEM_USER_ID
 from app.core.auth import get_current_user
+from app.services.marketplace_tools_service import marketplace_tools_service
 
 router = APIRouter()
 
@@ -156,44 +157,52 @@ async def get_marketplace_tools(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get marketplace tools (public tools only)"""
-    # Get all public tools
-    query = select(Tool).where(
-        Tool.is_public == True,
-        Tool.is_active == True
-    )
-    
-    if category:
-        query = query.where(Tool.category == category)
-    if tool_type:
-        query = query.where(Tool.tool_type == tool_type)
-    
-    result = await db.execute(query)
-    tools = result.scalars().all()
-    
-    # Get user's tool collection to check which tools they already have
-    user_tools_query = select(UserTool.tool_id).where(UserTool.user_id == current_user.id)
-    user_tools_result = await db.execute(user_tools_query)
-    user_tool_ids = {row[0] for row in user_tools_result.fetchall()}
-    
-    return [
-        ToolResponse(
-            id=tool.id,
-            name=tool.name,
-            description=tool.description,
-            category=tool.category,
-            tool_type=tool.tool_type,
-            config=tool.config,
-            parameters=tool.config.get('parameters') if tool.config else None,
-            is_public=tool.is_public,
-            is_active=tool.is_active,
-            created_at=tool.created_at.isoformat(),
-            updated_at=tool.updated_at.isoformat() if tool.updated_at else None,
-            user_id=tool.user_id,
-            is_in_user_collection=tool.id in user_tool_ids
+    """Get marketplace tools from JSON file"""
+    try:
+        # Get marketplace tools from JSON service
+        if category:
+            tools_data = marketplace_tools_service.get_tools_by_category(category)
+        elif tool_type:
+            tools_data = marketplace_tools_service.get_tools_by_type(tool_type)
+        else:
+            tools_data = marketplace_tools_service.get_public_tools()
+        
+        # Get user's collection to mark which tools they have
+        user_tools_result = await db.execute(
+            select(UserTool).where(UserTool.user_id == current_user.id)
         )
-        for tool in tools
-    ]
+        user_tools = user_tools_result.scalars().all()
+        user_tool_ids = {ut.tool_id for ut in user_tools}
+        
+        # Convert to ToolResponse format
+        tools = []
+        for tool_data in tools_data:
+            # Check if user has this tool in their collection
+            is_in_collection = tool_data.get('id') in user_tool_ids
+            
+            tool_response = ToolResponse(
+                id=tool_data.get('id'),
+                name=tool_data.get('name'),
+                description=tool_data.get('description'),
+                category=tool_data.get('category'),
+                tool_type=tool_data.get('tool_type'),
+                config=tool_data.get('config', {}),
+                is_public=tool_data.get('is_public', True),
+                is_active=tool_data.get('is_active', True),
+                created_at=tool_data.get('created_at', ''),
+                updated_at=tool_data.get('updated_at'),
+                user_id=tool_data.get('user_id', SYSTEM_USER_ID),
+                is_in_user_collection=is_in_collection
+            )
+            tools.append(tool_response)
+        
+        return tools
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch marketplace tools: {str(e)}"
+        )
 
 @router.post("/{tool_id}/add-to-collection")
 async def add_tool_to_collection(
@@ -438,30 +447,27 @@ async def delete_tool(
 
 @router.get("/categories/list")
 async def get_tool_categories():
-    """Get list of available tool categories"""
-    return {
-        "categories": [
-            "Search",
-            "Scheduling", 
-            "Communication",
-            "Data",
-            "Analytics",
-            "Integration",
-            "Custom"
-        ]
-    }
+    """Get list of available tool categories from JSON"""
+    try:
+        categories = marketplace_tools_service.get_categories()
+        return {"categories": categories}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch tool categories: {str(e)}"
+        )
 
 @router.get("/types/list")
 async def get_tool_types():
-    """Get list of available tool types"""
-    return {
-        "types": [
-            "API",
-            "Function",
-            "Webhook", 
-            "Database"
-        ]
-    } 
+    """Get list of available tool types from JSON"""
+    try:
+        types = marketplace_tools_service.get_tool_types()
+        return {"types": types}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch tool types: {str(e)}"
+        ) 
 
 @router.get("/{tool_id}/config-schema")
 async def get_tool_config_schema(
