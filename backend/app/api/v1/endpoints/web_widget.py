@@ -62,7 +62,7 @@ async def handle_widget_message(
 
 @router.get("/script/{integration_id}")
 async def get_widget_script(
-    integration_id: str,
+    integration_id: int,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -121,7 +121,7 @@ async def validate_widget_config(
 
 @router.get("/preview/{integration_id}")
 async def preview_widget(
-    integration_id: str,
+    integration_id: int,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
