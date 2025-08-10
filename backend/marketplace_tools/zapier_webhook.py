@@ -20,7 +20,7 @@ class ZapierWebhookTool(BaseTool):
     """
     Tool for triggering Zapier automations via webhooks.
     
-    Features:
+    Features: 
     - Send data to Zapier webhooks
     - Trigger automations
     - Handle webhook responses
