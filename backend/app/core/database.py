@@ -4,7 +4,7 @@ Database configuration and models for the AI Agent Platform
 
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey, JSON, Float, func, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey, JSON, Float, func, UniqueConstraint, text
 from sqlalchemy.orm import relationship
 from typing import AsyncGenerator
 import uuid
@@ -147,18 +147,18 @@ async def test_db_connection():
     try:
         # Test basic connection
         async with engine.begin() as conn:
-            result = await conn.execute("SELECT version()")
-            version = await result.fetchone()
+            result = await conn.execute(text("SELECT version()"))
+            version = result.fetchone()
             
         # Test if tables exist
         async with engine.begin() as conn:
-            result = await conn.execute("""
+            result = await conn.execute(text("""
                 SELECT table_name 
                 FROM information_schema.tables 
                 WHERE table_schema = 'public'
                 LIMIT 5
-            """)
-            tables = await result.fetchall()
+            """))
+            tables = result.fetchall()
             
         return {
             "status": "connected",
