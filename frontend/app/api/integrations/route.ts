@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     console.log('📄 Request body:', body)
 
-    const targetUrl = `${API_BASE_URL}api/v1/integrations`
+    const targetUrl = `${API_BASE_URL}api/v1/integrations/`
     console.log('🎯 Target URL:', targetUrl)
 
     // Forward the request to our backend
