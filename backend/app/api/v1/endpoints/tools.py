@@ -235,6 +235,32 @@ async def add_tool_to_collection(
             detail="Tool already in your collection"
         )
     
+    # Check if the tool exists in the database
+    db_tool_result = await db.execute(
+        select(Tool).where(Tool.id == tool_id)
+    )
+    db_tool = db_tool_result.scalar_one_or_none()
+    
+    # If it's a marketplace tool that doesn't exist in the database, create it
+    if not db_tool:
+        # Create the tool in the database for the user
+        new_tool = Tool(
+            user_id=current_user.id,
+            name=tool_data.get('name'),
+            description=tool_data.get('description'),
+            category=tool_data.get('category'),
+            tool_type=tool_data.get('tool_type'),
+            config=tool_data.get('config', {}),
+            is_public=tool_data.get('is_public', True),
+            is_active=tool_data.get('is_active', True)
+        )
+        db.add(new_tool)
+        await db.commit()
+        await db.refresh(new_tool)
+        
+        # Update tool_id to use the newly created tool's ID
+        tool_id = new_tool.id
+    
     # Add to user's collection
     user_tool = UserTool(
         user_id=current_user.id,
