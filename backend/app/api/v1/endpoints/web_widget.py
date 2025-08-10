@@ -6,11 +6,29 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 from typing import Dict, Any, Optional
+import os
 
 from app.core.auth import get_current_user
 from app.core.database import get_db, User, Integration
 from app.services.web_widget_integration import WebWidgetIntegrationService
 from sqlalchemy import select
+
+def get_base_url(request: Request) -> str:
+    """Get the base URL for the API"""
+    # Use environment variable if available, otherwise construct from request
+    base_url = os.getenv('API_BASE_URL')
+    if base_url:
+        return base_url.rstrip('/')
+    
+    # Construct from request
+    scheme = request.headers.get('x-forwarded-proto', request.url.scheme)
+    host = request.headers.get('x-forwarded-host', request.url.hostname)
+    port = request.url.port
+    
+    if port and port not in (80, 443):
+        return f"{scheme}://{host}:{port}"
+    else:
+        return f"{scheme}://{host}"
 
 router = APIRouter()
 
@@ -63,6 +81,7 @@ async def handle_widget_message(
 @router.get("/script/{integration_id}")
 async def get_widget_script(
     integration_id: int,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -85,7 +104,8 @@ async def get_widget_script(
         
         # Add API URL to config
         config = integration.config.copy()
-        config['api_url'] = 'http://localhost:8000/api/v1/web-widget'  # This should be configurable
+        base_url = get_base_url(request)
+        config['api_url'] = f"{base_url}/api/v1/web-widget"
         
         script = widget_service.generate_widget_script(config)
         
@@ -122,6 +142,7 @@ async def validate_widget_config(
 @router.get("/preview/{integration_id}")
 async def preview_widget(
     integration_id: int,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -140,6 +161,7 @@ async def preview_widget(
         if not integration:
             raise HTTPException(status_code=404, detail="Integration not found")
         
+        base_url = get_base_url(request)
         return {
             "preview": {
                 "domain": integration.config.get('domain', ''),
@@ -148,8 +170,8 @@ async def preview_widget(
                 "position": integration.config.get('position', 'bottom-right'),
                 "greeting_message": integration.config.get('greeting_message', 'Hi! How can I help you today?')
             },
-            "embed_url": f"http://localhost:8000/api/v1/web-widget/script/{integration_id}",
-            "test_url": f"http://localhost:8000/api/v1/web-widget/test/{integration_id}"
+            "embed_url": f"{base_url}/api/v1/web-widget/script/{integration_id}",
+            "test_url": f"{base_url}/api/v1/web-widget/test/{integration_id}"
         }
         
     except Exception as e:
@@ -159,6 +181,7 @@ async def preview_widget(
 @router.get("/test/{integration_id}")
 async def test_widget_page(
     integration_id: int,
+    request: Request,
     db: AsyncSession = Depends(get_db)
 ):
     """Serve a test page with the widget embedded"""
@@ -179,7 +202,8 @@ async def test_widget_page(
         
         # Add API URL to config
         config = integration.config.copy()
-        config['api_url'] = 'http://localhost:8000/api/v1/web-widget'
+        base_url = get_base_url(request)
+        config['api_url'] = f"{base_url}/api/v1/web-widget"
         
         script = widget_service.generate_widget_script(config)
         

@@ -132,7 +132,9 @@ class WebWidgetIntegrationService:
         """Generate JavaScript widget script for embedding with playground-style UI"""
         widget_id = widget_config.get('widget_id', 'default')
         domain = widget_config.get('domain', '')
-        api_url = widget_config.get('api_url', 'http://localhost:8000/api/v1/web-widget')
+        api_url = widget_config.get('api_url', '')
+        if not api_url:
+            raise ValueError("API URL is required for widget configuration")
         
         # Customization options
         theme_color = widget_config.get('theme_color', '#3B82F6')
