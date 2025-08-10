@@ -10,8 +10,15 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    console.log('🚀 FRONTEND API ROUTE CALLED: /api/agents/[id]')
+    console.log('📋 Request URL:', request.url)
+    console.log('🔍 Agent ID:', params.id)
+    
     const authHeader = request.headers.get('authorization')
+    console.log('🔐 Auth header received:', authHeader ? 'Yes' : 'No')
+    
     if (!authHeader) {
+      console.log('❌ No authorization header')
       return NextResponse.json(
         { error: 'Authorization header required' },
         { status: 401 }
@@ -20,6 +27,7 @@ export async function GET(
 
     const targetUrl = `${API_BASE_URL}api/v1/agents/${params.id}`
     console.log('🎯 Target URL:', targetUrl)
+    console.log('🌐 API_BASE_URL:', API_BASE_URL)
 
     const response = await fetch(targetUrl, {
       method: 'GET',
@@ -30,11 +38,17 @@ export async function GET(
       }
     })
     
+    console.log('📡 Backend response status:', response.status)
+    console.log('📡 Backend response headers:', Object.fromEntries(response.headers.entries()))
+    
     const data = await response.json()
+    console.log('📄 Backend response data:', data)
     
     if (response.ok) {
+      console.log('✅ Returning successful response')
       return NextResponse.json(data)
     } else {
+      console.log('❌ Backend error, returning error response')
       return NextResponse.json(
         { error: data.detail || 'Failed to fetch agent' },
         { status: response.status }
