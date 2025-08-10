@@ -3,7 +3,11 @@
 // Use Railway URL in production, localhost in development
 const API_BASE_URL = process.env.NODE_ENV === 'production' 
   ? 'https://kwickbuild.up.railway.app'
-  : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000')
+  : 'http://localhost:8000'
+
+console.log('🔧 Environment:', process.env.NODE_ENV)
+console.log('🌐 API_BASE_URL:', API_BASE_URL)
+console.log('📡 NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL)
 
 export interface User {
   id: number
@@ -217,7 +221,7 @@ class ApiClient {
 
   // Agents
   async getAgents(): Promise<Agent[]> {
-    return this.request<Agent[]>('/agents/')
+    return this.request<Agent[]>('/agents')
   }
 
   async getAgent(id: number): Promise<Agent> {
@@ -422,6 +426,43 @@ class ApiClient {
     }>
   }> {
     return this.request('/integrations/platforms/list')
+  }
+
+  // Billing
+  async getBillingPlans(): Promise<Array<{
+    id: number
+    name: string
+    display_name: string
+    description: string
+    price: number
+    currency: string
+    monthly_credits: number
+    max_agents: number
+    max_custom_tools: number
+    features: string[]
+    support_level: string
+    custom_branding: boolean
+    api_access: boolean
+    is_current: boolean
+  }>> {
+    return this.request('/billing/plans')
+  }
+
+  async getSubscriptionStatus(): Promise<{
+    plan_name: string
+    display_name: string
+    status: string
+    current_period_end: string
+    credits_remaining: number
+    credits_total: number
+    can_create_agents: boolean
+    can_create_custom_tools: boolean
+    agents_count: number
+    agents_limit: number
+    custom_tools_count: number
+    custom_tools_limit: number
+  }> {
+    return this.request('/billing/subscription')
   }
 
   async updateToolConfig(
