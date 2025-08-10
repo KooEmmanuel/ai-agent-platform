@@ -239,14 +239,12 @@ export default function LandingPage() {
     }
   ]
 
-  // Use Railway URL in production, localhost in development
-  const API_BASE_URL = process.env.NODE_ENV === 'production' 
-    ? 'https://kwickbuild.up.railway.app'
-    : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000')
+  // Use Next.js API routes instead of direct backend calls
+  const API_BASE_URL = '/api'
 
   const fetchPricingPlans = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/billing/plans`)
+      const response = await fetch(`${API_BASE_URL}/billing/plans`)
       if (response.ok) {
         const plans = await response.json()
         setPricingPlans(plans)

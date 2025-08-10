@@ -1,9 +1,7 @@
 // API client for Kwickbuild platform
 
-// Use Railway URL in production, localhost in development
-const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://kwickbuild.up.railway.app'
-  : 'http://localhost:8000'
+// Use Next.js API routes instead of direct backend calls
+const API_BASE_URL = '/api'
 
 console.log('🔧 Environment:', process.env.NODE_ENV)
 console.log('🌐 API_BASE_URL:', API_BASE_URL)

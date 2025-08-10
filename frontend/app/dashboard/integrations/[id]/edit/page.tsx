@@ -16,10 +16,8 @@ import {
 } from '@heroicons/react/24/outline'
 import { useToast } from '../../../../../components/ui/Toast'
 
-// Use Railway URL in production, localhost in development
-const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://kwickbuild.up.railway.app'
-  : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000')
+// Use Next.js API routes instead of direct backend calls
+const API_BASE_URL = '/api'
 
 interface Integration {
   id: number
