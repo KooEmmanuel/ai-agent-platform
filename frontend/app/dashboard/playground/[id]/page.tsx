@@ -7,12 +7,19 @@ import { ArrowLeftIcon, PaperAirplaneIcon, XMarkIcon, Bars3Icon, EyeSlashIcon, C
 import Link from 'next/link'
 import { apiClient, type Agent } from '../../../../lib/api'
 import MarkdownRenderer from '../../../../components/ui/MarkdownRenderer'
+import DownloadableContent from '../../../../components/ui/DownloadableContent'
 
 type ChatMessage = {
   id: string
   role: 'user' | 'assistant'
   content: string
   created_at: string
+  downloadable?: {
+    filename: string
+    fileType: string
+    fileSize?: number
+    showPreview?: boolean
+  }
 }
 
 export default function AgentPlaygroundPage() {
@@ -117,11 +124,33 @@ export default function AgentPlaygroundPage() {
         localStorage.setItem(`playground_session_${agent.id}`, resp.session_id)
         setSessionId(resp.session_id)
       }
+      // Check if response contains downloadable content
+      let downloadable = undefined
+      let content = resp.response
+      
+      // Check if response is a JSON object with downloadable content
+      try {
+        const responseData = JSON.parse(resp.response)
+        if (responseData.success && responseData.pdf_base64) {
+          // This is a PDF response
+          downloadable = {
+            filename: responseData.filename || 'document.pdf',
+            fileType: 'application/pdf',
+            fileSize: responseData.file_size,
+            showPreview: true
+          }
+          content = responseData.pdf_base64
+        }
+      } catch (e) {
+        // Not JSON, treat as regular text response
+      }
+      
       const aiMsg: ChatMessage = {
         id: `${Date.now()}_assistant`,
         role: 'assistant',
-        content: resp.response,
+        content: content,
         created_at: new Date().toISOString(),
+        downloadable: downloadable
       }
       setMessages((prev) => [...prev, aiMsg])
     } catch (e: any) {
@@ -402,7 +431,17 @@ export default function AgentPlaygroundPage() {
                     </div>
                   ) : (
                     <div>
-                      <MarkdownRenderer content={m.content} />
+                      {m.downloadable ? (
+                        <DownloadableContent
+                          content={m.content}
+                          filename={m.downloadable.filename}
+                          fileType={m.downloadable.fileType}
+                          fileSize={m.downloadable.fileSize}
+                          showPreview={m.downloadable.showPreview}
+                        />
+                      ) : (
+                        <MarkdownRenderer content={m.content} />
+                      )}
                       <div className="flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={() => copyToClipboard(m.content, m.id)}

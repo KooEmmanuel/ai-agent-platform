@@ -1,6 +1,6 @@
 {
   "exported_at": "2025-08-10T08:26:15.640269",
-  "total_tools": 24,
+  "total_tools": 28,
   "tools": [
     {
       "id": 1,
@@ -1173,6 +1173,235 @@
       "updated_at": "2025-08-09T00:37:09.617869",
       "user_id": 1,
       "cost": 10
+    },
+    {
+      "id": 25,
+      "name": "multi_link_scraper",
+      "description": "Store multiple website links and intelligently scrape relevant content based on user queries",
+      "category": "Data Collection",
+      "tool_type": "web_scraper",
+      "config": {
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "links": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "description": "Website URL to scrape"
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "Brief description of what this link contains"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Tags to help identify relevant content"
+                  }
+                },
+                "required": [
+                  "url",
+                  "description"
+                ]
+              },
+              "description": "List of website links to store and scrape"
+            },
+            "max_content_length": {
+              "type": "integer",
+              "default": 5000,
+              "description": "Maximum length of scraped content per page"
+            },
+            "relevance_threshold": {
+              "type": "number",
+              "default": 0.3,
+              "description": "Minimum relevance score to include content (0-1)"
+            }
+          },
+          "required": [
+            "links"
+          ]
+        }
+      },
+      "is_public": true,
+      "is_active": true,
+      "created_at": "2025-08-10T08:26:15.640269",
+      "updated_at": "2025-08-10T08:26:15.640269",
+      "user_id": 1,
+      "cost": 15
+    },
+    {
+      "id": 26,
+      "name": "chromadb_tool",
+      "description": "Upload files, extract them into ChromaDB collections, and query for agent use",
+      "category": "Data Storage",
+      "tool_type": "vector_database",
+      "config": {
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "collection_name": {
+              "type": "string",
+              "description": "Name of the ChromaDB collection to use",
+              "default": "documents"
+            },
+            "embedding_model": {
+              "type": "string",
+              "description": "Embedding model to use (default: all-MiniLM-L6-v2)",
+              "default": "all-MiniLM-L6-v2"
+            },
+            "chunk_size": {
+              "type": "integer",
+              "description": "Size of text chunks for embedding",
+              "default": 1000
+            },
+            "chunk_overlap": {
+              "type": "integer",
+              "description": "Overlap between text chunks",
+              "default": 200
+            },
+            "persist_directory": {
+              "type": "string",
+              "description": "Directory to persist ChromaDB data",
+              "default": "./chroma_db"
+            }
+          },
+          "required": [
+            "collection_name"
+          ]
+        }
+      },
+      "is_public": true,
+      "is_active": true,
+      "created_at": "2025-08-10T08:26:15.640269",
+      "updated_at": "2025-08-10T08:26:15.640269",
+      "user_id": 1,
+      "cost": 20
+    },
+    {
+      "id": 27,
+      "name": "mongodb_advanced",
+      "description": "Connect to MongoDB with credentials and query data for agent use",
+      "category": "Database",
+      "tool_type": "database",
+      "config": {
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "connection_string": {
+              "type": "string",
+              "description": "MongoDB connection string (mongodb://username:password@host:port/database)",
+              "sensitive": true
+            },
+            "database_name": {
+              "type": "string",
+              "description": "Name of the database to connect to"
+            },
+            "max_query_time": {
+              "type": "integer",
+              "description": "Maximum query execution time in seconds",
+              "default": 30
+            },
+            "max_results": {
+              "type": "integer",
+              "description": "Maximum number of results to return",
+              "default": 100
+            },
+            "enable_logging": {
+              "type": "boolean",
+              "description": "Enable query logging",
+              "default": false
+            }
+          },
+          "required": [
+            "connection_string",
+            "database_name"
+          ]
+        }
+      },
+      "is_public": true,
+      "is_active": true,
+      "created_at": "2025-08-10T08:26:15.640269",
+      "updated_at": "2025-08-10T08:26:15.640269",
+      "user_id": 1,
+      "cost": 25
+    },
+    {
+      "id": 28,
+      "name": "pdf_generator",
+      "description": "Generate professional PDF files from markdown content with various templates and styling",
+      "category": "Document Generation",
+      "tool_type": "pdf_generator",
+      "config": {
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "page_size": {
+              "type": "string",
+              "description": "Page size for the PDF",
+              "enum": ["letter", "A4", "legal"],
+              "default": "A4"
+            },
+            "template": {
+              "type": "string",
+              "description": "Document template to use",
+              "enum": ["professional", "resume", "report", "letter", "minimal"],
+              "default": "professional"
+            },
+            "font_size": {
+              "type": "integer",
+              "description": "Base font size",
+              "default": 12
+            },
+            "line_spacing": {
+              "type": "number",
+              "description": "Line spacing multiplier",
+              "default": 1.2
+            },
+            "margins": {
+              "type": "object",
+              "properties": {
+                "top": {"type": "number", "default": 1.0},
+                "bottom": {"type": "number", "default": 1.0},
+                "left": {"type": "number", "default": 1.0},
+                "right": {"type": "number", "default": 1.0}
+              },
+              "default": {"top": 1.0, "bottom": 1.0, "left": 1.0, "right": 1.0}
+            },
+            "include_header": {
+              "type": "boolean",
+              "description": "Include header with title and date",
+              "default": true
+            },
+            "include_footer": {
+              "type": "boolean",
+              "description": "Include footer with page numbers",
+              "default": true
+            },
+            "custom_styles": {
+              "type": "object",
+              "description": "Custom styling options",
+              "properties": {
+                "primary_color": {"type": "string", "default": "#2563eb"},
+                "secondary_color": {"type": "string", "default": "#64748b"},
+                "font_family": {"type": "string", "default": "Helvetica"}
+              }
+            }
+          },
+          "required": []
+        }
+      },
+      "is_public": true,
+      "is_active": true,
+      "created_at": "2025-08-10T08:26:15.640269",
+      "updated_at": "2025-08-10T08:26:15.640269",
+      "user_id": 1,
+      "cost": 30
     }
   ]
 }
