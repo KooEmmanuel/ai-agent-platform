@@ -129,8 +129,15 @@ class ApiClient {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
-    // Use backend routes directly through the rewrite rule
-    const url = `/api/v1${endpoint.replace('/api/v1', '')}`
+    // Use backend routes directly for dynamic routes that aren't working in frontend
+    // Use frontend routes for static routes that are working
+    const isDynamicRoute = endpoint.includes('/agents/') && endpoint.match(/\/agents\/\d+/) ||
+                          endpoint.includes('/tools/') && endpoint.match(/\/tools\/\d+/) ||
+                          endpoint.includes('/playground/') && endpoint.match(/\/playground\/\d+\//)
+    
+    const url = isDynamicRoute 
+      ? `/api/v1${endpoint.replace('/api/v1', '')}`
+      : `/api${endpoint.replace('/api/v1', '')}`
     
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
