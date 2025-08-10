@@ -16,6 +16,9 @@ export async function GET(request: NextRequest) {
     console.log('📡 NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL)
     
     const authHeader = request.headers.get('authorization')
+    console.log('🔐 Auth header received:', authHeader ? 'Yes' : 'No')
+    console.log('🔑 Auth header value:', authHeader ? authHeader.substring(0, 20) + '...' : 'None')
+    
     if (!authHeader) {
       console.log('❌ No authorization header')
       return NextResponse.json(
@@ -38,9 +41,13 @@ export async function GET(request: NextRequest) {
     
     const data = await response.json()
     
+    console.log('📡 Backend response status:', response.status)
+    console.log('📄 Backend response data:', data)
+    
     if (response.ok) {
       return NextResponse.json(data)
     } else {
+      console.log('❌ Backend error:', data)
       return NextResponse.json(
         { error: data.detail || 'Failed to fetch agents' },
         { status: response.status }

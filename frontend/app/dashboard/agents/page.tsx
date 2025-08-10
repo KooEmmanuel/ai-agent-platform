@@ -13,17 +13,10 @@ import {
   ChatBubbleLeftRightIcon,
   ClockIcon
 } from '@heroicons/react/24/outline'
+import { apiClient } from '../../../lib/api'
 
-interface Agent {
-  id: string
-  name: string
-  description: string
-  model: string
-  is_active: boolean
-  tool_count: number
-  created_at: string
-  last_used?: string
-}
+// Use the Agent interface from the API client
+import type { Agent } from '../../../lib/api'
 
 export default function AgentsPage() {
   const [agents, setAgents] = useState<Agent[]>([])
@@ -36,22 +29,7 @@ export default function AgentsPage() {
 
   const fetchAgents = async () => {
     try {
-      const token = localStorage.getItem('auth_token')
-      if (!token) {
-        setError('No authentication token found')
-        setLoading(false)
-        return
-      }
-
-      const response = await fetch('/api/agents', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch agents')
-      }
-
-      const agentsData = await response.json()
+      const agentsData = await apiClient.getAgents()
       setAgents(agentsData)
     } catch (error) {
       console.error('Error fetching agents:', error)
@@ -61,21 +39,10 @@ export default function AgentsPage() {
     }
   }
 
-  const handleDeleteAgent = async (agentId: string) => {
+  const handleDeleteAgent = async (agentId: number) => {
     try {
-      const token = localStorage.getItem('auth_token')
-      if (!token) return
-
-      const response = await fetch(`/api/agents/${agentId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-
-      if (response.ok) {
-        setAgents(agents.filter(agent => agent.id !== agentId))
-      } else {
-        throw new Error('Failed to delete agent')
-      }
+      await apiClient.deleteAgent(agentId)
+      setAgents(agents.filter(agent => agent.id !== agentId))
     } catch (error) {
       console.error('Error deleting agent:', error)
       setError('Failed to delete agent')
@@ -274,7 +241,7 @@ export default function AgentsPage() {
                           {formatDate(agent.created_at)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {agent.last_used ? formatDate(agent.last_used) : 'Never'}
+                          Never
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex items-center justify-end space-x-1">
@@ -378,7 +345,7 @@ export default function AgentsPage() {
                       <div>
                         <span className="text-gray-500">Last Used</span>
                         <p className="text-gray-900 font-medium mt-0.5">
-                          {agent.last_used ? formatDate(agent.last_used) : 'Never'}
+                          Never
                         </p>
                       </div>
                     </div>
