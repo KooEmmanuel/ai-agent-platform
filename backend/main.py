@@ -51,16 +51,10 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS middleware - Allow specific origins for production and development
+# CORS middleware - Use settings for configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://kwickbuild.vercel.app",  # Production frontend
-        "http://localhost:3000",          # Development frontend
-        "http://localhost:3001",          # Alternative dev port
-        "https://kwickbuild.up.railway.app",  # Backend itself
-        "*",  # Allow all origins for development (remove in production)
-    ],
+    allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,  # Allow credentials for authentication
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],

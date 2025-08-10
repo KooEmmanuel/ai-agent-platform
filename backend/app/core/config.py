@@ -13,10 +13,10 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     
     # Database
-    DATABASE_URL: str = "sqlite+aiosqlite:///./ai_agent_platform.db"
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./ai_agent_platform.db")
     
     # Security
-    SECRET_KEY: str = "AGNT4FLW98F4PGHTUI3WHI"
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "AGNT4FLW98F4PGHTUI3WHI")
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
@@ -24,7 +24,10 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: List[str] = [
         "http://localhost:3000",
         "http://localhost:3001",
-        "https://yourdomain.com"
+        "https://kwickbuild.vercel.app",  # Production frontend
+        "https://kwickbuild.up.railway.app",  # Backend itself
+        "https://ai-agent-platform-production.up.railway.app",  # Alternative backend URL
+        "*",  # Allow all origins for development (remove in production)
     ]
     
     # External APIs
@@ -43,7 +46,7 @@ class Settings(BaseSettings):
     WHATSAPP_BUSINESS_ACCOUNT_ID: Optional[str] = None
     
     # Redis (for caching and queues)
-    REDIS_URL: str = "redis://localhost:6379"
+    REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379")
     
     # File Storage
     UPLOAD_DIR: str = "./uploads"
