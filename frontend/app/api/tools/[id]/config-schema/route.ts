@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 
 // Use Railway URL in production, localhost in development
 const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://kwickbuild.up.railway.app'
-  : 'http://localhost:8000'
+  ? 'https://kwickbuild.up.railway.app/'
+  : 'http://localhost:8000/'
 
 export async function GET(
   request: NextRequest,
@@ -23,12 +23,13 @@ export async function GET(
       )
     }
     
-    const targetUrl = `${API_BASE_URL}/api/v1/tools/${params.id}/config-schema`
+    const targetUrl = `${API_BASE_URL}api/v1/tools/${params.id}/config-schema`
     console.log('🎯 Target URL:', targetUrl)
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'Authorization': authHeader,
+      'User-Agent': 'Kwickbuild-Frontend/1.0',
     }
 
     // Forward the request to our backend

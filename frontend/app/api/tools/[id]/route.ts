@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 
 // Use Railway URL in production, localhost in development
 const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://kwickbuild.up.railway.app'
-  : 'http://localhost:8000'
+  ? 'https://kwickbuild.up.railway.app/'
+  : 'http://localhost:8000/'
 
-export async function GET(
+export async function GET(  
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
@@ -23,12 +23,13 @@ export async function GET(
       )
     }
     
-    const targetUrl = `${API_BASE_URL}/api/v1/tools/${params.id}`
+    const targetUrl = `${API_BASE_URL}api/v1/tools/${params.id}`
     console.log('🎯 Target URL:', targetUrl)
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'Authorization': authHeader,
+      'User-Agent': 'Kwickbuild-Frontend/1.0',
     }
 
     // Forward the request to our backend
@@ -75,7 +76,7 @@ export async function PUT(
     }
 
     const body = await request.json()
-    const targetUrl = `${API_BASE_URL}/api/v1/tools/${params.id}`
+    const targetUrl = `${API_BASE_URL}api/v1/tools/${params.id}`
     console.log('🎯 Target URL:', targetUrl)
 
     // Forward the request to our backend
@@ -84,6 +85,7 @@ export async function PUT(
       headers: {
         'Authorization': authHeader,
         'Content-Type': 'application/json',
+        'User-Agent': 'Kwickbuild-Frontend/1.0',
       },
       body: JSON.stringify(body)
     })
@@ -122,7 +124,7 @@ export async function DELETE(
       )
     }
 
-    const targetUrl = `${API_BASE_URL}/api/v1/tools/${params.id}`
+    const targetUrl = `${API_BASE_URL}api/v1/tools/${params.id}`
     console.log('🎯 Target URL:', targetUrl)
 
     // Forward the request to our backend
@@ -131,6 +133,7 @@ export async function DELETE(
       headers: {
         'Authorization': authHeader,
         'Content-Type': 'application/json',
+        'User-Agent': 'Kwickbuild-Frontend/1.0',
       }
     })
     

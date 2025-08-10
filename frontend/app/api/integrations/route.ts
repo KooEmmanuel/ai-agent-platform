@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Forward the request to our backend
-    const response = await fetch(`${API_BASE_URL}api/v1/integrations`, {
+    const response = await fetch(`${API_BASE_URL}api/v1/integrations/`, {
       method: 'GET',
       headers: {
         'Authorization': authHeader,

@@ -161,10 +161,6 @@ export default function AgentDetailPage() {
     context_config: getDefaultContextConfig()
   })
 
-  useEffect(() => {
-    fetchAgent()
-  }, [agentId])
-
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -180,19 +176,39 @@ export default function AgentDetailPage() {
     }
   }, [dropdownOpen])
 
+  // Fetch agent data when component mounts
+  useEffect(() => {
+    if (agentId) {
+      fetchAgent()
+    }
+  }, [agentId])
+
   const fetchAgent = async () => {
     try {
       setLoading(true)
       setError(null)
       
       const token = localStorage.getItem('auth_token')
+      console.log('🔍 Fetching agent with ID:', agentId)
+      console.log('🔑 Token exists:', !!token)
+      
       if (!token) {
-        setError('No authentication token found')
+        console.log('❌ No authentication token found')
+        setError('No authentication token found. Please log in.')
+        setLoading(false)
+        // Redirect to login after a short delay
+        setTimeout(() => {
+          router.push('/auth/login')
+        }, 2000)
         return
       }
 
       apiClient.setToken(token)
+      console.log('📡 Making API call to get agent...')
+      
       const agentData = await apiClient.getAgent(agentId)
+      console.log('✅ Agent data received:', agentData)
+      
       setAgent(agentData)
       
       // Initialize edit form with proper merging of context_config
@@ -212,8 +228,23 @@ export default function AgentDetailPage() {
         context_config: mergedContextConfig
       })
     } catch (error) {
-      console.error('Error fetching agent:', error)
-      setError(error instanceof Error ? error.message : 'Failed to fetch agent')
+      console.error('❌ Error fetching agent:', error)
+      console.error('❌ Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      })
+      
+      if (error instanceof Error) {
+        if (error.message.includes('401') || error.message.includes('403')) {
+          setError('Authentication failed. Please log in again.')
+        } else if (error.message.includes('404')) {
+          setError('Agent not found. It may have been deleted or you may not have permission to access it.')
+        } else {
+          setError(`Failed to fetch agent: ${error.message}`)
+        }
+      } else {
+        setError('Failed to fetch agent: Unknown error')
+      }
     } finally {
       setLoading(false)
     }
@@ -285,10 +316,15 @@ export default function AgentDetailPage() {
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
           <p className="text-red-600">{error}</p>
         </div>
-        <Button onClick={() => router.push('/dashboard/agents')}>
-          <ArrowLeftIcon className="w-4 h-4 mr-2" />
-          Back to Agents
-        </Button>
+        <div className="flex space-x-4">
+          <Button onClick={() => router.push('/dashboard/agents')}>
+            <ArrowLeftIcon className="w-4 h-4 mr-2" />
+            Back to Agents
+          </Button>
+          <Button onClick={() => fetchAgent()} variant="outline">
+            Try Again
+          </Button>
+        </div>
       </div>
     )
   }
