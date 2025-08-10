@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
       method: 'GET',
       headers: {
         'Authorization': authHeader,
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json', 
       }
     })
     
