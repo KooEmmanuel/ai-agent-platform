@@ -97,7 +97,7 @@ export default function IntegrationDetailPage() {
 
   const fetchIntegration = async () => {
     try {
-      const response = await makeAuthenticatedRequest(`${API_BASE_URL}/api/v1/integrations/${integrationId}`)
+      const response = await makeAuthenticatedRequest(`${API_BASE_URL}/v1/integrations/${integrationId}`)
       
       if (!response.ok) {
         if (response.status === 404) {

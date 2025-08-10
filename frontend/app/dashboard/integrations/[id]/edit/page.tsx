@@ -105,7 +105,7 @@ export default function EditIntegrationPage() {
 
   const fetchIntegration = async () => {
     try {
-      const response = await makeAuthenticatedRequest(`${API_BASE_URL}/api/v1/integrations/${integrationId}`)
+      const response = await makeAuthenticatedRequest(`${API_BASE_URL}/v1/integrations/${integrationId}`)
       
       if (!response.ok) {
         if (response.status === 404) {
@@ -137,7 +137,7 @@ export default function EditIntegrationPage() {
       setSaving(true)
       setError(null)
 
-      const response = await makeAuthenticatedRequest(`${API_BASE_URL}/api/v1/integrations/${integrationId}`, {
+      const response = await makeAuthenticatedRequest(`${API_BASE_URL}/v1/integrations/${integrationId}`, {
         method: 'PUT',
         body: JSON.stringify(form)
       })
