@@ -11,9 +11,7 @@ import {
 import { FaWhatsapp, FaTelegramPlane } from 'react-icons/fa'
 import { MdMarkEmailUnread } from 'react-icons/md'
 import Link from 'next/link'
-
-// Use Next.js API routes instead of direct backend calls
-const API_BASE_URL = '/api'
+import { apiClient } from '../../../../lib/api'
 
 interface IntegrationForm {
   agent_id: number
@@ -22,12 +20,7 @@ interface IntegrationForm {
   webhook_url?: string
 }
 
-interface Agent {
-  id: number
-  name: string
-  description: string
-  is_active: boolean
-}
+import type { Agent } from '../../../../lib/api'
 
 const platforms = [
   {
@@ -94,91 +87,10 @@ export default function CreateIntegrationPage() {
   const [agents, setAgents] = useState<Agent[]>([])
   const [loadingAgents, setLoadingAgents] = useState(true)
 
-  const refreshToken = async (): Promise<string | null> => {
-    try {
-      // Import Firebase auth dynamically to avoid SSR issues
-      const { auth } = await import('../../../../lib/firebase')
-      const currentUser = auth.currentUser
-      
-      if (currentUser) {
-        // Get a fresh ID token
-        const idToken = await currentUser.getIdToken(true) // force refresh
-        
-        // Send to backend to get new access token
-        const response = await fetch(`/api/v1/auth/firebase/`, {
-          method: 'POST',
-          redirect: 'follow', // Explicitly follow redirects
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ id_token: idToken })
-        })
-        
-        if (response.ok) {
-          const data = await response.json()
-          localStorage.setItem('auth_token', data.access_token)
-          return data.access_token
-        }
-      }
-      
-      return null
-    } catch (error) {
-      console.error('Token refresh failed:', error)
-      return null
-    }
-  }
-
-  const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}) => {
-    let token = localStorage.getItem('auth_token')
-    
-    // First attempt with existing token
-    let response = await fetch(url, {
-      ...options,
-      redirect: 'follow', // Explicitly follow redirects
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        ...options.headers
-      }
-    })
-    
-    // If unauthorized, try to refresh token and retry
-    if (response.status === 401) {
-      console.log('Token expired, attempting refresh...')
-      const newToken = await refreshToken()
-      
-      if (newToken) {
-        // Retry with new token
-        response = await fetch(url, {
-          ...options,
-          redirect: 'follow', // Explicitly follow redirects
-          headers: {
-            'Authorization': `Bearer ${newToken}`,
-            'Content-Type': 'application/json',
-            ...options.headers
-          }
-        })
-      } else {
-        // Redirect to login if refresh fails
-        alert('Your session has expired. Please log in again.')
-        window.location.href = '/login'
-        return response
-      }
-    }
-    
-    return response
-  }
-
   const fetchAgents = async () => {
     try {
-      const response = await makeAuthenticatedRequest(`/api/v1/agents/`)
-      
-      if (response.ok) {
-        const agentsData = await response.json()
-        setAgents(agentsData.filter((agent: Agent) => agent.is_active))
-      } else {
-        console.error('Failed to fetch agents:', response.status)
-      }
+      const agentsData = await apiClient.getAgents()
+      setAgents(agentsData.filter((agent: Agent) => agent.is_active))
     } catch (error) {
       console.error('Error fetching agents:', error)
     } finally {
@@ -218,21 +130,10 @@ export default function CreateIntegrationPage() {
       
       console.log('Creating integration:', integrationData)
       
-      const response = await makeAuthenticatedRequest(`/api/v1/integrations/`, {
-        method: 'POST',
-        body: JSON.stringify(integrationData)
-      })
-      
-      if (response.ok) {
-        const result = await response.json()
-        console.log('Integration created:', result)
-        // Redirect to integrations page
-        window.location.href = '/dashboard/integrations'
-      } else {
-        const error = await response.json()
-        console.error('Failed to create integration:', error)
-        throw new Error(error.detail || 'Failed to create integration')
-      }
+      const result = await apiClient.createIntegration(integrationData)
+      console.log('Integration created:', result)
+      // Redirect to integrations page
+      window.location.href = '/dashboard/integrations'
     } catch (error) {
       console.error('Error creating integration:', error)
       // Show error to user - you might want to add a proper error state
