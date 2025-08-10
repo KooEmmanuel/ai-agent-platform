@@ -21,7 +21,10 @@ import {
   CheckIcon,
   ShieldCheckIcon,
   ClockIcon,
-  CircleStackIcon
+  CircleStackIcon,
+  ChevronDownIcon,
+  EyeIcon,
+  EllipsisVerticalIcon
 } from '@heroicons/react/24/outline'
 
 import { Button } from '../../../../components/ui/Button'
@@ -139,28 +142,22 @@ interface AgentConfig {
 
 export default function CreateAgentPage() {
   const router = useRouter()
-  const [currentStep, setCurrentStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [availableTools, setAvailableTools] = useState<Tool[]>([])
   const [userCredits, setUserCredits] = useState(0)
-  
+  const [availableTools, setAvailableTools] = useState<Tool[]>([])
+  const [selectedTools, setSelectedTools] = useState<Tool[]>([])
+  const [showDropdown, setShowDropdown] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
+
   const [agentConfig, setAgentConfig] = useState<AgentConfig>({
     name: '',
     description: '',
     instructions: '',
-    model: 'gpt-4o-mini',
+    model: 'gpt-4',
     tools: [],
     context_config: getDefaultContextConfig()
   })
-
-  const [selectedTools, setSelectedTools] = useState<Tool[]>([])
-  const [searchTerm, setSearchTerm] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState('all')
-
-  useEffect(() => {
-    fetchInitialData()
-  }, [])
 
   const fetchInitialData = async () => {
     try {
@@ -170,27 +167,29 @@ export default function CreateAgentPage() {
         return
       }
 
-      // Set the token in the API client
       apiClient.setToken(token)
-
-      // Fetch available tools and user credits using the API client
-      const [tools, credits] = await Promise.all([
-        apiClient.getTools(),
-        apiClient.getCredits()
+      
+      const [creditsResponse, toolsResponse] = await Promise.all([
+        apiClient.getCredits(),
+        apiClient.getTools()
       ])
 
-      setAvailableTools(tools as Tool[])
-      setUserCredits(credits.available_credits)
+      setUserCredits(creditsResponse.available_credits)
+      setAvailableTools(toolsResponse || [])
     } catch (error) {
       console.error('Error fetching initial data:', error)
       setError('Failed to load initial data')
     }
   }
 
+  useEffect(() => {
+    fetchInitialData()
+  }, [])
+
   function getDefaultContextConfig(): ContextConfig {
     return {
       memory_strategy: {
-        type: 'hybrid',
+        type: 'conversation_only',
         retention_policy: {
           conversation_history: {
             enabled: true,
@@ -201,7 +200,7 @@ export default function CreateAgentPage() {
           user_preferences: {
             enabled: true,
             persistent: true,
-            categories: ['product_preferences', 'communication_style', 'technical_level']
+            categories: ['general', 'work', 'personal']
           },
           session_data: {
             enabled: true,
@@ -251,7 +250,7 @@ export default function CreateAgentPage() {
           allow_memory_clear: true,
           allow_preference_edit: true,
           allow_context_export: true,
-          allow_memory_import: true
+          allow_memory_import: false
         },
         privacy_controls: {
           data_collection: {
@@ -261,7 +260,7 @@ export default function CreateAgentPage() {
             performance_metrics: true
           },
           data_sharing: {
-            with_agent_owner: false,
+            with_agent_owner: true,
             for_improvement: false,
             with_third_parties: false
           }
@@ -270,21 +269,6 @@ export default function CreateAgentPage() {
     }
   }
 
-  const categories = [
-    { id: 'all', name: 'All Tools', count: availableTools.length },
-    { id: 'search', name: 'Search', count: availableTools.filter(t => t.category === 'search').length },
-    { id: 'scheduling', name: 'Scheduling', count: availableTools.filter(t => t.category === 'scheduling').length },
-    { id: 'communication', name: 'Communication', count: availableTools.filter(t => t.category === 'communication').length },
-    { id: 'data', name: 'Data', count: availableTools.filter(t => t.category === 'data').length }
-  ]
-
-  const filteredTools = availableTools.filter(tool => {
-    const matchesSearch = tool.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         tool.description?.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesCategory = selectedCategory === 'all' || tool.category === selectedCategory
-    return matchesSearch && matchesCategory
-  })
-
   const addTool = (tool: Tool) => {
     if (!selectedTools.find(t => t.id === tool.id)) {
       setSelectedTools([...selectedTools, tool])
@@ -292,7 +276,7 @@ export default function CreateAgentPage() {
   }
 
   const removeTool = (toolId: number) => {
-    setSelectedTools(selectedTools.filter(t => t.id !== toolId))
+    setSelectedTools(selectedTools.filter(tool => tool.id !== toolId))
   }
 
   const calculateCost = () => {
@@ -314,11 +298,10 @@ export default function CreateAgentPage() {
 
       const totalCost = calculateCost()
       if (totalCost > userCredits) {
-        setError(`Insufficient credits. Required: ${totalCost}, Available: ${userCredits}`)
+        setError(`Insufficient credits. Required: ${totalCost.toFixed(1)}, Available: ${userCredits.toFixed(1)}`)
         return
       }
 
-      // Set the token in the API client
       apiClient.setToken(token)
 
       const newAgent = await apiClient.createAgent({
@@ -339,560 +322,325 @@ export default function CreateAgentPage() {
     }
   }
 
-  const steps = [
-    { id: 1, name: 'Basic Info', description: 'Agent name and description' },
-    { id: 2, name: 'Instructions', description: 'Define agent behavior' },
-    { id: 3, name: 'Tools', description: 'Select capabilities' },
-    { id: 4, name: 'Context & Memory', description: 'Configure memory settings' },
-    { id: 5, name: 'Review', description: 'Final configuration' }
-  ]
+  const handlePreview = () => {
+    // TODO: Implement preview functionality
+    console.log('Preview agent:', agentConfig)
+  }
+
+  const filteredTools = availableTools.filter(tool =>
+    tool.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    tool.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    tool.category.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
+  const totalCost = calculateCost()
 
   return (
-    <div className="max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Create New Agent</h1>
-            <p className="text-gray-600">Build a custom AI agent with powerful tools and memory</p>
-          </div>
-          <div className="flex items-center space-x-3">
-            <div className="text-sm text-gray-500">
-              Credits: <span className="font-medium">{userCredits}</span>
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Create New Agent</h1>
+              <p className="text-gray-600 mt-1">Build a custom AI agent with powerful tools and memory</p>
             </div>
-            <Button variant="outline" size="sm">
-              <PlayIcon className="w-4 h-4 mr-2" />
-              Preview
-            </Button>
-            <Button 
-              onClick={handleSave}
-              disabled={loading || currentStep < 5}
-              size="sm"
-            >
-              {loading ? 'Creating...' : 'Create'}
-            </Button>
+            
+            {/* Credits and Actions */}
+            <div className="flex items-center justify-between w-full sm:w-auto sm:gap-3">
+              {/* Credits - Left side on mobile */}
+              <div className="text-sm text-gray-500 bg-white px-3 py-2 rounded-lg shadow-[0_2px_8px_rgba(59,130,246,0.1)]">
+                Credits: <span className="font-medium text-blue-600">{userCredits.toFixed(1)}</span>
+              </div>
+              
+              {/* Actions - Right side on mobile, dropdown on desktop */}
+              <div className="relative">
+                {/* Mobile: Dots icon */}
+                <button
+                  onClick={() => setShowDropdown(!showDropdown)}
+                  className="sm:hidden p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <EllipsisVerticalIcon className="w-5 h-5" />
+                </button>
+                
+                {/* Desktop: Button */}
+                <Button
+                  onClick={() => setShowDropdown(!showDropdown)}
+                  className="hidden sm:flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white shadow-[0_4px_14px_rgba(59,130,246,0.3)]"
+                >
+                  Actions
+                  <ChevronDownIcon className="w-4 h-4" />
+                </Button>
+                
+                <AnimatePresence>
+                  {showDropdown && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-[0_8px_32px_rgba(59,130,246,0.15)] border border-blue-100 z-10"
+                    >
+                      <div className="py-1">
+                        <button
+                          onClick={handlePreview}
+                          className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
+                        >
+                          <EyeIcon className="w-4 h-4" />
+                          Preview Agent
+                        </button>
+                        <button
+                          onClick={handleSave}
+                          disabled={loading || !agentConfig.name || !agentConfig.instructions}
+                          className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <SparklesIcon className="w-4 h-4" />
+                          {loading ? 'Creating...' : 'Create Agent'}
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
 
-      {error && (
-        <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-600">{error}</p>
-        </div>
-      )}
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 shadow-[0_2px_8px_rgba(239,68,68,0.1)]"
+          >
+            <p className="text-red-600">{error}</p>
+          </motion.div>
+        )}
 
-      {/* Progress Steps */}
-      <div className="mb-8">
-        <nav aria-label="Progress">
-          <ol className="flex items-center">
-            {steps.map((step, stepIdx) => (
-              <li key={step.name} className={`relative ${stepIdx !== steps.length - 1 ? 'pr-8 sm:pr-20' : ''} ${stepIdx !== 0 ? 'pl-8 sm:pl-20' : ''}`}>
-                <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                  {stepIdx !== 0 && (
-                    <div className={`h-0.5 w-full ${step.id <= currentStep ? 'bg-blue-600' : 'bg-gray-200'}`} />
-                  )}
+        {/* Main Content */}
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* Left Column - Agent Configuration */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Basic Information */}
+            <Card className="shadow-[0_4px_20px_rgba(59,130,246,0.08)] border-0">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CpuChipIcon className="w-5 h-5 text-blue-600" />
+                  Basic Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Agent Name *
+                  </label>
+                  <Input
+                    value={agentConfig.name}
+                    onChange={(e) => setAgentConfig({...agentConfig, name: e.target.value})}
+                    placeholder="Enter agent name"
+                    className="shadow-[0_2px_8px_rgba(59,130,246,0.1)] border-0 focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
-                <div className={`relative flex h-8 w-8 items-center justify-center rounded-full ${
-                  step.id < currentStep ? 'bg-blue-600' : step.id === currentStep ? 'bg-blue-600' : 'bg-gray-200'
-                }`}>
-                  {step.id < currentStep ? (
-                    <CheckIcon className="h-5 w-5 text-white" /> 
-                  ) : (
-                    <span className={`text-sm font-medium ${step.id === currentStep ? 'text-white' : 'text-gray-500'}`}>
-                      {step.id}
-                    </span>
-                  )}
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Description
+                  </label>
+                  <Textarea
+                    value={agentConfig.description}
+                    onChange={(e) => setAgentConfig({...agentConfig, description: e.target.value})}
+                    placeholder="Describe what this agent does"
+                    rows={3}
+                    className="shadow-[0_2px_8px_rgba(59,130,246,0.1)] border-0 focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
-                <div className="absolute top-10 left-1/2 transform -translate-x-1/2">
-                  <span className={`text-xs font-medium ${step.id === currentStep ? 'text-blue-600' : 'text-gray-500'}`}>
-                    {step.name}
-                  </span>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Model
+                  </label>
+                  <Select
+                    value={agentConfig.model}
+                    onChange={(e) => setAgentConfig({...agentConfig, model: e.target.value})}
+                    className="shadow-[0_2px_8px_rgba(59,130,246,0.1)] border-0 focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="gpt-4">GPT-4</option>
+                    <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                    <option value="claude-3">Claude-3</option>
+                  </Select>
                 </div>
-              </li>
-            ))}
-          </ol>
-        </nav>
-      </div>
+              </CardContent>
+            </Card>
 
-      {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left Panel - Agent Configuration */}
-        <div className="lg:col-span-2 space-y-6">
-          <AnimatePresence mode="wait">
-            {currentStep === 1 && (
-              <motion.div
-                key="step-1"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-              >
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <CpuChipIcon className="w-5 h-5 mr-2" />
-                      Basic Information
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Agent Name *
-                      </label>
-                      <Input
-                        value={agentConfig.name}
-                        onChange={(e) => setAgentConfig({ ...agentConfig, name: e.target.value })}
-                        placeholder="e.g., Customer Support Bot"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Description
-                      </label>
-                      <Textarea
-                        value={agentConfig.description}
-                        onChange={(e) => setAgentConfig({ ...agentConfig, description: e.target.value })}
-                        placeholder="Describe what this agent does..."
-                        rows={3}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        AI Model
-                      </label>
-                      <Select
-                        value={agentConfig.model}
-                        onChange={(e) => setAgentConfig({ ...agentConfig, model: e.target.value })}
-                      >
-                        <option value="gpt-4o-mini">GPT-4o Mini (Fast & Cost-effective)</option>
-                        <option value="gpt-4o">GPT-4o (Most Capable)</option>
-                        <option value="gpt-3.5-turbo">GPT-3.5 Turbo (Balanced)</option>
-                      </Select>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            )}
+            {/* Instructions */}
+            <Card className="shadow-[0_4px_20px_rgba(59,130,246,0.08)] border-0">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <DocumentTextIcon className="w-5 h-5 text-blue-600" />
+                  Instructions *
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Agent Instructions
+                  </label>
+                  <Textarea
+                    value={agentConfig.instructions}
+                    onChange={(e) => setAgentConfig({...agentConfig, instructions: e.target.value})}
+                    placeholder="Define how this agent should behave, what it can do, and how it should respond..."
+                    rows={6}
+                    className="shadow-[0_2px_8px_rgba(59,130,246,0.1)] border-0 focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </CardContent>
+            </Card>
 
-            {currentStep === 2 && (
-              <motion.div
-                key="step-2"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-              >
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <DocumentTextIcon className="w-5 h-5 mr-2" />
-                      Agent Instructions
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
+            {/* Tools Selection */}
+            <Card className="shadow-[0_4px_20px_rgba(59,130,246,0.08)] border-0">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <WrenchScrewdriverIcon className="w-5 h-5 text-blue-600" />
+                  Tools & Capabilities
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {/* Search */}
+                  <div className="relative">
+                    <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      placeholder="Search tools..."
+                      className="pl-10 shadow-[0_2px_8px_rgba(59,130,246,0.1)] border-0 focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  {/* Selected Tools */}
+                  {selectedTools.length > 0 && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Instructions *
-                      </label>
-                      <Textarea
-                        value={agentConfig.instructions}
-                        onChange={(e) => setAgentConfig({ ...agentConfig, instructions: e.target.value })}
-                        placeholder="Define how this agent should behave, what it can do, and how it should respond..."
-                        rows={8}
-                      />
-                      <p className="text-sm text-gray-500 mt-2">
-                        Be specific about the agent's role, capabilities, and behavior patterns.
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            )}
-
-            {currentStep === 3 && (
-              <motion.div
-                key="step-3"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-              >
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <WrenchScrewdriverIcon className="w-5 h-5 mr-2" />
-                      Select Tools
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {/* Search and Filter */}
-                      <div className="flex space-x-4">
-                        <div className="flex-1">
-                          <Input
-                            placeholder="Search tools..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                          />
-                        </div>
-                        <Select
-                          value={selectedCategory}
-                          onChange={(e) => setSelectedCategory(e.target.value)}
-                        >
-                          {categories.map(category => (
-                            <option key={category.id} value={category.id}>
-                              {category.name} ({category.count})
-                            </option>
-                          ))}
-                        </Select>
-                      </div>
-
-                      {/* Tools Grid */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {filteredTools.map((tool) => (
+                      <h4 className="text-sm font-medium text-gray-700 mb-3">Selected Tools ({selectedTools.length})</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {selectedTools.map((tool) => (
                           <div
                             key={tool.id}
-                            className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                              selectedTools.find(t => t.id === tool.id)
-                                ? 'border-blue-500 bg-blue-50'
-                                : 'border-gray-200 hover:border-gray-300'
-                            }`}
-                            onClick={() => addTool(tool)}
+                            className="flex items-center justify-between p-3 bg-blue-50 rounded-lg shadow-[0_2px_8px_rgba(59,130,246,0.1)]"
                           >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center space-x-3">
-                                <tool.icon className="w-5 h-5 text-blue-500" />
-                                <div>
-                                  <h4 className="font-medium text-gray-900">{tool.name}</h4>
-                                  <p className="text-sm text-gray-500">{tool.description}</p>
-                                </div>
-                              </div>
-                              <div className="text-sm text-gray-500">
-                                {tool.cost || 10} credits
-                              </div>
+                            <div className="flex items-center gap-2">
+                              <WrenchScrewdriverIcon className="w-4 h-4 text-blue-600" />
+                              <span className="text-sm font-medium text-gray-900">{tool.name}</span>
                             </div>
+                            <button
+                              onClick={() => removeTool(tool.id)}
+                              className="text-red-500 hover:text-red-700"
+                            >
+                              <XMarkIcon className="w-4 h-4" />
+                            </button>
                           </div>
                         ))}
                       </div>
-
-                      {/* Selected Tools */}
-                      {selectedTools.length > 0 && (
-                        <div>
-                          <h4 className="font-medium text-gray-900 mb-2">Selected Tools</h4>
-                          <div className="space-y-2">
-                            {selectedTools.map((tool) => (
-                              <div key={tool.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                                <div className="flex items-center space-x-3">
-                                  <tool.icon className="w-5 h-5 text-blue-500" />
-                                  <span className="font-medium">{tool.name}</span>
-                                </div>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => removeTool(tool.id)}
-                                >
-                                  <XMarkIcon className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
                     </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            )}
+                  )}
 
-            {currentStep === 4 && (
-              <motion.div
-                key="step-4"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-              >
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <CircleStackIcon className="w-5 h-5 mr-2" />
-                      Context & Memory Configuration
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-6">
-                      {/* Memory Strategy */}
-                      <div>
-                        <h4 className="font-medium text-gray-900 mb-3">Memory Strategy</h4>
-                        <Select
-                          value={agentConfig.context_config.memory_strategy.type}
-                          onChange={(e) => setAgentConfig({
-                            ...agentConfig,
-                            context_config: {
-                              ...agentConfig.context_config,
-                              memory_strategy: {
-                                ...agentConfig.context_config.memory_strategy,
-                                type: e.target.value as any
-                              }
-                            }
-                          })}
+                  {/* Available Tools */}
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 mb-3">Available Tools</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-64 overflow-y-auto">
+                      {filteredTools.map((tool) => (
+                        <button
+                          key={tool.id}
+                          onClick={() => addTool(tool)}
+                                                     disabled={!!selectedTools.find(t => t.id === tool.id)}
+                          className="flex items-center gap-3 p-3 bg-white rounded-lg shadow-[0_2px_8px_rgba(59,130,246,0.1)] hover:shadow-[0_4px_16px_rgba(59,130,246,0.15)] transition-all disabled:opacity-50 disabled:cursor-not-allowed text-left"
                         >
-                          <option value="conversation_only">Conversation Only</option>
-                          <option value="summarized">Summarized Memory</option>
-                          <option value="hybrid">Hybrid (Recommended)</option>
-                          <option value="minimal">Minimal Memory</option>
-                        </Select>
-                      </div>
-
-                      {/* Context Window */}
-                      <div>
-                        <h4 className="font-medium text-gray-900 mb-3">Context Window</h4>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-sm text-gray-700 mb-1">Max Tokens</label>
-                            <Input
-                              type="number"
-                              value={agentConfig.context_config.context_management.context_window.max_tokens}
-                              onChange={(e) => setAgentConfig({
-                                ...agentConfig,
-                                context_config: {
-                                  ...agentConfig.context_config,
-                                  context_management: {
-                                    ...agentConfig.context_config.context_management,
-                                    context_window: {
-                                      ...agentConfig.context_config.context_management.context_window,
-                                      max_tokens: parseInt(e.target.value)
-                                    }
-                                  }
-                                }
-                              })}
-                            />
+                          <WrenchScrewdriverIcon className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium text-gray-900 truncate">{tool.name}</div>
+                            <div className="text-xs text-gray-500 truncate">{tool.description}</div>
                           </div>
-                          <div>
-                            <label className="block text-sm text-gray-700 mb-1">Reserve Tokens</label>
-                            <Input
-                              type="number"
-                              value={agentConfig.context_config.context_management.context_window.reserve_tokens}
-                              onChange={(e) => setAgentConfig({
-                                ...agentConfig,
-                                context_config: {
-                                  ...agentConfig.context_config,
-                                  context_management: {
-                                    ...agentConfig.context_config.context_management,
-                                    context_window: {
-                                      ...agentConfig.context_config.context_management.context_window,
-                                      reserve_tokens: parseInt(e.target.value)
-                                    }
-                                  }
-                                }
-                              })}
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Privacy Controls */}
-                      <div>
-                        <h4 className="font-medium text-gray-900 mb-3">Privacy Controls</h4>
-                        <div className="space-y-3">
-                          {Object.entries(agentConfig.context_config.user_control.privacy_controls.data_collection).map(([key, value]) => (
-                            <div key={key} className="flex items-center justify-between">
-                              <span className="text-sm text-gray-700 capitalize">
-                                {key.replace(/_/g, ' ')}
-                              </span>
-                              <input
-                                type="checkbox"
-                                checked={value}
-                                onChange={(e) => setAgentConfig({
-                                  ...agentConfig,
-                                  context_config: {
-                                    ...agentConfig.context_config,
-                                    user_control: {
-                                      ...agentConfig.context_config.user_control,
-                                      privacy_controls: {
-                                        ...agentConfig.context_config.user_control.privacy_controls,
-                                        data_collection: {
-                                          ...agentConfig.context_config.user_control.privacy_controls.data_collection,
-                                          [key]: e.target.checked
-                                        }
-                                      }
-                                    }
-                                  }
-                                })}
-                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                          {selectedTools.find(t => t.id === tool.id) && (
+                            <CheckIcon className="w-4 h-4 text-green-500 flex-shrink-0" />
+                          )}
+                        </button>
+                      ))}
                     </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            )}
-
-            {currentStep === 5 && (
-              <motion.div
-                key="step-5"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-              >
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <CheckIcon className="w-5 h-5 mr-2" />
-                      Review Configuration
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-6">
-                      {/* Agent Info */}
-                      <div>
-                        <h4 className="font-medium text-gray-900 mb-3">Agent Information</h4>
-                        <div className="bg-gray-50 p-4 rounded-lg">
-                          <p><strong>Name:</strong> {agentConfig.name}</p>
-                          <p><strong>Description:</strong> {agentConfig.description}</p>
-                          <p><strong>Model:</strong> {agentConfig.model}</p>
-                        </div>
-                      </div>
-
-                      {/* Tools */}
-                      <div>
-                        <h4 className="font-medium text-gray-900 mb-3">Selected Tools ({selectedTools.length})</h4>
-                        <div className="space-y-2">
-                          {selectedTools.map((tool) => (
-                            <div key={tool.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                              <div className="flex items-center space-x-3">
-                                <tool.icon className="w-5 h-5 text-blue-500" />
-                                <span>{tool.name}</span>
-                              </div>
-                              <span className="text-sm text-gray-500">{tool.cost || 10} credits</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Memory Strategy */}
-                      <div>
-                        <h4 className="font-medium text-gray-900 mb-3">Memory Configuration</h4>
-                        <div className="bg-gray-50 p-4 rounded-lg">
-                          <p><strong>Strategy:</strong> {agentConfig.context_config.memory_strategy.type}</p>
-                          <p><strong>Max Tokens:</strong> {agentConfig.context_config.context_management.context_window.max_tokens}</p>
-                          <p><strong>Reserve Tokens:</strong> {agentConfig.context_config.context_management.context_window.reserve_tokens}</p>
-                        </div>
-                      </div>
-
-                      {/* Cost Summary */}
-                      <div>
-                        <h4 className="font-medium text-gray-900 mb-3">Cost Summary</h4>
-                        <div className="bg-blue-50 p-4 rounded-lg">
-                          <div className="flex justify-between items-center">
-                            <span>Base Cost:</span>
-                            <span>50 credits</span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span>Tools Cost:</span>
-                            <span>{selectedTools.reduce((total, tool) => total + (tool.cost || 10), 0)} credits</span>
-                          </div>
-                          <div className="border-t pt-2 mt-2">
-                            <div className="flex justify-between items-center font-medium">
-                              <span>Total Cost:</span>
-                              <span>{calculateCost()} credits</span>
-                            </div>
-                          </div>
-                          <div className="flex justify-between items-center text-sm text-gray-600 mt-1">
-                            <span>Available Credits:</span>
-                            <span>{userCredits} credits</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* Right Panel - Navigation and Summary */}
-        <div className="space-y-6">
-          {/* Step Navigation */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Progress</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {steps.map((step) => (
-                  <button
-                    key={step.id}
-                    onClick={() => setCurrentStep(step.id)}
-                    className={`w-full text-left p-3 rounded-lg transition-colors ${
-                      step.id === currentStep
-                        ? 'bg-blue-50 border border-blue-200'
-                        : step.id < currentStep
-                        ? 'bg-green-50 border border-green-200'
-                        : 'bg-gray-50 border border-gray-200'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className={`font-medium ${
-                          step.id === currentStep ? 'text-blue-900' : 'text-gray-900'
-                        }`}>
-                          {step.name}
-                        </p>
-                        <p className="text-sm text-gray-500">{step.description}</p>
-                      </div>
-                      {step.id < currentStep && (
-                        <CheckIcon className="w-5 h-5 text-green-600" />
-                      )}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Quick Summary */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Summary</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Tools Selected:</span>
-                  <span className="font-medium">{selectedTools.length}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Memory Strategy:</span>
-                  <span className="font-medium capitalize">
-                    {agentConfig.context_config.memory_strategy.type.replace('_', ' ')}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Total Cost:</span>
-                  <span className="font-medium">{calculateCost()} credits</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
 
-          {/* Navigation Buttons */}
-          <div className="flex space-x-3">
-            <Button
-              variant="outline"
-              onClick={() => setCurrentStep(Math.max(1, currentStep - 1))}
-              disabled={currentStep === 1}
-              className="flex-1"
-            >
-              Previous
-            </Button>
-            <Button
-              onClick={() => setCurrentStep(Math.min(5, currentStep + 1))}
-              disabled={currentStep === 5}
-              className="flex-1"
-            >
-              Next
-            </Button>
+          {/* Right Column - Summary & Cost */}
+          <div className="space-y-6">
+            {/* Cost Summary */}
+            <Card className="shadow-[0_4px_20px_rgba(59,130,246,0.08)] border-0">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CircleStackIcon className="w-5 h-5 text-blue-600" />
+                  Cost Summary
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Base Cost:</span>
+                  <span className="font-medium">50.0 credits</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Tools ({selectedTools.length}):</span>
+                  <span className="font-medium">{(totalCost - 50).toFixed(1)} credits</span>
+                </div>
+                <div className="border-t pt-3">
+                  <div className="flex justify-between text-base font-semibold">
+                    <span className="text-gray-900">Total:</span>
+                    <span className="text-blue-600">{totalCost.toFixed(1)} credits</span>
+                  </div>
+                </div>
+                
+                {totalCost > userCredits && (
+                  <div className="mt-3 p-3 bg-red-50 rounded-lg">
+                    <p className="text-sm text-red-600">
+                      Insufficient credits. Need {totalCost.toFixed(1)}, have {userCredits.toFixed(1)}
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Quick Actions */}
+            <Card className="shadow-[0_4px_20px_rgba(59,130,246,0.08)] border-0">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Cog6ToothIcon className="w-5 h-5 text-blue-600" />
+                  Quick Actions
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Button
+                  onClick={handlePreview}
+                  variant="outline"
+                  className="w-full shadow-[0_2px_8px_rgba(59,130,246,0.1)] border-blue-200 hover:bg-blue-50"
+                >
+                  <EyeIcon className="w-4 h-4 mr-2" />
+                  Preview Agent
+                </Button>
+                <Button
+                  onClick={handleSave}
+                  disabled={loading || !agentConfig.name || !agentConfig.instructions || totalCost > userCredits}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-[0_4px_14px_rgba(59,130,246,0.3)]"
+                >
+                  {loading ? (
+                    <>
+                      <ClockIcon className="w-4 h-4 mr-2 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <SparklesIcon className="w-4 h-4 mr-2" />
+                      Create Agent
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>

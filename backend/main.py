@@ -26,6 +26,14 @@ async def lifespan(app: FastAPI):
     await init_db()
     logger.info("Database initialized successfully")
     
+    # Check if tools exist and seed if needed
+    try:
+        from seed_default_tools import seed_default_tools
+        await seed_default_tools()
+        logger.info("Default tools check completed")
+    except Exception as e:
+        logger.warning(f"Could not seed default tools: {e}")
+    
     yield
     
     # Shutdown

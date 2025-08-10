@@ -22,6 +22,7 @@ import { LogOut } from 'lucide-react'
 import { signOut, auth } from '../../lib/firebase'
 import { onAuthStateChanged } from 'firebase/auth'
 import KwickbuildLogo from '../../components/ui/kwickbuild-logo'
+import { initializeApiClient } from '../../lib/api'
 
 const navigation = [
   { name: 'Overview', href: '/dashboard', icon: HomeIcon },
@@ -44,8 +45,17 @@ export default function DashboardLayout({
   const pathname = usePathname()
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser)
+      
+      // Initialize API client with fresh token when user is authenticated
+      if (currentUser) {
+        try {
+          await initializeApiClient()
+        } catch (error) {
+          console.error('Failed to initialize API client:', error)
+        }
+      }
     })
 
     return () => unsubscribe()

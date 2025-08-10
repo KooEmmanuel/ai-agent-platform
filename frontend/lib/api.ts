@@ -82,6 +82,42 @@ class ApiClient {
     }
   }
 
+  private async refreshToken(): Promise<string | null> {
+    try {
+      // Import Firebase auth dynamically to avoid SSR issues
+      const { auth } = await import('./firebase')
+      const currentUser = auth.currentUser
+      
+      if (currentUser) {
+        // Get a fresh ID token
+        const idToken = await currentUser.getIdToken(true) // force refresh
+        
+        // Send to backend to get new access token
+        const response = await fetch(`${this.baseUrl}/api/v1/auth/firebase`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ id_token: idToken })
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          this.token = data.access_token
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('auth_token', data.access_token)
+          }
+          return data.access_token
+        }
+      }
+      
+      return null
+    } catch (error) {
+      console.error('Token refresh failed:', error)
+      return null
+    }
+  }
+
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
@@ -97,10 +133,32 @@ class ApiClient {
       headers.Authorization = `Bearer ${this.token}`
     }
 
-    const response = await fetch(url, {
+    let response = await fetch(url, {
       ...options,
       headers,
     })
+
+    // If unauthorized, try to refresh token and retry
+    if (response.status === 401 || response.status === 403) {
+      console.log('Token expired, attempting refresh...')
+      const newToken = await this.refreshToken()
+      
+      if (newToken) {
+        // Retry with new token
+        headers.Authorization = `Bearer ${newToken}`
+        response = await fetch(url, {
+          ...options,
+          headers,
+        })
+      } else {
+        // If refresh fails, redirect to login
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('auth_token')
+          localStorage.removeItem('user')
+          window.location.href = '/auth/login'
+        }
+      }
+    }
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: 'Unknown error' }))
@@ -399,4 +457,38 @@ class ApiClient {
 }
 
 // Create a singleton instance
-export const apiClient = new ApiClient() 
+export const apiClient = new ApiClient()
+
+// Initialize API client with current user's token
+export const initializeApiClient = async () => {
+  try {
+    // Import Firebase auth dynamically to avoid SSR issues
+    const { auth } = await import('./firebase')
+    const currentUser = auth.currentUser
+    
+    if (currentUser) {
+      // Get a fresh ID token
+      const idToken = await currentUser.getIdToken()
+      
+      // Send to backend to get access token
+      const response = await fetch(`${API_BASE_URL}/api/v1/auth/firebase`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ id_token: idToken })
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        apiClient.setToken(data.access_token)
+        return data.access_token
+      }
+    }
+    
+    return null
+  } catch (error) {
+    console.error('Failed to initialize API client:', error)
+    return null
+  }
+} 
