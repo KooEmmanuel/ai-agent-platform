@@ -148,12 +148,18 @@ export default function EditIntegrationPage() {
       const updatedIntegration = await response.json()
       setIntegration(updatedIntegration)
       
-      showToast('Integration updated successfully', 'success')
+      showToast({
+        type: 'success',
+        title: 'Integration updated successfully'
+      })
       router.push(`/dashboard/integrations/${integrationId}`)
     } catch (error) {
       console.error('Error updating integration:', error)
       setError('Failed to update integration')
-      showToast('Failed to update integration', 'error')
+      showToast({
+        type: 'error',
+        title: 'Failed to update integration'
+      })
     } finally {
       setSaving(false)
     }

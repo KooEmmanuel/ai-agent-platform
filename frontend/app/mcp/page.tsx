@@ -13,7 +13,7 @@ import {
   ArrowRightIcon,
   DocumentTextIcon,
   PlayIcon,
-  DownloadIcon,  
+  ArrowDownTrayIcon,  
   ServerIcon,
   KeyIcon
 } from '@heroicons/react/24/outline'
@@ -51,7 +51,7 @@ const setupSteps = [
     title: 'Install MCP Client',
     description: 'Install an MCP-compatible client like Claude Desktop or your preferred application',
     code: 'npm install -g @modelcontextprotocol/client',
-    icon: DownloadIcon
+    icon: ArrowDownTrayIcon
   },
   {
     step: 2,
