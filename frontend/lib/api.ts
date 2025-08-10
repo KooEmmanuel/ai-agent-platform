@@ -1,7 +1,9 @@
 // API client for Kwickbuild platform
 
-// Use Next.js API routes instead of direct backend calls
-const API_BASE_URL = '/api'
+// Use Railway URL in production, localhost in development
+const API_BASE_URL = process.env.NODE_ENV === 'production' 
+  ? 'https://kwickbuild.up.railway.app'
+  : 'http://localhost:8000'
 
 console.log('🔧 Environment:', process.env.NODE_ENV)
 console.log('🌐 API_BASE_URL:', API_BASE_URL)
@@ -97,8 +99,8 @@ class ApiClient {
         // Get a fresh ID token
         const idToken = await currentUser.getIdToken(true) // force refresh
         
-        // Send to Next.js API route to get new access token
-        const response = await fetch(`/api/auth/firebase`, {
+        // Send to backend API route to get new access token
+        const response = await fetch(`/api/v1/auth/firebase`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -127,8 +129,8 @@ class ApiClient {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
-    // Use Next.js API routes instead of direct backend calls to avoid CORS
-    const url = `/api${endpoint.replace('/api/v1', '')}`
+    // Use backend routes directly through the rewrite rule
+    const url = `/api/v1${endpoint.replace('/api/v1', '')}`
     
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
