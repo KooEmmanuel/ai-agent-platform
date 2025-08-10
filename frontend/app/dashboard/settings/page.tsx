@@ -21,10 +21,8 @@ interface User {
   created_at: string
 }
 
-// Use Railway URL in production, localhost in development
-const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://kwickbuild.up.railway.app'
-  : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000')
+// Use Next.js API routes instead of direct backend calls
+const API_BASE_URL = '/api'
 
 export default function SettingsPage() {
   const [user, setUser] = useState<User | null>(null)
@@ -57,7 +55,7 @@ export default function SettingsPage() {
 
   const fetchUserProfile = async () => {
     try {
-      const response = await makeAuthenticatedRequest(`${API_BASE_URL}/api/v1/users/me`)
+      const response = await makeAuthenticatedRequest(`${API_BASE_URL}/auth/me`)
       
       if (response.ok) {
         const userData = await response.json()
@@ -75,7 +73,7 @@ export default function SettingsPage() {
 
   const fetchNotificationPreferences = async () => {
     try {
-      const response = await makeAuthenticatedRequest(`${API_BASE_URL}/api/v1/notifications/preferences`)
+      const response = await makeAuthenticatedRequest(`${API_BASE_URL}/notifications/preferences`)
       
       if (response.ok) {
         const prefs = await response.json()
@@ -104,7 +102,7 @@ export default function SettingsPage() {
     
     setSaving(true)
     try {
-      const response = await makeAuthenticatedRequest(`${API_BASE_URL}/api/v1/users/me`, {
+      const response = await makeAuthenticatedRequest(`${API_BASE_URL}/auth/me`, {
         method: 'PUT',
         body: JSON.stringify({
           name: updatedUser.name,
@@ -144,7 +142,7 @@ export default function SettingsPage() {
     
     try {
       // Update on backend
-      const response = await makeAuthenticatedRequest(`${API_BASE_URL}/api/v1/notifications/preferences`, {
+      const response = await makeAuthenticatedRequest(`${API_BASE_URL}/notifications/preferences`, {
         method: 'PUT',
         body: JSON.stringify({ [key]: value })
       })
@@ -180,10 +178,10 @@ export default function SettingsPage() {
       let message = ''
       
       if (type === 'email') {
-        endpoint = '/api/v1/notifications/test'
+        endpoint = '/notifications/test'
         message = 'Test email notification sent! Check your inbox.'
       } else if (type === 'weekly_report') {
-        endpoint = '/api/v1/notifications/weekly-report'
+        endpoint = '/notifications/weekly-report'
         message = 'Test weekly report sent! Check your email.'
       }
       

@@ -1,51 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 // Use Railway URL in production, localhost in development
-const API_BASE_URL = process.env.NODE_ENV === 'production' 
+const API_BASE_URL = process.env.NODE_ENV === 'production'
   ? 'https://kwickbuild.up.railway.app'
   : 'http://localhost:8000'
 
-export async function GET(request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader) {
-      return NextResponse.json(
-        { error: 'Authorization header required' },
-        { status: 401 }
-      )
-    }
-
-    // Forward the request to our backend
-    const response = await fetch(`${API_BASE_URL}/api/v1/auth/me`, {
-      method: 'GET',
-      headers: {
-        'Authorization': authHeader,
-        'Content-Type': 'application/json',
-      }
-    })
-    
-    const data = await response.json()
-    
-    if (response.ok) {
-      return NextResponse.json(data)
-    } else {
-      return NextResponse.json(
-        { error: data.detail || 'Failed to fetch user info' },
-        { status: response.status }
-      )
-    }
-  } catch (error) {
-    console.error('Auth me API error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
-  }
-}
-
-export async function PUT(request: NextRequest) {
-  try {
-    console.log('🔍 Auth Me PUT API called')
+    console.log('🔍 Notifications Weekly Report API called')
 
     const authHeader = request.headers.get('authorization')
     console.log('🔐 Auth header received:', authHeader ? 'Yes' : 'No')
@@ -61,12 +23,12 @@ export async function PUT(request: NextRequest) {
     const body = await request.json()
     console.log('📝 Request body:', body)
 
-    const targetUrl = `${API_BASE_URL}/api/v1/auth/me`
+    const targetUrl = `${API_BASE_URL}/api/v1/notifications/weekly-report`
     console.log('🎯 Target URL:', targetUrl)
 
     // Forward the request to our backend
     const response = await fetch(targetUrl, {
-      method: 'PUT',
+      method: 'POST',
       headers: {
         'Authorization': authHeader,
         'Content-Type': 'application/json',
@@ -83,12 +45,12 @@ export async function PUT(request: NextRequest) {
     } else {
       console.log('❌ Backend error:', data)
       return NextResponse.json(
-        { error: data.detail || 'Failed to update user profile' },
+        { error: data.detail || 'Failed to send weekly report' },
         { status: response.status }
       )
     }
   } catch (error) {
-    console.error('Auth Me PUT API error:', error)
+    console.error('Notifications Weekly Report API error:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
