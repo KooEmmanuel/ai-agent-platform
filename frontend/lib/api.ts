@@ -1,4 +1,4 @@
-// API client for AgentFlow platform
+// API client for Kwickbuild platform
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 

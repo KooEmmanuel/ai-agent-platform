@@ -42,7 +42,7 @@ export default function MobileHeroSection() {
             <h1 className="text-3xl sm:text-4xl font-bold leading-tight">
               Build your ideas{" "}
               <span className="bg-gradient-to-r from-[#3B82F6] via-[#8B5CF6] to-[#06B6D4] bg-clip-text text-transparent font-extrabold">
-                with AgentFlow
+                with Kwickbuild
               </span>
             </h1>
 

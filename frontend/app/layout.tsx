@@ -6,8 +6,21 @@ import { ClientProviders } from '../components/ui/ClientProviders'
 
 const inter = Inter({ subsets: ['latin'] })
 
+// Add Nata Sans font
+const nataSans = {
+  fontFamily: 'Nata Sans, sans-serif',
+  src: `
+    @font-face {
+      font-family: 'Nata Sans';
+      src: url('https://fonts.googleapis.com/css2?family=Nata+Sans:wght@400;500;600;700&display=swap');
+      font-weight: 400 700;
+      font-style: normal;
+    }
+  `
+}
+
 export const metadata: Metadata = {
-  title: 'AgentFlow Platform',
+  title: 'Kwickbuild Platform',
   description: 'Build, test, and deploy AI agents with powerful tools and integrations',
 }
 

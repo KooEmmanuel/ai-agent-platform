@@ -34,7 +34,7 @@ export default function AboutPage() {
                 <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
                   <SparklesIcon className="w-7 h-7 text-white" />
                 </div>
-                <h1 className="text-4xl font-bold text-gray-900">About AgentFlow</h1>
+                <h1 className="text-4xl font-bold text-gray-900">About Kwickbuild</h1>
               </div>
               <p className="text-xl text-gray-600 max-w-3xl mx-auto">
                 We're building the future of AI agents, making it simple for developers to create intelligent, 
@@ -126,7 +126,7 @@ export default function AboutPage() {
               <h2 className="text-3xl font-bold text-gray-900 mb-6">Our Story</h2>
               <div className="space-y-6 text-gray-600">
                 <p>
-                  AgentFlow was born from a simple observation: while AI models were becoming increasingly 
+                  Kwickbuild was born from a simple observation: while AI models were becoming increasingly 
                   powerful, developers still struggled to build practical, autonomous AI agents that could 
                   truly understand and act on complex tasks.
                 </p>
@@ -136,7 +136,7 @@ export default function AboutPage() {
                   a web application.
                 </p>
                 <p>
-                  Today, AgentFlow powers thousands of AI agents across industries, from customer service 
+                  Today, Kwickbuild powers thousands of AI agents across industries, from customer service 
                   chatbots to data analysis tools, helping developers turn their ideas into reality faster 
                   than ever before.
                 </p>
@@ -181,7 +181,7 @@ export default function AboutPage() {
           >
             <h2 className="text-3xl font-bold text-gray-900 mb-6">Our Values</h2>
             <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-              These core values guide everything we do at AgentFlow
+              These core values guide everything we do at Kwickbuild
             </p>
           </motion.div>
 
@@ -238,7 +238,7 @@ export default function AboutPage() {
               Ready to Build the Future?
             </h2>
             <p className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
-              Join thousands of developers who are already building intelligent agents with AgentFlow.
+              Join thousands of developers who are already building intelligent agents with Kwickbuild.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link

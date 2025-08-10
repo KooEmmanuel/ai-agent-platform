@@ -24,6 +24,7 @@ import {
   CheckIcon,
   UserCircleIcon
 } from '@heroicons/react/24/outline'
+import KwickbuildLogo from '../components/ui/kwickbuild-logo'
 
 interface Plan {
   id: number
@@ -411,10 +412,7 @@ export default function LandingPage() {
           <div className="relative bg-white/95 backdrop-blur-xl rounded-full px-6 py-3 shadow-[0_4px_20px_rgba(59,130,246,0.15)] border border-white/20">
             <div className="flex justify-between items-center">
               <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                  <SparklesIcon className="w-5 h-5 text-white" />
-                </div>
-                <span className="text-xl font-bold text-gray-900">AgentFlow</span>
+                <KwickbuildLogo width={120} height={40} />
               </div>
 
               {/* Desktop Navigation */}
@@ -576,7 +574,7 @@ export default function LandingPage() {
               Ready to build your first AI agent?
             </h2>
             <p className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
-              Join thousands of developers who are already building intelligent agents with AgentFlow.
+              Join thousands of developers who are already building intelligent agents with Kwickbuild.
             </p>
             <Link
               href="/auth/register"
@@ -598,10 +596,7 @@ export default function LandingPage() {
               {/* Brand Section */}
               <div className="text-center sm:text-left">
                 <div className="flex items-center justify-center sm:justify-start space-x-2 mb-4">
-                  <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                    <SparklesIcon className="w-5 h-5 text-white" />
-                  </div>
-                  <span className="text-xl font-bold text-gray-900">AgentFlow</span>
+                  <KwickbuildLogo width={120} height={40} />
                 </div>
                 <p className="text-gray-600 text-sm sm:text-base">
                   Building the future of AI agents, one tool at a time.
@@ -641,10 +636,7 @@ export default function LandingPage() {
           <div className="hidden md:grid md:grid-cols-4 gap-8">
             <div>
               <div className="flex items-center space-x-2 mb-4">
-                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                  <SparklesIcon className="w-5 h-5 text-white" />
-                </div>
-                <span className="text-xl font-bold text-gray-900">AgentFlow</span>
+                <KwickbuildLogo width={120} height={40} />
               </div>
               <p className="text-gray-600">
                 Building the future of AI agents, one tool at a time.
@@ -678,7 +670,7 @@ export default function LandingPage() {
           
           <div className="border-t border-gray-200 mt-6 sm:mt-8 pt-6 sm:pt-8 text-center">
             <p className="text-gray-600 text-sm sm:text-base">
-              © 2025 AgentFlow. All rights reserved.
+              © 2025 Kwickbuild. All rights reserved.
             </p>
           </div>
         </div>

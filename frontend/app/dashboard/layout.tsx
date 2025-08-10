@@ -21,6 +21,7 @@ import {
 import { LogOut } from 'lucide-react'
 import { signOut, auth } from '../../lib/firebase'
 import { onAuthStateChanged } from 'firebase/auth'
+import KwickbuildLogo from '../../components/ui/kwickbuild-logo'
 
 const navigation = [
   { name: 'Overview', href: '/dashboard', icon: HomeIcon },
@@ -91,12 +92,9 @@ export default function DashboardLayout({
             }
           }}
         >
-          <div className="flex h-16 items-center justify-between px-4">
-            <Link href="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
-              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                <SparklesIcon className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-xl font-bold text-gray-900">AgentFlow</span>
+          <div className="flex h-20 items-center justify-between px-4 overflow-visible">
+            <Link href="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity w-full">
+              <KwickbuildLogo width={160} height={50} />
             </Link>
             <button
               onClick={() => setSidebarOpen(false)}
@@ -157,12 +155,9 @@ export default function DashboardLayout({
       {/* Desktop sidebar */}
       <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-72 lg:flex-col">
         <div className="flex flex-col flex-grow bg-white m-4 rounded-2xl shadow-[0_2px_8px_rgba(59,130,246,0.08)]">
-          <div className="flex h-16 items-center px-4">
-            <Link href="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
-              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                <SparklesIcon className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-xl font-bold text-gray-900">AgentFlow</span>
+          <div className="flex h-20 items-center px-4 overflow-visible">
+            <Link href="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity w-full">
+              <KwickbuildLogo width={160} height={50} />
             </Link>
           </div>
           <nav className="flex-1 space-y-1 px-2 py-4 ml-2">
