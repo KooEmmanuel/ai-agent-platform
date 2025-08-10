@@ -1,34 +1,3 @@
-# Use multi-stage build for optimization
-FROM python:3.11-slim as builder
-
-# Set working directory
-WORKDIR /app
-
-# Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-
-# Install system dependencies for building
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        build-essential \
-        libpq-dev \
-        gcc \
-        g++ \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Python dependencies in a virtual environment
-RUN python -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-
-# Copy requirements first for better caching
-COPY requirements.txt .
-
-# Install Python dependencies
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir -r requirements.txt
-
-# Production stage
 FROM python:3.11-slim
 
 # Set working directory
@@ -37,27 +6,35 @@ WORKDIR /app
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ENV PIP_NO_CACHE_DIR=1
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Install only runtime system dependencies
+# Install system dependencies
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        libpq5 \
-        libgomp1 \
-        libgcc-s1 \
+        build-essential \
+        libpq-dev \
+        gcc \
+        g++ \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
-# Copy virtual environment from builder stage
-COPY --from=builder /opt/venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+# Copy requirements first for better caching
+COPY requirements.txt .
 
-# Create non-root user
-RUN adduser --disabled-password --gecos '' appuser
+# Install Python dependencies with optimizations
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
 
 # Copy only necessary files
-COPY --chown=appuser:appuser . .
+COPY app/ ./app/
+COPY main.py .
+COPY alembic.ini .
+COPY alembic/ ./alembic/
 
-# Switch to non-root user
+# Create non-root user
+RUN adduser --disabled-password --gecos '' appuser \
+    && chown -R appuser:appuser /app
 USER appuser
 
 # Expose port
