@@ -3,9 +3,10 @@ AI Agent Platform Backend
 FastAPI application for managing AI agents, tools, and integrations
 """
 
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer
+from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 import uvicorn
 from loguru import logger
@@ -50,6 +51,27 @@ app = FastAPI(
     redoc_url="/redoc",
     lifespan=lifespan
 )
+
+# Global exception handler
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Global exception handler to catch any unhandled exceptions"""
+    logger.error(f"🔴 Global exception handler caught: {type(exc).__name__}: {exc}")
+    logger.error(f"🔴 Request URL: {request.url}")
+    logger.error(f"🔴 Request method: {request.method}")
+    logger.error(f"🔴 Request headers: {dict(request.headers)}")
+    
+    import traceback
+    logger.error(f"🔴 Full traceback: {traceback.format_exc()}")
+    
+    # Return 500 instead of 403 for debugging
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": f"Internal server error: {type(exc).__name__}: {str(exc)}",
+            "error_type": type(exc).__name__
+        }
+    )
 
 # CORS middleware - Use settings for configuration
 app.add_middleware(

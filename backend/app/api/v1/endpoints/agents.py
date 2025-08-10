@@ -287,6 +287,7 @@ async def list_agents(
     db: AsyncSession = Depends(get_db)
 ):
     """List all agents for the current user"""
+    print(f"🚀 ENTERING list_agents endpoint for user {current_user.id} ({current_user.email})")
     print(f"🔍 list_agents called for user {current_user.id} ({current_user.email})")
     
     try:
