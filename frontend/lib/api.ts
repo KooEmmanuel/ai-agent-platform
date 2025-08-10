@@ -506,8 +506,8 @@ class ApiClient {
   }
 }
 
-// Create a singleton instance
-export const apiClient = new ApiClient()
+// Create a singleton instance with empty base URL for relative routing
+export const apiClient = new ApiClient('')
 
 // Initialize API client with current user's token
 export const initializeApiClient = async () => {

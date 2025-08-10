@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
     // Forward the request to our backend
     const response = await fetch(`${API_BASE_URL}api/v1/integrations/`, {
       method: 'GET',
+      redirect: 'follow', // Follow redirects
       headers: {
         'Authorization': authHeader,
         'Content-Type': 'application/json',
@@ -64,6 +65,7 @@ export async function POST(request: NextRequest) {
     // Forward the request to our backend
     const response = await fetch(targetUrl, {
       method: 'POST',
+      redirect: 'follow', // Follow redirects
       headers: {
         'Authorization': authHeader,
         'Content-Type': 'application/json',
