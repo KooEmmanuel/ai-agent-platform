@@ -3,7 +3,7 @@ Main API router for v1 endpoints
 """
 
 from fastapi import APIRouter
-from app.api.v1.endpoints import auth, agents, tools, integrations, playground, credits, whatsapp, email, telegram, web_widget, analytics, users, notifications, billing
+from app.api.v1.endpoints import auth, agents, tools, integrations, playground, credits, whatsapp, email, telegram, web_widget, analytics, users, notifications, billing, conversations
 
 api_router = APIRouter()
 
@@ -20,4 +20,5 @@ api_router.include_router(web_widget.router, prefix="/web-widget", tags=["web-wi
 api_router.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
 api_router.include_router(users.router, prefix="/users", tags=["users"])
 api_router.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
-api_router.include_router(billing.router, prefix="/billing", tags=["billing"]) 
+api_router.include_router(billing.router, prefix="/billing", tags=["billing"])
+api_router.include_router(conversations.router, prefix="/conversations", tags=["conversations"]) 
