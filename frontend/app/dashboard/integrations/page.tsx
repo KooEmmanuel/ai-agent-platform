@@ -16,10 +16,8 @@ import {
   EllipsisVerticalIcon
 } from '@heroicons/react/24/outline'
 
-// Use Railway URL in production, localhost in development
-const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://kwickbuild.up.railway.app'
-  : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000')
+// Use Next.js API routes instead of direct backend calls
+const API_BASE_URL = '/api'
 
 interface Integration {
   id: number
@@ -119,7 +117,7 @@ export default function IntegrationsPage() {
         return
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/v1/integrations`, {
+      const response = await fetch(`${API_BASE_URL}/integrations`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
 
@@ -142,7 +140,7 @@ export default function IntegrationsPage() {
       const token = localStorage.getItem('auth_token')
       if (!token) return
 
-      const response = await fetch(`${API_BASE_URL}/api/v1/integrations/${integrationId}`, {
+      const response = await fetch(`${API_BASE_URL}/integrations/${integrationId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       })
@@ -166,7 +164,7 @@ export default function IntegrationsPage() {
       const integration = integrations.find(i => i.id === parseInt(integrationId))
       if (!integration) return
 
-      const response = await fetch(`${API_BASE_URL}/api/v1/integrations/${integrationId}`, {
+      const response = await fetch(`${API_BASE_URL}/integrations/${integrationId}`, {
         method: 'PUT',
         headers: { 
           'Authorization': `Bearer ${token}`,
