@@ -21,7 +21,7 @@ install.sh
 install.bat
 pyproject.toml
 env.example
-requirements.txt
+/requirements.txt
 
 # Build outputs
 .next/
