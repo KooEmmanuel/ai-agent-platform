@@ -211,13 +211,10 @@ async def add_tool_to_collection(
     db: AsyncSession = Depends(get_db)
 ):
     """Add a tool to user's collection"""
-    # Check if tool exists and is public
-    result = await db.execute(
-        select(Tool).where(Tool.id == tool_id, Tool.is_public == True, Tool.is_active == True)
-    )
-    tool = result.scalar_one_or_none()
+    # Check if tool exists in marketplace tools
+    tool_data = marketplace_tools_service.get_tool_by_id(tool_id)
     
-    if not tool:
+    if not tool_data or not tool_data.get('is_public', True) or not tool_data.get('is_active', True):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Tool not found or not available"
@@ -246,7 +243,7 @@ async def add_tool_to_collection(
     db.add(user_tool)
     await db.commit()
     
-    return {"message": f"Tool '{tool.name}' added to your collection successfully"}
+    return {"message": f"Tool '{tool_data.get('name', 'Unknown')}' added to your collection successfully"}
 
 @router.delete("/{tool_id}/remove-from-collection")
 async def remove_tool_from_collection(
@@ -287,7 +284,37 @@ async def get_tool(
     db: AsyncSession = Depends(get_db)
 ):
     """Get a specific tool"""
-    # Get tool
+    # First check if it's a marketplace tool
+    tool_data = marketplace_tools_service.get_tool_by_id(tool_id)
+    
+    if tool_data:
+        # It's a marketplace tool
+        # Check if user has this tool in their collection
+        user_tool_result = await db.execute(
+            select(UserTool).where(
+                UserTool.user_id == current_user.id,
+                UserTool.tool_id == tool_id
+            )
+        )
+        user_tool = user_tool_result.scalar_one_or_none()
+        
+        return ToolResponse(
+            id=tool_data.get('id'),
+            name=tool_data.get('name'),
+            description=tool_data.get('description'),
+            category=tool_data.get('category'),
+            tool_type=tool_data.get('tool_type'),
+            config=tool_data.get('config', {}),
+            parameters=tool_data.get('config', {}).get('parameters') if tool_data.get('config') else None,
+            is_public=tool_data.get('is_public', True),
+            is_active=tool_data.get('is_active', True),
+            created_at=tool_data.get('created_at', ''),
+            updated_at=tool_data.get('updated_at'),
+            user_id=tool_data.get('user_id', SYSTEM_USER_ID),
+            is_in_user_collection=user_tool is not None
+        )
+    
+    # Check if it's a user-created tool in the database
     result = await db.execute(
         select(Tool).where(Tool.id == tool_id)
     )
