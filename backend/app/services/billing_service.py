@@ -13,6 +13,7 @@ from app.core.database import (
     User, UserCredits, CreditTransaction, UserSubscription, 
     SubscriptionPlan, BillingHistory, Agent, Tool
 )
+from app.services.subscription_plans_service import subscription_plans_service
 
 
 # Credit consumption rates
@@ -102,9 +103,9 @@ class BillingService:
         return 'free'
 
     async def get_plan_limits(self, user_id: int) -> Dict[str, Any]:
-        """Get current plan limits for user"""
+        """Get current plan limits for user from JSON"""
         plan_name = await self.get_user_plan(user_id)
-        return PLAN_LIMITS.get(plan_name, PLAN_LIMITS['free'])
+        return subscription_plans_service.get_plan_limits(plan_name)
 
     async def check_agent_limit(self, user_id: int) -> Dict[str, Any]:
         """Check if user can create more agents"""

@@ -13,6 +13,7 @@ import logging
 from app.core.database import get_db, User
 from app.core.auth import get_current_user
 from app.services.billing_service import BillingService
+from app.services.subscription_plans_service import subscription_plans_service
 from app.core.config import settings
 
 # Set up logging
@@ -73,36 +74,43 @@ async def get_plans(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get all available subscription plans"""
-    billing_service = BillingService(db)
-    
-    # Get all plans
-    plans = await billing_service.get_all_plans()
-    
-    # Get user's current plan
-    current_plan_name = await billing_service.get_user_plan(current_user.id)
-    
-    plan_list = []
-    for plan in plans:
-        plan_info = PlanInfo(
-            id=plan.id,
-            name=plan.name,
-            display_name=plan.display_name,
-            description=plan.description or "",
-            price=plan.price,
-            currency=plan.currency,
-            monthly_credits=plan.monthly_credits,
-            max_agents=plan.max_agents,
-            max_custom_tools=plan.max_custom_tools,
-            features=plan.features or [],
-            support_level=plan.support_level,
-            custom_branding=plan.custom_branding,
-            api_access=plan.api_access,
-            is_current=(plan.name == current_plan_name)
+    """Get all available subscription plans from JSON"""
+    try:
+        billing_service = BillingService(db)
+        
+        # Get all active plans from JSON
+        plans_data = subscription_plans_service.get_active_plans()
+        
+        # Get user's current plan
+        current_plan_name = await billing_service.get_user_plan(current_user.id)
+        
+        plan_list = []
+        for plan_data in plans_data:
+            plan_info = PlanInfo(
+                id=plan_data.get('id'),
+                name=plan_data.get('name'),
+                display_name=plan_data.get('display_name'),
+                description=plan_data.get('description', ''),
+                price=plan_data.get('price', 0.0),
+                currency=plan_data.get('currency', 'USD'),
+                monthly_credits=plan_data.get('monthly_credits', 1000),
+                max_agents=plan_data.get('max_agents', 3),
+                max_custom_tools=plan_data.get('max_custom_tools', 0),
+                features=plan_data.get('features', []),
+                support_level=plan_data.get('support_level', 'community'),
+                custom_branding=plan_data.get('custom_branding', False),
+                api_access=plan_data.get('api_access', False),
+                is_current=(plan_data.get('name') == current_plan_name)
+            )
+            plan_list.append(plan_info)
+        
+        return plan_list
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch subscription plans: {str(e)}"
         )
-        plan_list.append(plan_info)
-    
-    return plan_list
 
 
 @router.get("/subscription", response_model=SubscriptionStatus)
