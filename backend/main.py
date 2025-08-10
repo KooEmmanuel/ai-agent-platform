@@ -51,11 +51,16 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS middleware - Allow all origins for web widget embedding
+# CORS middleware - Allow specific origins for production and development
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for web widgets
-    allow_credentials=False,  # Must be False when allow_origins=["*"]
+    allow_origins=[
+        "https://kwickbuild.vercel.app",  # Production frontend
+        "http://localhost:3000",          # Development frontend
+        "http://localhost:3001",          # Alternative dev port
+        "https://kwickbuild.up.railway.app",  # Backend itself
+    ],
+    allow_credentials=True,  # Allow credentials for authentication
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )

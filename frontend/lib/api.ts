@@ -95,8 +95,8 @@ class ApiClient {
         // Get a fresh ID token
         const idToken = await currentUser.getIdToken(true) // force refresh
         
-        // Send to backend to get new access token
-        const response = await fetch(`${this.baseUrl}/api/v1/auth/firebase`, {
+        // Send to Next.js API route to get new access token
+        const response = await fetch(`/api/auth/firebase`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -125,7 +125,8 @@ class ApiClient {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
-    const url = `${this.baseUrl}/api/v1${endpoint}`
+    // Use Next.js API routes instead of direct backend calls to avoid CORS
+    const url = `/api${endpoint.replace('/api/v1', '')}`
     
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
