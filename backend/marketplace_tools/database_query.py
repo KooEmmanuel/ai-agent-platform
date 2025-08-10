@@ -12,7 +12,7 @@ import re
 from typing import Any, Dict, List, Optional, Union
 from datetime import datetime
 import sqlite3
-import psycopg2
+# import psycopg2  # Removed to avoid conflicts with asyncpg
 import mysql.connector
 from sqlalchemy import create_engine, text, inspect
 from sqlalchemy.exc import SQLAlchemyError
