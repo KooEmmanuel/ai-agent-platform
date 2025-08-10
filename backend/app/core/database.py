@@ -70,9 +70,7 @@ try:
         connect_args={
             "server_settings": {
                 "application_name": "ai_agent_platform"
-            },
-            "command_timeout": 60,  # Command timeout
-            "connect_timeout": 30,  # Connect timeout
+            }
         }
     )
     print("✅ Async engine created successfully")
