@@ -41,4 +41,55 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     )
   }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    console.log('🔍 Tools POST API called')
+    
+    const authHeader = request.headers.get('authorization')
+    if (!authHeader) {
+      return NextResponse.json(
+        { error: 'Authorization header required' },
+        { status: 401 }
+      )
+    }
+
+    const body = await request.json()
+    console.log('📄 Request body:', body)
+
+    const targetUrl = `${API_BASE_URL}api/v1/tools/`
+    console.log('🎯 Target URL:', targetUrl)
+
+    // Forward the request to our backend
+    const response = await fetch(targetUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': authHeader,
+        'Content-Type': 'application/json',
+        'User-Agent': 'Kwickbuild-Frontend/1.0',
+      },
+      body: JSON.stringify(body)
+    })
+    
+    console.log('📡 Backend response status:', response.status)
+    
+    const data = await response.json()
+    console.log('📄 Backend response data:', data)
+    
+    if (response.ok) {
+      return NextResponse.json(data)
+    } else {
+      return NextResponse.json(
+        { error: data.detail || 'Failed to create tool' },
+        { status: response.status }
+      )
+    }
+  } catch (error) {
+    console.error('Tools POST API error:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
 } 
