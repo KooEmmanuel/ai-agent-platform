@@ -18,7 +18,7 @@ export interface ToolDoc {
   setupSteps: string[]
 }
 
-export const TOOL_DOCS: Record<string, ToolDoc> = {
+export const TOOL_DOCS: Record<string, ToolDoc> = { 
   // Search Tools (2)
   web_search: {
     name: 'Web Search',
