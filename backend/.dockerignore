@@ -86,6 +86,8 @@ tsconfig.json
 
 # Keep marketplace_tools (needed for backend)
 !marketplace_tools/
+!marketplace_tools.json
+!subscription_plans.json
 
 # Other
 *.md
