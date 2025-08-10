@@ -18,6 +18,17 @@ def get_async_database_url():
     url = settings.DATABASE_URL
     print(f"🔍 Original DATABASE_URL: {url}")
     
+    # Check if it's a Railway internal URL that might have connectivity issues
+    if "railway.internal" in url:
+        print("⚠️  Detected Railway internal URL - checking connectivity...")
+        # Try to extract connection info for debugging
+        try:
+            from urllib.parse import urlparse
+            parsed = urlparse(url)
+            print(f"🔍 Internal URL - Host: {parsed.hostname}, Port: {parsed.port}")
+        except Exception as e:
+            print(f"🔍 Could not parse internal URL: {e}")
+    
     # Handle different PostgreSQL URL formats
     if url.startswith('postgresql://'):
         if '+asyncpg' in url:
@@ -53,12 +64,15 @@ try:
         database_url,
         echo=settings.DEBUG,
         pool_pre_ping=True,
-        pool_size=10,
-        max_overflow=20,
+        pool_size=5,  # Reduced pool size for Railway
+        max_overflow=10,  # Reduced overflow
+        pool_timeout=30,  # Connection timeout
         connect_args={
             "server_settings": {
                 "application_name": "ai_agent_platform"
-            }
+            },
+            "command_timeout": 60,  # Command timeout
+            "connect_timeout": 30,  # Connect timeout
         }
     )
     print("✅ Async engine created successfully")
