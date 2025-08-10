@@ -239,7 +239,10 @@ export default function LandingPage() {
     }
   ]
 
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+  // Use Railway URL in production, localhost in development
+  const API_BASE_URL = process.env.NODE_ENV === 'production' 
+    ? 'https://kwickbuild.up.railway.app'
+    : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000')
 
   const fetchPricingPlans = async () => {
     try {

@@ -48,7 +48,10 @@ interface SubscriptionStatus {
   custom_tools_limit: number
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+// Use Railway URL in production, localhost in development
+const API_BASE_URL = process.env.NODE_ENV === 'production' 
+  ? 'https://kwickbuild.up.railway.app'
+  : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000')
 
 export default function BillingPage() {
   const [credits, setCredits] = useState<Credits | null>(null)
