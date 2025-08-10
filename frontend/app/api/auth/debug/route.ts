@@ -5,22 +5,15 @@ const API_BASE_URL = process.env.NODE_ENV === 'production'
   ? 'https://kwickbuild.up.railway.app'
   : 'http://localhost:8000'
 
-// Log the API URL for debugging
-console.log('API_BASE_URL:', API_BASE_URL)
-
 export async function GET(request: NextRequest) {
   try {
-    console.log('🔍 Agents API called')
+    console.log('🔍 Auth Debug API called')
     console.log('🌐 API_BASE_URL:', API_BASE_URL)
     console.log('🔧 Environment:', process.env.NODE_ENV)
-    console.log('📡 NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL)
     
     const authHeader = request.headers.get('authorization')
     console.log('🔐 Auth header received:', authHeader ? 'Yes' : 'No')
     console.log('🔑 Auth header value:', authHeader ? authHeader.substring(0, 20) + '...' : 'None')
-    
-    // Log all headers for debugging
-    console.log('📋 All request headers:', Object.fromEntries(request.headers.entries()))
     
     if (!authHeader) {
       console.log('❌ No authorization header')
@@ -30,7 +23,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const targetUrl = `${API_BASE_URL}/api/v1/agents`
+    const targetUrl = `${API_BASE_URL}/api/v1/auth/debug`
     console.log('🎯 Target URL:', targetUrl)
 
     // Forward the request to our backend
@@ -57,12 +50,12 @@ export async function GET(request: NextRequest) {
       console.log('❌ Backend error status text:', response.statusText)
       
       return NextResponse.json(
-        { error: data.detail || 'Failed to fetch agents' },
+        { error: data.detail || 'Authentication failed' },
         { status: response.status }
       )
     }
   } catch (error) {
-    console.error('Agents API error:', error)
+    console.error('Auth Debug API error:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

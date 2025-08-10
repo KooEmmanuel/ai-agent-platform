@@ -111,5 +111,20 @@ async def get_current_user_info(
 
 @router.get("/test")
 async def test_auth():
-    """Test endpoint that doesn't require authentication"""
-    return {"message": "Auth endpoint is working", "status": "ok"} 
+    """Test endpoint to check if authentication is working"""
+    return {"message": "Auth endpoint is working", "status": "ok"}
+
+@router.get("/debug")
+async def debug_auth(
+    current_user: User = Depends(get_current_user)
+):
+    """Debug endpoint to check current user"""
+    return {
+        "message": "Authentication successful",
+        "user": {
+            "id": current_user.id,
+            "email": current_user.email,
+            "name": current_user.name,
+            "is_verified": current_user.is_verified
+        }
+    } 
