@@ -619,6 +619,22 @@ class ApiClient {
     // Use Next.js API route for config-schema to avoid CORS issues
     return this.request(`/tools/${toolIdentifier}/config-schema`, {}, true)
   }
+
+  async getToolAgentConfig(toolId: number, agentId: number): Promise<{
+    tool_id: number
+    tool_name: string
+    tool_description: string
+    tool_category: string
+    tool_type: string
+    base_config: Record<string, any>
+    current_config: Record<string, any>
+    is_configured: boolean
+    agent_id: number
+    agent_name: string
+  }> {
+    // Use Next.js API route for agent-config to avoid CORS issues
+    return this.request(`/tools/${toolId}/agent-config?agent_id=${agentId}`, {}, true)
+  }
 }
 
 // Create a singleton instance with the correct base URL

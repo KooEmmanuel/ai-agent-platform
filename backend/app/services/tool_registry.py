@@ -192,6 +192,7 @@ class ToolRegistry:
             Tool class or None if not found
         """
         logger.info(f"🔍 Looking for tool class: '{tool_name}'")
+        logger.info(f"📋 Available tool classes: {list(self.tool_classes.keys())}")
         
         # First, try to find the tool class directly
         if tool_name in self.tool_classes:

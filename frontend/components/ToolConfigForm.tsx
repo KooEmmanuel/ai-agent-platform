@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 interface ConfigField {
   name: string
@@ -13,6 +13,8 @@ interface ConfigField {
   required?: boolean
   sensitive?: boolean
   options?: string[]
+  accept?: string
+  max_size?: string
 }
 
 interface ToolConfigFormProps {
@@ -28,6 +30,7 @@ interface ToolConfigFormProps {
   onSave: (config: Record<string, any>) => void
   onCancel: () => void
   saving?: boolean
+  isConfigured?: boolean
 }
 
 export default function ToolConfigForm({
@@ -36,11 +39,33 @@ export default function ToolConfigForm({
   configSchema,
   onSave,
   onCancel,
-  saving = false
+  saving = false,
+  isConfigured = false
 }: ToolConfigFormProps) {
   const [config, setConfig] = useState<Record<string, any>>(initialConfig)
+  
+  // Debug: Log when config changes
+  console.log('🔧 ToolConfigForm - Current config state:', config)
+  
+  // Special logging for Email Sender
+  if (configSchema && configSchema.tool_name === 'email_sender') {
+    console.log('📧 Email Sender Form - Username in config:', config.username ? 'FOUND' : 'MISSING')
+    console.log('📧 Email Sender Form - Password in config:', config.password ? 'FOUND' : 'MISSING')
+  }
+  
+  // Debug: Track when initialConfig prop changes
+  useEffect(() => {
+    console.log('🔧 ToolConfigForm - initialConfig prop changed:', initialConfig)
+    
+    // Special logging for Email Sender
+    if (configSchema && configSchema.tool_name === 'email_sender') {
+      console.log('📧 Email Sender Form - Username in initialConfig:', initialConfig.username ? 'FOUND' : 'MISSING')
+      console.log('📧 Email Sender Form - Password in initialConfig:', initialConfig.password ? 'FOUND' : 'MISSING')
+    }
+  }, [initialConfig, configSchema])
 
   const handleFieldChange = (fieldName: string, value: any) => {
+    console.log(`🔧 ToolConfigForm: Field ${fieldName} changed to:`, value, typeof value)
     setConfig(prev => ({
       ...prev,
       [fieldName]: value
@@ -131,6 +156,51 @@ export default function ToolConfigForm({
           />
         )
 
+      case 'file':
+        console.log('📁 Rendering file field:', field)
+        const fileValue = config[field.name]
+        const hasExistingFile = fileValue && typeof fileValue === 'string' && fileValue !== 'path/to/credentials.json'
+        
+        return (
+          <div className="space-y-2">
+            <input
+              type="file"
+              accept={field.accept}
+              onClick={() => console.log('📁 File input clicked')}
+              onChange={(e) => {
+                console.log('📁 File input changed:', e.target.files)
+                const file = e.target.files?.[0]
+                if (file) {
+                  console.log('📁 File selected:', file.name, file.size, file.type)
+                  // Check file size
+                  const maxSize = field.max_size ? parseInt(field.max_size.replace('MB', '')) * 1024 * 1024 : 1024 * 1024
+                  if (file.size > maxSize) {
+                    alert(`File size must be less than ${field.max_size || '1MB'}`)
+                    return
+                  }
+                  console.log('📁 Calling handleFieldChange with file:', file)
+                  handleFieldChange(field.name, file)
+                } else {
+                  console.log('📁 No file selected')
+                }
+              }}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              required={field.required}
+              disabled={saving}
+            />
+            {value && (
+              <div className="text-sm text-green-600">
+                ✓ File selected: {value.name || value}
+              </div>
+            )}
+            {hasExistingFile && !value && (
+              <div className="text-sm text-blue-600">
+                ✓ File already uploaded: {fileValue.split('/').pop()}
+              </div>
+            )}
+          </div>
+        )
+
       default:
         return (
           <input
@@ -145,6 +215,9 @@ export default function ToolConfigForm({
     }
   }
 
+  console.log('🔧 ToolConfigForm render - configSchema:', configSchema)
+  console.log('🔧 ToolConfigForm render - config_fields:', configSchema.config_fields)
+  
   return (
     <div className="space-y-6">
       {/* Tool Info */}
@@ -199,7 +272,7 @@ export default function ToolConfigForm({
           disabled={saving}
           className="px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          {saving ? 'Saving...' : 'Save Configuration'}
+          {saving ? 'Saving...' : (isConfigured ? 'Update Configuration' : 'Save Configuration')}
         </button>
       </div>
     </div>

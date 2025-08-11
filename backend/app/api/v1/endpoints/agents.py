@@ -663,6 +663,8 @@ async def get_agent_tools(
     db: AsyncSession = Depends(get_db)
 ):
     """Get tools for a specific agent"""
+    logger.info(f"🔍 Fetching tools for agent ID: {agent_id} (User: {current_user.email})")
+    
     # Get agent
     result = await db.execute(
         select(Agent).where(Agent.id == agent_id, Agent.user_id == current_user.id)
@@ -670,16 +672,43 @@ async def get_agent_tools(
     agent = result.scalar_one_or_none()
     
     if not agent:
+        logger.error(f"❌ Agent not found - ID: {agent_id}, User: {current_user.email}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Agent not found"
         )
     
-    tools = agent.tools or []
+    logger.info(f"✅ Found agent: {agent.name} (ID: {agent.id})")
     
-    return {
+    tools = agent.tools or []
+    logger.info(f"📋 Agent '{agent.name}' has {len(tools)} tools configured")
+    
+    # Log detailed information about each tool
+    if tools:
+        logger.info("🔧 Current tools for this agent:")
+        for i, tool_config in enumerate(tools, 1):
+            logger.info(f"  Tool {i}:")
+            if isinstance(tool_config, dict):
+                if 'tool_id' in tool_config:
+                    logger.info(f"    - Tool ID: {tool_config['tool_id']}")
+                if 'id' in tool_config:
+                    logger.info(f"    - ID: {tool_config['id']}")
+                if 'name' in tool_config:
+                    logger.info(f"    - Name: {tool_config['name']}")
+                if 'custom_config' in tool_config:
+                    logger.info(f"    - Custom Config: {tool_config['custom_config']}")
+                logger.info(f"    - Full Config: {tool_config}")
+            else:
+                logger.info(f"    - Raw Config: {tool_config}")
+    else:
+        logger.warning(f"⚠️ Agent '{agent.name}' has no tools configured")
+    
+    response_data = {
         "agent_id": agent.id,
         "agent_name": agent.name,
         "tools": tools,
         "tool_count": len(tools)
-    } 
+    }
+    
+    logger.info(f"📤 Returning {len(tools)} tools for agent '{agent.name}'")
+    return response_data 

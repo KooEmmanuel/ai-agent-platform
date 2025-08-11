@@ -2,17 +2,27 @@
 Tool marketplace and management endpoints
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+import os
+import json
+import logging
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from typing import List, Optional, Dict, Any
+from sqlalchemy import select, and_
 from pydantic import BaseModel
+import shutil
+from pathlib import Path
 
-from app.core.database import get_db, User, Tool, UserTool, SYSTEM_USER_ID
+from app.core.database import get_db, User, Tool, UserTool, Agent, SYSTEM_USER_ID
 from app.core.auth import get_current_user
 from app.services.marketplace_tools_service import marketplace_tools_service
+from app.services.tool_registry import ToolRegistry
+from app.services.json_tool_loader import json_tool_loader
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 class ToolCreate(BaseModel):
     name: str
@@ -522,6 +532,73 @@ async def get_tool_types():
             detail=f"Failed to fetch tool types: {str(e)}"
         ) 
 
+@router.get("/{tool_identifier}/agent-config")
+async def get_tool_agent_config(
+    tool_identifier: str,
+    agent_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get tool configuration for a specific agent - includes base config and current agent config"""
+    try:
+        # Get tool ID
+        tool_id = int(tool_identifier)
+        
+        # Get base tool configuration from JSON
+        tool_data = json_tool_loader.get_tool_by_id(tool_id)
+        if not tool_data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Tool with ID {tool_id} not found"
+            )
+        
+        # Get agent to check current configuration
+        result = await db.execute(
+            select(Agent).where(Agent.id == agent_id, Agent.user_id == current_user.id)
+        )
+        agent = result.scalar_one_or_none()
+        
+        if not agent:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Agent not found"
+            )
+        
+        # Find current tool configuration in agent's tools
+        current_config = None
+        is_configured = False
+        
+        if agent.tools:
+            for tool_config in agent.tools:
+                if isinstance(tool_config, dict):
+                    config_tool_id = tool_config.get('id') or tool_config.get('tool_id')
+                    if config_tool_id == tool_id:
+                        current_config = tool_config.get('custom_config', {})
+                        is_configured = True
+                        break
+        
+        # Prepare response
+        response = {
+            "tool_id": tool_id,
+            "tool_name": tool_data.get('name'),
+            "tool_description": tool_data.get('description'),
+            "tool_category": tool_data.get('category'),
+            "tool_type": tool_data.get('tool_type'),
+            "base_config": tool_data.get('config', {}),
+            "current_config": current_config or {},
+            "is_configured": is_configured,
+            "agent_id": agent_id,
+            "agent_name": agent.name
+        }
+        
+        return response
+        
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid tool ID"
+        )
+
 @router.get("/{tool_identifier}/config-schema")
 async def get_tool_config_schema(
     tool_identifier: str,
@@ -586,7 +663,6 @@ async def get_tool_config_schema(
             tool_type = tool.tool_type
     
     # Get tool class from registry
-    from app.services.tool_registry import ToolRegistry
     tool_registry = ToolRegistry()
     tool_class = tool_registry.get_tool_class(tool_name)
     
@@ -605,11 +681,20 @@ async def get_tool_config_schema(
         temp_tool = tool_class()
     
     # Get tool info, handling different method names
-    if hasattr(temp_tool, 'get_tool_info'):
-        tool_info = temp_tool.get_tool_info()
-    elif hasattr(temp_tool, 'get_config_schema'):
-        tool_info = temp_tool.get_config_schema()
-    else:
+    tool_info = {}
+    try:
+        if hasattr(temp_tool, 'get_tool_info'):
+            tool_info = temp_tool.get_tool_info()
+        elif hasattr(temp_tool, 'get_config_schema'):
+            tool_info = temp_tool.get_config_schema()
+        else:
+            tool_info = {}
+    except Exception as e:
+        logger.warning(f"Failed to get tool info for {tool_name}: {str(e)}")
+        tool_info = {}
+    
+    # Ensure tool_info is a dictionary
+    if tool_info is None:
         tool_info = {}
     
     # Extract configuration schema from tool's config
@@ -916,11 +1001,12 @@ async def get_tool_config_schema(
             config_schema['config_fields'].extend([
                 {
                     'name': 'credentials_path',
-                    'type': 'text',
-                    'label': 'Google Credentials Path',
-                    'description': 'Path to Google Calendar API credentials JSON file',
+                    'type': 'file',
+                    'label': 'Google Service Account Credentials',
+                    'description': 'Upload your Google Service Account JSON credentials file',
                     'required': True,
-                    'placeholder': 'path/to/credentials.json'
+                    'accept': '.json',
+                    'max_size': '1MB'
                 },
                 {
                     'name': 'token_path',
@@ -1007,7 +1093,7 @@ async def get_tool_config_schema(
             ])
         
         # Data processing tools
-        elif 'csv' in tool.name.lower() or 'data' in tool.name.lower():
+        elif 'csv' in tool_name.lower() or 'data' in tool_name.lower():
             config_schema['config_fields'].extend([
                 {
                     'name': 'encoding',
@@ -1027,7 +1113,7 @@ async def get_tool_config_schema(
             ])
         
         # Email sender specific fields
-        elif 'email' in tool.name.lower():
+        elif 'email' in tool_name.lower():
             config_schema['config_fields'].extend([
                 {
                     'name': 'smtp_server',
@@ -1072,7 +1158,7 @@ async def get_tool_config_schema(
             ])
         
         # Text analyzer specific fields
-        elif 'text' in tool.name.lower() and 'analyzer' in tool.name.lower():
+        elif 'text' in tool_name.lower() and 'analyzer' in tool_name.lower():
             config_schema['config_fields'].extend([
                 {
                     'name': 'max_text_length',
@@ -1104,7 +1190,7 @@ async def get_tool_config_schema(
             ])
         
         # Image processor specific fields
-        elif 'image' in tool.name.lower():
+        elif 'image' in tool_name.lower():
             config_schema['config_fields'].extend([
                 {
                     'name': 'max_file_size_mb',
@@ -1135,7 +1221,7 @@ async def get_tool_config_schema(
             ])
         
         # PDF processor specific fields
-        elif 'pdf' in tool.name.lower():
+        elif 'pdf' in tool_name.lower():
             config_schema['config_fields'].extend([
                 {
                     'name': 'max_file_size_mb',
@@ -1163,7 +1249,7 @@ async def get_tool_config_schema(
             ])
         
         # File processor specific fields
-        elif 'file' in tool.name.lower() and 'processor' in tool.name.lower():
+        elif 'file' in tool_name.lower() and 'processor' in tool_name.lower():
             config_schema['config_fields'].extend([
                 {
                     'name': 'max_file_size_mb',
@@ -1192,7 +1278,7 @@ async def get_tool_config_schema(
             ])
         
         # Database query specific fields
-        elif 'database' in tool.name.lower():
+        elif 'database' in tool_name.lower():
             config_schema['config_fields'].extend([
                 {
                     'name': 'connection_string',
@@ -1224,7 +1310,7 @@ async def get_tool_config_schema(
             ])
         
         # Data visualization specific fields
-        elif 'visualization' in tool.name.lower():
+        elif 'visualization' in tool_name.lower():
             config_schema['config_fields'].extend([
                 {
                     'name': 'default_style',
@@ -1264,7 +1350,7 @@ async def get_tool_config_schema(
             ])
         
         # Statistical analysis specific fields
-        elif 'statistical' in tool.name.lower():
+        elif 'statistical' in tool_name.lower():
             config_schema['config_fields'].extend([
                 {
                     'name': 'confidence_level',
@@ -1297,7 +1383,7 @@ async def get_tool_config_schema(
             ])
         
         # Notification service specific fields
-        elif 'notification' in tool.name.lower():
+        elif 'notification' in tool_name.lower():
             config_schema['config_fields'].extend([
                 {
                     'name': 'default_channel',
@@ -1328,7 +1414,7 @@ async def get_tool_config_schema(
             ])
         
         # Social media specific fields
-        elif 'social' in tool.name.lower():
+        elif 'social' in tool_name.lower():
             config_schema['config_fields'].extend([
                 {
                     'name': 'default_platform',
@@ -1357,7 +1443,7 @@ async def get_tool_config_schema(
             ])
         
         # Translation tools
-        elif 'translation' in tool.name.lower() or 'translate' in tool.name.lower():
+        elif 'translation' in tool_name.lower() or 'translate' in tool_name.lower():
             config_schema['config_fields'].extend([
                 {
                     'name': 'source_language',
@@ -1655,3 +1741,65 @@ async def get_tool_config_schema(
             ])
     
     return config_schema 
+
+@router.post("/upload-credentials")
+async def upload_credentials(
+    file: UploadFile = File(...),
+    tool_name: str = None,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Upload credential files for tools (Google Calendar, etc.)"""
+    try:
+        # Validate file type
+        if not file.filename.endswith('.json'):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Only JSON files are allowed for credentials"
+            )
+        
+        # Validate file size (max 1MB)
+        if file.size and file.size > 1024 * 1024:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="File size must be less than 1MB"
+            )
+        
+        # Create secure directory for user credentials
+        credentials_dir = Path(f"credentials/{current_user.id}")
+        credentials_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Generate unique filename
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"{tool_name}_{timestamp}.json"
+        file_path = credentials_dir / filename
+        
+        # Save file
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        # Validate JSON content
+        try:
+            with open(file_path, 'r') as f:
+                json.load(f)
+        except json.JSONDecodeError:
+            # Delete invalid file
+            file_path.unlink()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid JSON file"
+            )
+        
+        return {
+            "success": True,
+            "file_path": str(file_path),
+            "filename": filename,
+            "message": "Credentials uploaded successfully"
+        }
+        
+    except Exception as e:
+        logging.error(f"Error uploading credentials: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to upload credentials"
+        ) 

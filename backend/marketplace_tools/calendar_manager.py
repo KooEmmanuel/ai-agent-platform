@@ -36,42 +36,57 @@ class CalendarManagerTool(BaseTool):
     
     def __init__(self, config: Dict[str, Any]):
         super().__init__(config)
+        logger.info(f"📅 Initializing Calendar Manager Tool with config: {config}")
+        
         self.credentials_path = config.get('credentials_path', '')
-        self.token_path = config.get('token_path', 'token.pickle')
         self.calendar_id = config.get('calendar_id', 'primary')
         self.scopes = ['https://www.googleapis.com/auth/calendar']
         self.service = None
+        
+        logger.info(f"📅 Calendar Manager config - Credentials path: {self.credentials_path}")
+        logger.info(f"📅 Calendar Manager config - Calendar ID: {self.calendar_id}")
+        logger.info(f"📅 Calendar Manager config - Scopes: {self.scopes}")
         
         # Initialize Google Calendar service
         self._init_service()
     
     def _init_service(self):
-        """Initialize Google Calendar service."""
+        """Initialize Google Calendar service using service account credentials."""
+        logger.info(f"🔧 Initializing Google Calendar service...")
+        logger.info(f"🔧 Credentials path: {self.credentials_path}")
+        
         try:
-            creds = None
-            if os.path.exists(self.token_path):
-                with open(self.token_path, 'rb') as token:
-                    creds = pickle.load(token)
+            if not self.credentials_path:
+                logger.warning("⚠️ No credentials path provided for Google Calendar")
+                logger.warning("⚠️ Calendar Manager will not be able to create events")
+                return
             
-            if not creds or not creds.valid:
-                if creds and creds.expired and creds.refresh_token:
-                    creds.refresh(Request())
-                else:
-                    if not self.credentials_path:
-                        logger.warning("No credentials path provided for Google Calendar")
-                        return
-                    
-                    flow = InstalledAppFlow.from_client_secrets_file(
-                        self.credentials_path, self.scopes)
-                    creds = flow.run_local_server(port=0)
-                
-                with open(self.token_path, 'wb') as token:
-                    pickle.dump(creds, token)
+            # Check if credentials file exists
+            import os
+            if not os.path.exists(self.credentials_path):
+                logger.error(f"❌ Credentials file not found: {self.credentials_path}")
+                logger.error(f"❌ Calendar Manager will not be able to create events")
+                return
             
+            logger.info(f"✅ Credentials file found: {self.credentials_path}")
+            
+            # Load service account credentials from JSON file
+            from google.oauth2 import service_account
+            
+            logger.info(f"🔧 Loading service account credentials...")
+            creds = service_account.Credentials.from_service_account_file(
+                self.credentials_path, 
+                scopes=self.scopes
+            )
+            logger.info(f"✅ Service account credentials loaded successfully")
+            
+            logger.info(f"🔧 Building Google Calendar service...")
             self.service = build('calendar', 'v3', credentials=creds)
+            logger.info("✅ Google Calendar service initialized successfully")
             
         except Exception as e:
-            logger.error(f"Failed to initialize Google Calendar service: {str(e)}")
+            logger.error(f"❌ Failed to initialize Google Calendar service: {str(e)}")
+            logger.error(f"❌ Calendar Manager will not be able to create events")
             self.service = None
     
     async def execute(self, operation: str, **kwargs) -> Dict[str, Any]:
@@ -85,33 +100,76 @@ class CalendarManagerTool(BaseTool):
         Returns:
             Operation result
         """
+        logger.info(f"📅 Calendar Manager execute called with operation: {operation}")
+        logger.info(f"📅 Calendar Manager execute kwargs: {kwargs}")
+        
         if not self.service:
+            logger.error(f"❌ Google Calendar service not available - cannot execute {operation}")
+            logger.error(f"❌ This means the Calendar Manager tool is not properly configured")
             return self._format_error("Google Calendar service not available")
+        
+        logger.info(f"✅ Google Calendar service is available, proceeding with operation: {operation}")
         
         try:
             if operation == "create_event":
+                logger.info(f"📅 Creating calendar event with params: {kwargs}")
                 return await self._create_event(**kwargs)
             elif operation == "list_events":
+                logger.info(f"📅 Listing calendar events with params: {kwargs}")
                 return await self._list_events(**kwargs)
             elif operation == "update_event":
+                logger.info(f"📅 Updating calendar event with params: {kwargs}")
                 return await self._update_event(**kwargs)
             elif operation == "delete_event":
+                logger.info(f"📅 Deleting calendar event with params: {kwargs}")
                 return await self._delete_event(**kwargs)
             elif operation == "check_availability":
+                logger.info(f"📅 Checking calendar availability with params: {kwargs}")
                 return await self._check_availability(**kwargs)
             elif operation == "get_calendars":
+                logger.info(f"📅 Getting calendars with params: {kwargs}")
                 return await self._get_calendars(**kwargs)
             else:
+                logger.error(f"❌ Unsupported calendar operation: {operation}")
                 return self._format_error(f"Unsupported operation: {operation}")
                 
         except Exception as e:
-            logger.error(f"Calendar operation error: {str(e)}")
+            logger.error(f"❌ Calendar operation error: {str(e)}")
+            logger.error(f"❌ Operation: {operation}, Params: {kwargs}")
             return self._format_error(f"Calendar operation failed: {str(e)}")
     
     async def _create_event(self, summary: str, start_time: str, end_time: str,
                            description: Optional[str] = None, location: Optional[str] = None,
                            attendees: Optional[List[str]] = None, reminders: Optional[Dict] = None) -> Dict[str, Any]:
         """Create a calendar event."""
+        logger.info(f"📅 Creating calendar event...")
+        logger.info(f"📅 Summary: {summary}")
+        logger.info(f"📅 Start time: {start_time}")
+        logger.info(f"📅 End time: {end_time}")
+        logger.info(f"📅 Description: {description}")
+        logger.info(f"📅 Location: {location}")
+        logger.info(f"📅 Attendees: {attendees}")
+        logger.info(f"📅 Calendar ID: {self.calendar_id}")
+        
+        # Fix invalid time formats (24:00:00 -> 00:00:00)
+        if '24:00:00' in start_time:
+            start_time = start_time.replace('24:00:00', '00:00:00')
+            logger.info(f"🔧 Fixed start time: {start_time}")
+        if '24:00:00' in end_time:
+            end_time = end_time.replace('24:00:00', '00:00:00')
+            logger.info(f"🔧 Fixed end time: {end_time}")
+        
+        # Additional time validation
+        try:
+            from datetime import datetime
+            # Try to parse the times to ensure they're valid
+            datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+            datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+            logger.info(f"✅ Time formats are valid")
+        except ValueError as e:
+            logger.error(f"❌ Invalid time format: {str(e)}")
+            raise Exception(f"Invalid time format: {str(e)}")
+        
         try:
             event = {
                 'summary': summary,
@@ -127,11 +185,15 @@ class CalendarManagerTool(BaseTool):
                 },
             }
             
+            logger.info(f"📅 Event object created: {event}")
+            
             if attendees:
                 event['attendees'] = [{'email': email} for email in attendees]
+                logger.info(f"📅 Added attendees: {event['attendees']}")
             
             if reminders:
                 event['reminders'] = reminders
+                logger.info(f"📅 Using custom reminders: {reminders}")
             else:
                 event['reminders'] = {
                     'useDefault': False,
@@ -140,12 +202,20 @@ class CalendarManagerTool(BaseTool):
                         {'method': 'popup', 'minutes': 10},
                     ],
                 }
+                logger.info(f"📅 Using default reminders: {event['reminders']}")
+            
+            logger.info(f"📅 Final event object: {event}")
+            logger.info(f"📅 Calling Google Calendar API to insert event...")
             
             event = self.service.events().insert(
                 calendarId=self.calendar_id,
                 body=event,
                 sendUpdates='all'
             ).execute()
+            
+            logger.info(f"✅ Event created successfully!")
+            logger.info(f"✅ Event ID: {event['id']}")
+            logger.info(f"✅ Event HTML Link: {event['htmlLink']}")
             
             metadata = {
                 'operation': 'create_event',
@@ -162,6 +232,8 @@ class CalendarManagerTool(BaseTool):
             }, metadata)
             
         except Exception as e:
+            logger.error(f"❌ Error creating calendar event: {str(e)}")
+            logger.error(f"❌ Event details - Summary: {summary}, Start: {start_time}, End: {end_time}")
             raise Exception(f"Error creating event: {str(e)}")
     
     async def _list_events(self, max_results: int = 10, time_min: Optional[str] = None,
@@ -429,7 +501,14 @@ class CalendarManagerTool(BaseTool):
         Returns:
             Tool information dictionary
         """
-        return {
+        logger.info(f"📅 Calendar Manager get_tool_info called")
+        logger.info(f"📅 Tool name: {self.name}")
+        logger.info(f"📅 Tool description: {self.description}")
+        logger.info(f"📅 Tool category: {self.category}")
+        logger.info(f"📅 Tool type: {self.tool_type}")
+        logger.info(f"📅 Service available: {self.service is not None}")
+        
+        tool_info = {
             'name': self.name,
             'description': self.description,
             'category': self.category,

@@ -143,6 +143,7 @@ export default function AgentToolsPage() {
   const [saving, setSaving] = useState(false)
   const [configSchema, setConfigSchema] = useState<any>(null)
   const [loadingSchema, setLoadingSchema] = useState(false)
+  const [isToolConfigured, setIsToolConfigured] = useState(false)
 
   const categories = [
     'All',
@@ -180,12 +181,15 @@ export default function AgentToolsPage() {
     }
   }
 
+  //log Agent tools
   const loadAgentTools = async () => {
     try {
       const agentToolsData = await apiClient.getAgentTools(parseInt(agentId))
+      console.log('🔍 Agent tools:', agentToolsData.tools)
       setAgentTools(agentToolsData.tools.map((tool: any) => ({
         ...tool,
         is_configured: Object.keys(tool.custom_config || {}).length > 0
+
       })))
     } catch (error) {
       console.error('Error loading agent tools:', error)
@@ -300,39 +304,122 @@ export default function AgentToolsPage() {
   const handleConfigureTool = async (tool: AgentTool) => {
     console.log('🔧 Configuring tool:', { id: tool.id, name: tool.name, description: tool.description })
     setConfiguringTool(tool)
-    setToolConfig(tool.custom_config || {})
     setShowConfigureModal(true)
     
-    // Fetch tool configuration schema using tool name instead of ID
     setLoadingSchema(true)
     try {
+      // Get agent config data (includes base config, current config, and is_configured flag)
+      const agentConfigData = await apiClient.getToolAgentConfig(tool.id, parseInt(agentId))
+      console.log('🔧 Agent config data:', agentConfigData)
+      
+      // Get tool configuration schema
       const schema = await apiClient.getToolConfigSchema(tool.name)
       setConfigSchema(schema)
       
-      // Initialize config with defaults from schema
-      const defaultConfig: Record<string, any> = {}
+      // Initialize config with current config, then base config defaults
+      let initialConfig: Record<string, any> = {}
+      
+      // First, add base config defaults
+      if (agentConfigData.base_config) {
+        initialConfig = { ...agentConfigData.base_config }
+      }
+      
+      // Then, override with current config (user's saved configuration)
+      if (agentConfigData.current_config) {
+        initialConfig = { ...initialConfig, ...agentConfigData.current_config }
+      }
+      
+      // Finally, add any schema defaults that aren't already set
       schema.config_fields.forEach((field: any) => {
-        if (field.default !== undefined && !(field.name in (tool.custom_config || {}))) {
-          defaultConfig[field.name] = field.default
+        if (field.default !== undefined && !(field.name in initialConfig)) {
+          initialConfig[field.name] = field.default
         }
       })
       
-      setToolConfig(prev => ({ ...prev, ...defaultConfig }))
+      // Don't overwrite if we already have a File object in the current config
+      const currentConfig = toolConfig
+      if (currentConfig && Object.keys(currentConfig).length > 0) {
+        // Preserve any File objects that are already in the form
+        for (const [key, value] of Object.entries(currentConfig)) {
+          if (value instanceof File) {
+            initialConfig[key] = value
+          }
+        }
+      }
+      
+      setToolConfig(initialConfig)
+      
+      // Log configuration status
+      if (agentConfigData.is_configured) {
+        console.log('✅ Tool is already configured with custom settings')
+        setIsToolConfigured(true)
+      } else {
+        console.log('ℹ️ Tool is not configured yet, using default settings')
+        setIsToolConfigured(false)
+      }
+      
     } catch (error) {
-      console.error('Error loading tool schema:', error)
+      console.error('Error loading tool configuration:', error)
       setConfigSchema(null)
     } finally {
       setLoadingSchema(false)
     }
   }
 
-  const saveToolConfiguration = async () => {
+  const saveToolConfiguration = async (configToSave?: Record<string, any>) => {
     if (!configuringTool) return
     
     setSaving(true)
     try {
+      // Use provided config or fall back to toolConfig state
+      const configData = configToSave || toolConfig
+      
+      // Handle file uploads first
+      const processedConfig = { ...configData }
+      
+                      console.log('🔧 Processing tool config:', configData)
+        
+        // Special logging for Email Sender
+        if (configuringTool && configuringTool.name === 'email_sender') {
+          console.log('📧 Email Sender - Processing configuration...')
+          console.log('📧 Email Sender - Username field:', configData.username ? 'FOUND' : 'MISSING')
+          console.log('📧 Email Sender - Password field:', configData.password ? 'FOUND' : 'MISSING')
+        }
+        
+        for (const [key, value] of Object.entries(configData)) {
+          console.log(`🔧 Processing field ${key}:`, value, typeof value)
+        if (value instanceof File) {
+          console.log(`📁 Found file to upload: ${value.name} (${value.size} bytes)`)
+          // Upload the file
+          const formData = new FormData()
+          formData.append('file', value)
+          formData.append('tool_name', configuringTool.name || 'calendar_manager')
+          
+          console.log('📤 Uploading file to:', '/api/tools/upload-credentials')
+          const uploadResponse = await fetch('/api/tools/upload-credentials', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+            },
+            body: formData
+          })
+          
+          console.log('📡 Upload response status:', uploadResponse.status)
+          
+          if (!uploadResponse.ok) {
+            const errorText = await uploadResponse.text()
+            console.error('❌ Upload failed:', errorText)
+            throw new Error(`Failed to upload credentials file: ${errorText}`)
+          }
+          
+          const uploadResult = await uploadResponse.json()
+          console.log('✅ Upload successful:', uploadResult)
+          processedConfig[key] = uploadResult.file_path
+        }
+      }
+      
       // Update the tool configuration in the agent using tool name
-      await apiClient.updateToolConfig(parseInt(agentId), configuringTool.name, toolConfig)
+      await apiClient.updateToolConfig(parseInt(agentId), configuringTool.name, processedConfig)
       
       // Reload agent tools to get updated data
       await loadAgentTools()
@@ -697,7 +784,9 @@ export default function AgentToolsPage() {
           >
             <div className="p-6 border-b border-gray-200 flex-shrink-0">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">Configure {configuringTool.name}</h3>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {isToolConfigured ? 'Update Configuration' : 'Configure'} {configuringTool.name}
+                </h3>
                 <Link
                   href={`/dashboard/tools/learn/${getToolTechnicalName(configuringTool.name)}`}
                   target="_blank"
@@ -734,14 +823,16 @@ export default function AgentToolsPage() {
                     configSchema={configSchema}
                     onSave={(updatedConfig) => {
                       setToolConfig(updatedConfig);
-                      saveToolConfiguration();
+                      saveToolConfiguration(updatedConfig);
                     }}
                     onCancel={() => {
                       setShowConfigureModal(false);
                       setConfiguringTool(null);
                       setToolConfig({});
+                      setIsToolConfigured(false);
                     }}
                     saving={saving}
+                    isConfigured={isToolConfigured}
                   />
                 ) : (
                   <div className="text-center py-8">

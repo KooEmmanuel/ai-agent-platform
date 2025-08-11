@@ -132,4 +132,4 @@ Thumbs.db
 .vercel/
 
 # Local development
-.local/ 
+.local/ credentials/

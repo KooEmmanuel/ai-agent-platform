@@ -38,6 +38,8 @@ class EmailSenderTool(BaseTool):
     
     def __init__(self, config: Dict[str, Any]):
         super().__init__(config)
+        logger.info(f"📧 Initializing Email Sender Tool with config: {config}")
+        
         self.smtp_server = config.get('smtp_server', '')
         self.smtp_port = config.get('smtp_port', 587)
         self.username = config.get('username', '')
@@ -46,6 +48,24 @@ class EmailSenderTool(BaseTool):
         self.use_ssl = config.get('use_ssl', False)
         self.from_email = config.get('from_email', '')
         self.from_name = config.get('from_name', '')
+        
+        # Auto-set from_email from username if not provided
+        # This ensures the tool works even if from_email is not explicitly configured
+        if not self.from_email and self.username:
+            self.from_email = self.username
+            logger.info(f"📧 Auto-set from_email to username: {self.from_email}")
+        
+        # Auto-set from_name if not provided
+        if not self.from_name:
+            self.from_name = "Kwickflow Assistant"
+            logger.info(f"📧 Auto-set from_name: {self.from_name}")
+        
+        logger.info(f"📧 Email Sender config - SMTP Server: {self.smtp_server}")
+        logger.info(f"📧 Email Sender config - SMTP Port: {self.smtp_port}")
+        logger.info(f"📧 Email Sender config - Username: {self.username}")
+        logger.info(f"📧 Email Sender config - Password: {'***' if self.password else 'MISSING'}")
+        logger.info(f"📧 Email Sender config - From Email: {self.from_email}")
+        logger.info(f"📧 Email Sender config - Use TLS: {self.use_tls}")
         
         # Email provider presets
         self.provider_presets = {
@@ -98,6 +118,20 @@ class EmailSenderTool(BaseTool):
         Returns:
             Email sending result
         """
+        logger.info(f"📧 Email Sender execute called")
+        logger.info(f"📧 To emails: {to_emails}")
+        logger.info(f"📧 Subject: {subject}")
+        logger.info(f"📧 Body length: {len(body)} characters")
+        logger.info(f"📧 CC emails: {cc_emails}")
+        logger.info(f"📧 BCC emails: {bcc_emails}")
+        logger.info(f"📧 Attachments: {attachments}")
+        
+        # Check if email configuration is valid
+        if not self._validate_config():
+            logger.error(f"❌ Email configuration is invalid")
+            return self._format_error("Email configuration is invalid. Please check SMTP settings.")
+        
+        logger.info(f"✅ Email configuration is valid, proceeding with sending...")
         if not to_emails:
             return self._format_error("Recipient email is required")
         
@@ -146,8 +180,23 @@ class EmailSenderTool(BaseTool):
     
     def _validate_config(self) -> bool:
         """Validate email configuration."""
+        logger.info(f"📧 Validating email configuration...")
         required_fields = ['smtp_server', 'username', 'password', 'from_email']
-        return all(getattr(self, field) for field in required_fields)
+        
+        for field in required_fields:
+            value = getattr(self, field)
+            logger.info(f"📧 {field}: {value if field != 'password' else '***' if value else 'MISSING'}")
+        
+        is_valid = all(getattr(self, field) for field in required_fields)
+        logger.info(f"📧 Email configuration valid: {is_valid}")
+        
+        if not is_valid:
+            missing_fields = [field for field in required_fields if not getattr(self, field)]
+            logger.error(f"❌ Missing required email configuration fields: {missing_fields}")
+            if 'from_email' in missing_fields and self.username:
+                logger.info(f"💡 Note: from_email will auto-fallback to username ({self.username}) if configured")
+        
+        return is_valid
     
     def _format_email_list(self, emails: Union[str, List[str]]) -> List[str]:
         """Format email addresses into a list."""
@@ -203,15 +252,28 @@ class EmailSenderTool(BaseTool):
         
         # Send email
         try:
-            await aiosmtplib.send(
-                msg,
-                hostname=self.smtp_server,
-                port=self.smtp_port,
-                username=self.username,
-                password=self.password,
-                use_tls=self.use_tls,
-                start_tls=self.use_tls and not self.use_ssl
-            )
+            # For Gmail SMTP on port 587, use start_tls=True
+            # For Gmail SMTP on port 465, use use_tls=True
+            if self.smtp_port == 587:
+                # Port 587 uses STARTTLS
+                await aiosmtplib.send(
+                    msg,
+                    hostname=self.smtp_server,
+                    port=self.smtp_port,
+                    username=self.username,
+                    password=self.password,
+                    start_tls=True
+                )
+            else:
+                # Port 465 uses SSL/TLS
+                await aiosmtplib.send(
+                    msg,
+                    hostname=self.smtp_server,
+                    port=self.smtp_port,
+                    username=self.username,
+                    password=self.password,
+                    use_tls=True
+                )
             
             return {
                 'message': 'Email sent successfully',

@@ -18,6 +18,7 @@ from app.core.database import Agent, Tool, Message, Conversation
 from app.services.credit_service import CreditService
 from app.services.tool_registry import tool_registry
 from app.services.tool_usage_tracker import tool_usage_tracker
+from app.services.json_tool_loader import json_tool_loader
 
 class AgentService:
     def __init__(self, db: AsyncSession):
@@ -231,12 +232,29 @@ class AgentService:
         """Prepare messages for OpenAI API"""
         messages = []
         
-        # System message with agent instructions
+        # Get current date and time
+        from datetime import datetime
+        current_datetime = datetime.now()
+        current_date = current_datetime.strftime("%Y-%m-%d")
+        current_time = current_datetime.strftime("%H:%M:%S")
+        current_timezone = current_datetime.strftime("%Z")
+        day_of_week = current_datetime.strftime("%A")
+        
+        # System message with agent instructions and current date/time
         system_message = f"""You are {agent.name}, an AI agent with the following instructions:
 
 {agent.instructions}
 
-Please respond in a helpful and professional manner. If you have access to tools, use them when appropriate to provide accurate and up-to-date information."""
+#IMPORTANT:
+-it's important to follow the instructions of the agent.
+
+**CURRENT DATE AND TIME CONTEXT:**
+- Current Date: {current_date} ({day_of_week})
+- Current Time: {current_time} {current_timezone}
+- Timezone: {current_timezone}
+
+Please respond in a helpful and professional manner. If you have access to tools, use them when appropriate to provide accurate and up-to-date information. 
+Always consider the current date and time when scheduling appointments, providing information, or making time-sensitive decisions."""
 
         messages.append({"role": "system", "content": system_message})
         
@@ -263,21 +281,34 @@ Please respond in a helpful and professional manner. If you have access to tools
 
     async def _prepare_tools(self, agent: Agent) -> List[Dict[str, Any]]:
         """Prepare tools for the agent"""
+        logger.info(f"🔧 Preparing tools for agent {agent.id} ({agent.name})")
+        logger.info(f"📋 Agent tools configuration: {agent.tools}")
+        
         if not agent.tools:
+            logger.warning(f"⚠️ Agent {agent.id} has no tools configured")
             return []
         
         tools = []
-        for tool_config in agent.tools:
+        logger.info(f"🔄 Processing {len(agent.tools)} tool configurations...")
+        
+        for i, tool_config in enumerate(agent.tools):
+            logger.info(f"🔍 Processing tool config {i+1}: {tool_config}")
             # Get tool details from database if tool_id is provided
             if isinstance(tool_config, dict) and tool_config.get('tool_id'):
+                logger.info(f"🔍 Looking up tool by tool_id: {tool_config['tool_id']}")
                 result = await self.db.execute(
                     select(Tool).where(Tool.id == tool_config['tool_id'])
                 )
                 tool = result.scalar_one_or_none()
                 if tool:
+                    logger.info(f"✅ Found tool: {tool.name} (ID: {tool.id})")
+                else:
+                    logger.error(f"❌ Tool not found in database for tool_id: {tool_config['tool_id']}")
+                if tool:
                     # Get tool parameters from the tool registry
                     tool_class = tool_registry.get_tool_class(tool.name.lower())
                     if tool_class:
+                        logger.info(f"✅ Tool class found for {tool.name}: {tool_class.__name__}")
                         # Create temporary instance to get tool info
                         temp_config = tool.config.copy()
                         temp_config['name'] = tool.name
@@ -294,6 +325,7 @@ Please respond in a helpful and professional manner. If you have access to tools
                                 "parameters": self._get_tool_parameters(tool, tool_info)
                             }
                         })
+                        logger.info(f"✅ Added tool '{tool.name}' to agent's tool list")
                     else:
                         # Fallback to database config
                         tools.append({
@@ -304,40 +336,102 @@ Please respond in a helpful and professional manner. If you have access to tools
                                 "parameters": tool.config.get('parameters', {})
                             }
                         })
+                        logger.info(f"✅ Added tool '{tool.name}' (fallback config) to agent's tool list")
             else:
                 # Handle inline tool configuration
                 # Check if this is a tool with an 'id' field (new format)
                 if isinstance(tool_config, dict) and 'id' in tool_config:
-                    # Get tool from database using the 'id' field
-                    result = await self.db.execute(
-                        select(Tool).where(Tool.id == tool_config['id'])
-                    )
-                    tool = result.scalar_one_or_none()
-                    if tool:
-                        tools.append({
-                            "type": "function",
-                            "function": {
-                                "name": self._sanitize_tool_name(tool.name),
-                                "description": tool.description or f"Tool: {tool.name}",
-                                "parameters": self._get_tool_parameters(tool, {})
-                            }
-                        })
+                    logger.info(f"🔍 Looking up tool by 'id' field: {tool_config['id']}")
+                    # Get tool from JSON instead of database
+                    tool_data = json_tool_loader.get_tool_by_id(tool_config['id'])
+                    logger.info(f"🔍 JSON lookup result for tool ID {tool_config['id']}: {tool_data}")
+                    
+                    if tool_data:
+                        tool_name = tool_data.get('name')
+                        tool_description = tool_data.get('description', '')
+                        tool_config_data = tool_data.get('config', {})
+                        
+                        logger.info(f"✅ Found tool in JSON: {tool_name} (ID: {tool_config['id']})")
+                        
+                        # Try to get tool class from registry
+                        tool_class = tool_registry.get_tool_class(tool_name.lower())
+                        if tool_class:
+                            logger.info(f"✅ Tool class found for {tool_name}: {tool_class.__name__}")
+                            # Create temporary instance to get tool info
+                            # Merge base config with custom config for proper initialization
+                            temp_config = tool_config_data.copy()
+                            if 'custom_config' in tool_config:
+                                logger.info(f"🔧 Merging custom config for tool {tool_name}: {tool_config['custom_config']}")
+                                temp_config.update(tool_config['custom_config'])
+                            temp_config['name'] = tool_name
+                            temp_instance = tool_class(temp_config)
+                            
+                            # Get tool information
+                            tool_info = getattr(temp_instance, 'get_tool_info', lambda: {})()
+                            
+                            tools.append({
+                                "type": "function",
+                                "function": {
+                                    "name": self._sanitize_tool_name(tool_name),
+                                    "description": tool_description or tool_info.get('description', f"Tool: {tool_name}"),
+                                    "parameters": self._get_tool_parameters_from_json(tool_config_data, tool_info)
+                                }
+                            })
+                            logger.info(f"✅ Added tool '{tool_name}' (by ID with class) to agent's tool list")
+                        else:
+                            logger.warning(f"⚠️ Tool class not found for {tool_name}, using fallback")
+                            tools.append({
+                                "type": "function",
+                                "function": {
+                                    "name": self._sanitize_tool_name(tool_name),
+                                    "description": tool_description or f"Tool: {tool_name}",
+                                    "parameters": self._get_tool_parameters_from_json(tool_config_data, {})
+                                }
+                            })
+                            logger.info(f"✅ Added tool '{tool_name}' (by ID fallback) to agent's tool list")
                         continue
+                    else:
+                        logger.error(f"❌ Tool not found in JSON for ID: {tool_config['id']}")
+                        logger.error(f"❌ Falling back to inline tool processing")
                 
                 # Fallback to inline configuration
+                tool_name = tool_config.get('name', 'unknown_tool')
                 tools.append({
                     "type": "function",
                     "function": {
-                        "name": self._sanitize_tool_name(tool_config.get('name', 'unknown_tool')),
+                        "name": self._sanitize_tool_name(tool_name),
                         "description": tool_config.get('description', ''),
                         "parameters": tool_config.get('parameters', {})
                     }
                 })
+                logger.info(f"✅ Added inline tool '{tool_name}' to agent's tool list")
         
+        logger.info(f"🎯 Final tool count for agent '{agent.name}': {len(tools)} tools")
         return tools
 
+    def _get_tool_parameters_from_json(self, tool_config: Dict[str, Any], tool_info: Dict[str, Any]) -> Dict[str, Any]:
+        """Get tool parameters for OpenAI function calling from JSON config"""
+        # Check if we have parameters in the JSON config first
+        if tool_config and 'parameters' in tool_config and isinstance(tool_config['parameters'], dict):
+            json_params = tool_config['parameters']
+            if json_params.get('type') == 'object' and 'properties' in json_params:
+                logger.info(f"Using JSON parameters: {json_params}")
+                return json_params
+        
+        # Fallback to tool_info parameters
+        if tool_info and 'parameters' in tool_info:
+            logger.info(f"Using tool_info parameters: {tool_info['parameters']}")
+            return tool_info['parameters']
+        
+        # Create basic parameters structure
+        return {
+            "type": "object",
+            "properties": {},
+            "required": []
+        }
+    
     def _get_tool_parameters(self, tool: Tool, tool_info: Dict[str, Any]) -> Dict[str, Any]:
-        """Get tool parameters for OpenAI function calling"""
+        """Get tool parameters for OpenAI function calling (legacy database method)"""
         # Check if we have parameters in the database config first
         if tool.config and 'parameters' in tool.config and isinstance(tool.config['parameters'], dict):
             db_params = tool.config['parameters']
@@ -439,7 +533,7 @@ Please respond in a helpful and professional manner. If you have access to tools
             start_time = time.time()
             try:
                 # Execute the tool using the registry
-                tool_result = await self._execute_tool(tool_name, tool_args)
+                tool_result = await self._execute_tool(tool_name, tool_args, agent)
                 execution_time = time.time() - start_time
                 
                 # Log successful tool execution
@@ -512,7 +606,7 @@ Please respond in a helpful and professional manner. If you have access to tools
                 
                 # Execute tool
                 logger.info(f"🔄 Starting tool execution: {tool_name}")
-                tool_result = await self._execute_tool(tool_name, arguments)
+                tool_result = await self._execute_tool(tool_name, arguments, agent)
                 logger.info(f"✅ Tool execution completed: {tool_name}")
                 
                 # Add tool result to messages
@@ -540,50 +634,83 @@ Please respond in a helpful and professional manner. If you have access to tools
         
         return tools_used
 
-    async def _execute_tool(self, tool_name: str, arguments: str) -> str:
+    async def _execute_tool(self, tool_name: str, arguments: str, agent: Agent = None) -> str:
         """Execute a specific tool using the tool registry"""
         try:
             args = json.loads(arguments) if isinstance(arguments, str) else arguments
             
-            # Find tool in database by matching sanitized names
-            result = await self.db.execute(select(Tool))
-            tools = result.scalars().all()
+            # Get tools that are available to this agent from JSON
+            if agent and agent.tools:
+                # Get tool IDs from agent's tool collection
+                tool_ids = []
+                for tool_config in agent.tools:
+                    if isinstance(tool_config, dict):
+                        if 'tool_id' in tool_config:
+                            tool_ids.append(tool_config['tool_id'])
+                        elif 'id' in tool_config:
+                            tool_ids.append(tool_config['id'])
+                
+                # Find the tool in JSON by name
+                tool_data = None
+                for tool_id in tool_ids:
+                    json_tool = json_tool_loader.get_tool_by_id(tool_id)
+                    if json_tool and self._sanitize_tool_name(json_tool.get('name', '')) == tool_name:
+                        tool_data = json_tool
+                        break
+                
+                # If not found by ID, try to find by name directly
+                if not tool_data:
+                    tool_data = json_tool_loader.get_tool_by_name(tool_name)
+            else:
+                # Fallback: search all tools in JSON by name
+                tool_data = json_tool_loader.get_tool_by_name(tool_name)
             
-            tool = None
-            for t in tools:
-                if self._sanitize_tool_name(t.name) == tool_name:
-                    tool = t
-                    break
+            if not tool_data:
+                logger.error(f"Tool '{tool_name}' not found in agent's tool collection")
+                return f"Tool '{tool_name}' not found in agent's tool collection"
             
-            if not tool:
-                logger.error(f"Tool '{tool_name}' not found in database. Available tools: {[t.name for t in tools]}")
-                return f"Tool '{tool_name}' not found in database"
-            
-            logger.info(f"Executing tool: {tool.name} with args: {args}")
+            tool_name_from_json = tool_data.get('name', tool_name)
+            logger.info(f"Executing tool: {tool_name_from_json} with args: {args}")
             
             # Extract operation and other parameters
             operation = args.get('operation')
             tool_params = {k: v for k, v in args.items() if k != 'operation'}
             
+            # Merge agent's custom configuration with base tool configuration from JSON
+            merged_config = tool_data.get('config', {}).copy()
+            
+            # Find the agent's custom config for this tool
+            if agent and agent.tools:
+                for agent_tool_config in agent.tools:
+                    if isinstance(agent_tool_config, dict):
+                        tool_id = agent_tool_config.get('id') or agent_tool_config.get('tool_id')
+                        json_tool_id = tool_data.get('id')
+                        if tool_id == json_tool_id and 'custom_config' in agent_tool_config:
+                            logger.info(f"🔧 Merging custom config for tool {tool_name_from_json}: {agent_tool_config['custom_config']}")
+                            merged_config.update(agent_tool_config['custom_config'])
+                            break
+            
+            logger.info(f"🔧 Final merged config for {tool_name_from_json}: {merged_config}")
+            
             # Execute tool using registry with sanitized name
-            sanitized_tool_name = self._sanitize_tool_name(tool.name)
-            logger.info(f"🔄 Mapping tool: '{tool.name}' -> '{sanitized_tool_name}'")
+            sanitized_tool_name = self._sanitize_tool_name(tool_name_from_json)
+            logger.info(f"🔄 Mapping tool: '{tool_name_from_json}' -> '{sanitized_tool_name}'")
             
             result = await tool_registry.execute_tool(
                 tool_name=sanitized_tool_name,
-                config=tool.config,
+                config=merged_config,  # Use merged config from JSON
                 operation=operation,
                 **tool_params
             )
             
             if result.get('success'):
                 # Return the actual result
-                logger.info(f"Tool {tool.name} executed successfully")
+                logger.info(f"Tool {tool_name_from_json} executed successfully")
                 return str(result.get('result', 'Tool executed successfully'))
             else:
                 # Return error message
                 error_msg = f"Tool execution failed: {result.get('error', 'Unknown error')}"
-                logger.error(f"Tool {tool.name} failed: {error_msg}")
+                logger.error(f"Tool {tool_name_from_json} failed: {error_msg}")
                 return error_msg
                 
         except Exception as e:

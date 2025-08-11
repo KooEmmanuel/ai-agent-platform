@@ -803,6 +803,11 @@
         "smtp_server": "smtp.gmail.com",
         "smtp_port": 587,
         "use_tls": true,
+        "username": "",
+        "password": "",
+        "from_email": "",
+        "from_name": "",
+        "_note": "from_email will auto-fallback to username if not provided",
         "parameters": {
           "type": "object",
           "properties": {
