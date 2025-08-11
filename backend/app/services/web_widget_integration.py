@@ -5,7 +5,7 @@ Handles web widget chat integration and message routing
 
 import asyncio
 import json
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, AsyncGenerator
 from sqlalchemy import select
 from app.core.config import settings
 from app.services.agent_service import AgentService
@@ -98,6 +98,107 @@ class WebWidgetIntegrationService:
         except Exception as e:
             print(f"Error processing widget message: {e}")
             return None
+
+    async def process_widget_message_stream(self, message_data: Dict[str, Any], db: AsyncSession) -> AsyncGenerator[Dict[str, Any], None]:
+        """Process incoming web widget message with streaming response"""
+        try:
+            # Extract message details
+            widget_id = message_data.get('widget_id', '')
+            session_id = message_data.get('session_id', '')
+            user_id = message_data.get('user_id', 'anonymous')
+            message = message_data.get('message', '')
+            domain = message_data.get('domain', '')
+            
+            if not widget_id or not message:
+                yield {"type": "error", "content": "Invalid message data"}
+                return
+            
+            # Find integration by widget ID or domain
+            integration = await self._get_integration_by_widget(widget_id, domain, db)
+            if not integration:
+                yield {"type": "error", "content": "Widget not found"}
+                return
+            
+            # Get the associated agent
+            result = await db.execute(
+                select(Agent).where(Agent.id == integration.agent_id)
+            )
+            agent = result.scalar_one_or_none()
+            
+            if not agent:
+                yield {"type": "error", "content": "Agent not found"}
+                return
+            
+            # Process message with agent using streaming
+            agent_service = AgentService(db)
+            full_response = ""
+            tools_used = []
+            
+            print(f"🔄 Starting streaming for widget message: {message[:50]}...")
+            
+            async for chunk in agent_service.execute_agent_stream(
+                agent=agent,
+                user_message=f"Web chat from {user_id} on {domain}: {message}",
+                session_id=session_id
+            ):
+                chunk_type = chunk.get("type")
+                content = chunk.get("content", "")
+                
+                print(f"📦 Widget stream chunk: {chunk_type} - {content[:50] if content else 'No content'}...")
+                
+                if chunk_type == "content":
+                    full_response += content
+                    yield {"type": "content", "content": content}
+                
+                elif chunk_type == "status":
+                    yield {"type": "status", "content": content}
+                
+                elif chunk_type == "complete":
+                    tools_used = chunk.get("tools_used", [])
+                    full_response = chunk.get("content", full_response)
+                    print(f"✅ Widget stream completed with {len(tools_used)} tools used")
+                    break
+                
+                elif chunk_type == "error":
+                    print(f"❌ Widget stream error: {content}")
+                    yield {"type": "error", "content": content}
+                    return
+            
+            # Consume credits for web widget AI usage
+            from app.services.billing_service import BillingService, CreditRates
+            billing_service = BillingService(db)
+            
+            # Calculate credit consumption
+            credit_amount = CreditRates.INTEGRATION_MESSAGE  # 1 credit for integration message
+            if tools_used:
+                for tool in tools_used:
+                    credit_amount += CreditRates.TOOL_EXECUTION  # 5 credits per tool
+            
+            # Consume credits for the integration owner
+            credit_result = await billing_service.consume_credits(
+                user_id=integration.user_id,  # Charge the integration owner
+                amount=credit_amount,
+                description=f"Web widget chat on {domain}",
+                agent_id=agent.id,
+                tool_used="web_widget"
+            )
+            
+            # If credit consumption fails, return error response
+            if not credit_result['success']:
+                yield {"type": "error", "content": "Sorry, the service is temporarily unavailable due to insufficient credits. Please contact the website owner."}
+                return
+            
+            # Send completion
+            yield {
+                "type": "complete", 
+                "content": full_response, 
+                "agent_name": agent.name, 
+                "session_id": session_id
+            }
+                
+        except Exception as e:
+            print(f"Error processing widget message stream: {e}")
+            yield {"type": "error", "content": f"Error: {str(e)}"}
     
     async def _get_integration_by_widget(self, widget_id: str, domain: str, db: AsyncSession):
         """Get web widget integration by widget ID or domain"""
@@ -220,7 +321,7 @@ class WebWidgetIntegrationService:
     // Modern chat window with playground styling
     const chatWindow = document.createElement('div');
     chatWindow.style.cssText = `
-        width: 400px;
+        width: 500px;
         height: 600px;
         background: white;
         border-radius: 16px;
@@ -249,7 +350,10 @@ class WebWidgetIntegrationService:
         <div style="display: flex; align-items: center;">
             ${{config.avatarUrl ? `<img src="${{config.avatarUrl}}" alt="Avatar" style="width: 32px; height: 32px; border-radius: 50%; margin-right: 12px; object-fit: cover;">` : ''}}
             <div>
-                <div style="font-weight: 600; font-size: 18px; margin-bottom: 4px;">${{config.widgetName}}</div>
+                <div style="font-weight: 600; font-size: 18px; margin-bottom: 4px; display: flex; align-items: center;">
+                    ${{config.widgetName}}
+                    <div style="width: 8px; height: 8px; background: #10B981; border-radius: 50%; margin-left: 8px; box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);"></div>
+                </div>
                 <div style="font-size: 12px; opacity: 0.8;">Online • Ready to help</div>
             </div>
         </div>
@@ -326,7 +430,6 @@ class WebWidgetIntegrationService:
                        transition: border-color 0.2s;
                    " 
                    rows="1"
-                   onkeydown="handleKeyDown(event)"
                    oninput="this.style.height='20px'; this.style.height=Math.min(this.scrollHeight, 120)+'px';"
                    onfocus="this.style.borderColor='{theme_color}'"
                    onblur="this.style.borderColor='#E5E7EB'"
@@ -350,10 +453,40 @@ class WebWidgetIntegrationService:
         </div>
     `;
     
+    // Add powered by footer
+    const poweredByFooter = document.createElement('div');
+    poweredByFooter.style.cssText = `
+        padding: 8px 20px;
+        background: #f8f9fa;
+        border-top: 1px solid rgba(0, 0, 0, 0.06);
+        text-align: center;
+        font-size: 11px;
+        color: #6b7280;
+        font-weight: 500;
+    `;
+    poweredByFooter.innerHTML = `
+        <span style="display: flex; align-items: center; justify-content: center; gap: 4px;">
+            Powered by 
+            <span style="color: {theme_color}; font-weight: 600;">KwickBuild</span>
+        </span>
+    `;
+    
     // Assemble widget
     chatWindow.appendChild(chatHeader);
     chatWindow.appendChild(chatMessages);
     chatWindow.appendChild(chatInput);
+    chatWindow.appendChild(poweredByFooter);
+    
+    // Add event listener for Enter key after the elements are created
+    const textarea = document.getElementById('chat-message-input');
+    if (textarea) {{
+        textarea.addEventListener('keydown', (event) => {{
+            if (event.key === 'Enter' && !event.shiftKey) {{
+                event.preventDefault();
+                document.getElementById('send-message').click();
+            }}
+        }});
+    }}
     
     widgetContainer.appendChild(widgetButton);
     widgetContainer.appendChild(chatWindow);
@@ -558,7 +691,7 @@ class WebWidgetIntegrationService:
     `;
     document.head.appendChild(animationStyle);
     
-    // Enhanced send message functionality
+    // Enhanced send message functionality with streaming support
     async function sendMessage(message) {{
         if (!message.trim()) return;
         
@@ -576,8 +709,16 @@ class WebWidgetIntegrationService:
         chatMessages.scrollTop = chatMessages.scrollHeight;
         
         try {{
-            // Send to API
-            const response = await fetch(config.apiUrl + '/message', {{
+            // Create AI message placeholder (but don't add it yet)
+            let aiMessageElement = null;
+            let fullResponse = '';
+            let isStreaming = false;
+            
+            // Send to streaming API with timeout
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+            
+            const response = await fetch(config.apiUrl + '/message/stream', {{
                 method: 'POST',
                 headers: {{
                     'Content-Type': 'application/json',
@@ -589,10 +730,116 @@ class WebWidgetIntegrationService:
                     message: message,
                     domain: window.location.hostname,
                     timestamp: new Date().toISOString()
-                }})
+                }}),
+                signal: controller.signal
             }});
             
-            const data = await response.json();
+            clearTimeout(timeoutId);
+            
+            if (!response.ok) {{
+                throw new Error(`HTTP error! status: ${{response.status}}`);
+            }}
+            
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            
+            while (true) {{
+                const {{ done, value }} = await reader.read();
+                
+                if (done) break;
+                
+                buffer += decoder.decode(value, {{ stream: true }});
+                const lines = buffer.split('\\n');
+                buffer = lines.pop() || '';
+                
+                for (const line of lines) {{
+                    if (line.startsWith('data: ')) {{
+                        try {{
+                            const data = JSON.parse(line.slice(6));
+                            
+                            if (data.type === 'content') {{
+                                // Remove typing indicator on first content
+                                if (!isStreaming) {{
+                                    const typingEl = document.getElementById('typing-indicator');
+                                    if (typingEl) {{
+                                        chatMessages.removeChild(typingEl);
+                                    }}
+                                    
+                                    // Create AI message element
+                                    aiMessageElement = createAIMessage('');
+                                    chatMessages.appendChild(aiMessageElement);
+                                    isStreaming = true;
+                                }}
+                                
+                                // Add content to message
+                                fullResponse += data.content;
+                                if (aiMessageElement) {{
+                                    // Find the AI message div (the actual message content)
+                                    const aiMessageDiv = aiMessageElement.querySelector('div[style*="background: white"]');
+                                    if (aiMessageDiv) {{
+                                        aiMessageDiv.innerHTML = typeof marked !== 'undefined' ? marked.parse(fullResponse) : fullResponse;
+                                    }}
+                                }}
+                                
+                            }} else if (data.type === 'status') {{
+                                // Update typing indicator with status
+                                const typingEl = document.getElementById('typing-indicator');
+                                if (typingEl) {{
+                                    const statusEl = typingEl.querySelector('span');
+                                    if (statusEl) {{
+                                        statusEl.textContent = data.content;
+                                    }}
+                                }}
+                                
+                            }} else if (data.type === 'complete') {{
+                                // Finalize the message
+                                if (aiMessageElement) {{
+                                    // Find the AI message div (the actual message content)
+                                    const aiMessageDiv = aiMessageElement.querySelector('div[style*="background: white"]');
+                                    if (aiMessageDiv) {{
+                                        aiMessageDiv.innerHTML = typeof marked !== 'undefined' ? marked.parse(data.content) : data.content;
+                                    }}
+                                }}
+                                break;
+                                
+                            }} else if (data.type === 'error') {{
+                                // Remove typing indicator
+                                const typingEl = document.getElementById('typing-indicator');
+                                if (typingEl) {{
+                                    chatMessages.removeChild(typingEl);
+                                }}
+                                
+                                // Show error message
+                                const errorMsg = createAIMessage(data.content || 'Sorry, I encountered an error. Please try again.');
+                                chatMessages.appendChild(errorMsg);
+                                return;
+                            }}
+                            
+                        }} catch (e) {{
+                            console.warn('Failed to parse SSE data:', line, e);
+                        }}
+                    }}
+                }}
+                
+                // Scroll to bottom during streaming
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }}
+            
+            // Remove typing indicator if still showing
+            const typingEl = document.getElementById('typing-indicator');
+            if (typingEl) {{
+                chatMessages.removeChild(typingEl);
+            }}
+            
+            // Ensure AI message is added if streaming didn't start
+            if (!aiMessageElement) {{
+                aiMessageElement = createAIMessage(fullResponse || 'Sorry, I could not process your request.');
+                chatMessages.appendChild(aiMessageElement);
+            }}
+            
+        }} catch (error) {{
+            console.error('Streaming error:', error);
             
             // Remove typing indicator
             const typingEl = document.getElementById('typing-indicator');
@@ -600,19 +847,14 @@ class WebWidgetIntegrationService:
                 chatMessages.removeChild(typingEl);
             }}
             
-            // Add AI response with markdown rendering
-            const aiMsg = createAIMessage(data.response || 'Sorry, I could not process your request.');
-            chatMessages.appendChild(aiMsg);
-            
-        }} catch (error) {{
-            // Remove typing indicator
-            const typingEl = document.getElementById('typing-indicator');
-            if (typingEl) {{
-                chatMessages.removeChild(typingEl);
+            // Show appropriate error message
+            let errorMessage = 'Sorry, I encountered an error. Please try again.';
+            if (error.name === 'AbortError') {{
+                errorMessage = 'Request timed out. Please try again.';
             }}
             
             // Show error message
-            const errorMsg = createAIMessage('Sorry, I encountered an error. Please try again.');
+            const errorMsg = createAIMessage(errorMessage);
             chatMessages.appendChild(errorMsg);
         }}
         
@@ -627,13 +869,7 @@ class WebWidgetIntegrationService:
         }}
     }});
     
-    // Key handler function for textarea
-    function handleKeyDown(event) {{
-        if (event.key === 'Enter' && !event.shiftKey) {{
-            event.preventDefault();
-            document.getElementById('send-message').click();
-        }}
-    }}
+
 }})();
 </script>
 """

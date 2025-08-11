@@ -127,15 +127,31 @@ class ApiClient {
 
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    forceNextJsRoute: boolean = false
   ): Promise<T> {
     // Use backend routes directly for dynamic routes that aren't working in frontend
     // Use frontend routes for static routes that are working
     const isDynamicRoute = endpoint.match(/\/\d+/) // Any route with a numeric ID
     
-    const url = isDynamicRoute 
-      ? `/api/v1${endpoint.replace('/api/v1', '')}`
-      : `/api${endpoint.replace('/api/v1', '')}`
+    let url: string
+    if (forceNextJsRoute || !isDynamicRoute) {
+      // For forced Next.js routes or static routes, use relative URLs that go through Next.js API routes
+      url = `/api${endpoint.replace('/api/v1', '')}`
+    } else {
+      // For dynamic routes, use the full backend URL
+      url = `${this.baseUrl}/api/v1${endpoint.replace('/api/v1', '')}`
+    }
+    
+    console.log('🔍 API Request Details:', {
+      originalEndpoint: endpoint,
+      isDynamicRoute,
+      forceNextJsRoute,
+      baseUrl: this.baseUrl,
+      finalUrl: url,
+      method: options.method || 'GET',
+      hasBody: !!options.body
+    })
     
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -174,7 +190,15 @@ class ApiClient {
     }
 
     if (!response.ok) {
+      console.error('❌ API Request Failed:', {
+        url,
+        status: response.status,
+        statusText: response.statusText
+      })
+      
       const error = await response.json().catch(() => ({ detail: 'Unknown error' }))
+      console.error('❌ Error response:', error)
+      
       throw new Error(error.detail || `HTTP ${response.status}`)
     }
 
@@ -270,16 +294,31 @@ class ApiClient {
 
   // Agent Tools Management
   async addToolToAgent(agentId: number, toolId: number, customConfig?: Record<string, any>): Promise<Agent> {
+    console.log('🌐 API Client: Adding tool to agent', {
+      agentId,
+      toolId,
+      customConfig,
+      endpoint: `/agents/${agentId}/tools`
+    })
+    
     return this.request<Agent>(`/agents/${agentId}/tools`, {
       method: 'POST',
       body: JSON.stringify({ tool_id: toolId, custom_config: customConfig }),
     })
   }
 
-  async removeToolFromAgent(agentId: number, toolId: number): Promise<Agent> {
+  async removeToolFromAgent(agentId: number, toolIdentifier: string | number): Promise<Agent> {
+    const body: any = {}
+    
+    if (typeof toolIdentifier === 'number') {
+      body.tool_id = toolIdentifier
+    } else {
+      body.tool_name = toolIdentifier
+    }
+    
     return this.request<Agent>(`/agents/${agentId}/tools`, {
       method: 'DELETE',
-      body: JSON.stringify({ tool_id: toolId }),
+      body: JSON.stringify(body),
     })
   }
 
@@ -393,6 +432,74 @@ class ApiClient {
     })
   }
 
+  async chatWithAgentStream(
+    agent_id: number,
+    message: string,
+    session_id?: string,
+    onChunk?: (chunk: any) => void,
+    onError?: (error: any) => void,
+    onComplete?: (data: any) => void
+  ): Promise<void> {
+    try {
+      if (!this.token) {
+        throw new Error('No valid authentication token')
+      }
+
+      const response = await fetch(`${this.baseUrl}/api/v1/playground/${agent_id}/chat/stream`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.token}`,
+        },
+        body: JSON.stringify({ message, session_id }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const reader = response.body?.getReader()
+      if (!reader) {
+        throw new Error('No response body')
+      }
+
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6))
+              
+              if (data.type === 'error') {
+                onError?.(data.content)
+                return
+              } else if (data.type === 'complete') {
+                onComplete?.(data)
+                return
+              } else {
+                onChunk?.(data)
+              }
+            } catch (e) {
+              console.warn('Failed to parse SSE data:', line, e)
+            }
+          }
+        }
+      }
+    } catch (error) {
+      onError?.(error)
+    }
+  }
+
   async getPlaygroundConversations(agent_id: number): Promise<Conversation[]> {
     return this.request<Conversation[]>(`/playground/${agent_id}/conversations`)
   }
@@ -472,19 +579,26 @@ class ApiClient {
 
   async updateToolConfig(
     agentId: number,
-    toolId: number,
+    toolIdentifier: string | number,
     customConfig: Record<string, any>
   ): Promise<Agent> {
+    const body: any = {
+      custom_config: customConfig,
+    }
+    
+    if (typeof toolIdentifier === 'number') {
+      body.tool_id = toolIdentifier
+    } else {
+      body.tool_name = toolIdentifier
+    }
+    
     return this.request<Agent>(`/agents/${agentId}/tools`, {
       method: 'PUT',
-      body: JSON.stringify({
-        tool_id: toolId,
-        custom_config: customConfig,
-      }),
+      body: JSON.stringify(body),
     })
   }
 
-  async getToolConfigSchema(toolId: number): Promise<{
+  async getToolConfigSchema(toolIdentifier: string | number): Promise<{
     tool_name: string
     tool_description: string
     parameters: Record<string, any>
@@ -502,12 +616,13 @@ class ApiClient {
       options?: string[]
     }>
   }> {
-    return this.request(`/tools/${toolId}/config-schema`)
+    // Use Next.js API route for config-schema to avoid CORS issues
+    return this.request(`/tools/${toolIdentifier}/config-schema`, {}, true)
   }
 }
 
-// Create a singleton instance with empty base URL for relative routing
-export const apiClient = new ApiClient('')
+// Create a singleton instance with the correct base URL
+export const apiClient = new ApiClient(API_BASE_URL)
 
 // Initialize API client with current user's token
 export const initializeApiClient = async () => {

@@ -522,29 +522,73 @@ async def get_tool_types():
             detail=f"Failed to fetch tool types: {str(e)}"
         ) 
 
-@router.get("/{tool_id}/config-schema")
+@router.get("/{tool_identifier}/config-schema")
 async def get_tool_config_schema(
-    tool_id: int,
+    tool_identifier: str,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get configuration schema for a specific tool"""
-    # Get tool
-    result = await db.execute(
-        select(Tool).where(Tool.id == tool_id)
-    )
-    tool = result.scalar_one_or_none()
+    """Get configuration schema for a specific tool by ID or name"""
+    tool_name = None
+    tool_description = None
+    tool_type = None
     
-    if not tool:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tool not found"
-        )
+    # First try to parse as ID
+    try:
+        tool_id = int(tool_identifier)
+        # Check if it's a marketplace tool
+        tool_data = marketplace_tools_service.get_tool_by_id(tool_id)
+        
+        if tool_data:
+            # It's a marketplace tool
+            tool_name = tool_data.get('name')
+            tool_description = tool_data.get('description')
+            tool_type = tool_data.get('tool_type')
+        else:
+            # Check if it's a database tool
+            result = await db.execute(
+                select(Tool).where(Tool.id == tool_id)
+            )
+            tool = result.scalar_one_or_none()
+            
+            if not tool:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Tool not found"
+                )
+            
+            tool_name = tool.name
+            tool_description = tool.description
+            tool_type = tool.tool_type
+    except ValueError:
+        # Not a number, treat as tool name
+        tool_name = tool_identifier
+        
+        # Check marketplace tools by name
+        tool_data = marketplace_tools_service.get_tool_by_name(tool_name)
+        if tool_data:
+            tool_description = tool_data.get('description')
+            tool_type = tool_data.get('tool_type')
+        else:
+            # Check database tools by name
+            result = await db.execute(
+                select(Tool).where(Tool.name == tool_name)
+            )
+            tool = result.scalar_one_or_none()
+            
+            if not tool:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Tool '{tool_name}' not found"
+                )
+            
+            tool_description = tool.description
+            tool_type = tool.tool_type
     
     # Get tool class from registry
     from app.services.tool_registry import ToolRegistry
     tool_registry = ToolRegistry()
-    tool_class = tool_registry.get_tool_class(tool.name)
+    tool_class = tool_registry.get_tool_class(tool_name)
     
     if not tool_class:
         raise HTTPException(
@@ -553,13 +597,25 @@ async def get_tool_config_schema(
         )
     
     # Create a temporary instance to get tool info
-    temp_tool = tool_class({})
-    tool_info = temp_tool.get_tool_info()
+    try:
+        # Try to instantiate with config parameter first
+        temp_tool = tool_class({})
+    except TypeError:
+        # If that fails, try instantiating without parameters
+        temp_tool = tool_class()
+    
+    # Get tool info, handling different method names
+    if hasattr(temp_tool, 'get_tool_info'):
+        tool_info = temp_tool.get_tool_info()
+    elif hasattr(temp_tool, 'get_config_schema'):
+        tool_info = temp_tool.get_config_schema()
+    else:
+        tool_info = {}
     
     # Extract configuration schema from tool's config
     config_schema = {
-        'tool_name': tool.name,
-        'tool_description': tool.description,
+        'tool_name': tool_name,
+        'tool_description': tool_description,
         'parameters': tool_info.get('parameters', {}),
         'capabilities': tool_info.get('capabilities', []),
         'config_fields': []
@@ -588,7 +644,7 @@ async def get_tool_config_schema(
     ]
     
     # Add tool-specific configuration fields based on tool type
-    if tool.tool_type == 'API':
+    if tool_type == 'API':
         config_schema['config_fields'].extend([
             {
                 'name': 'api_key',
@@ -608,7 +664,7 @@ async def get_tool_config_schema(
         ])
         
         # Weather API specific fields
-        if 'weather' in tool.name.lower():
+        if 'weather' in tool_name.lower():
             config_schema['config_fields'].extend([
                 {
                     'name': 'units',
@@ -624,11 +680,19 @@ async def get_tool_config_schema(
                     'label': 'Language',
                     'description': 'Language for weather descriptions',
                     'default': 'en'
+                },
+                {
+                    'name': 'base_url',
+                    'type': 'text',
+                    'label': 'Base URL',
+                    'description': 'Base URL for API requests',
+                    'default': 'https://api.openweathermap.org/data/2.5',
+                    'placeholder': 'https://api.openweathermap.org/data/2.5'
                 }
             ])
         
         # News search API specific fields
-        elif 'news' in tool.name.lower():
+        elif 'news' in tool_name.lower():
             config_schema['config_fields'].extend([
                 {
                     'name': 'newsapi_key',
@@ -665,7 +729,7 @@ async def get_tool_config_schema(
             ])
         
         # Google Sheets API specific fields
-        elif 'sheets' in tool.name.lower() or 'google' in tool.name.lower():
+        elif 'sheets' in tool_name.lower() or 'google' in tool_name.lower():
             config_schema['config_fields'].extend([
                 {
                     'name': 'credentials_path',
@@ -694,7 +758,7 @@ async def get_tool_config_schema(
             ])
         
         # Payment processor API specific fields
-        elif 'payment' in tool.name.lower():
+        elif 'payment' in tool_name.lower():
             config_schema['config_fields'].extend([
                 {
                     'name': 'stripe_secret_key',
@@ -729,9 +793,106 @@ async def get_tool_config_schema(
                 }
             ])
     
-    elif tool.tool_type == 'Function':
+    elif tool_type == 'web_scraper':
+        # Web scraper specific fields
+        if 'multi_link_scraper' in tool_name.lower() or 'multi_link' in tool_name.lower():
+            config_schema['config_fields'].extend([
+                {
+                    'name': 'links_text',
+                    'type': 'textarea',
+                    'label': 'Website Links',
+                    'description': 'Paste your website links here (one per line or separated by commas). The tool will automatically process them.',
+                    'required': False,
+                    'default': '',
+                    'placeholder': 'https://example.com\nhttps://newsite.com\nhttps://blog.example.com'
+                },
+                {
+                    'name': 'max_content_length',
+                    'type': 'number',
+                    'label': 'Max Content Length',
+                    'description': 'Maximum length of scraped content per page',
+                    'default': 5000,
+                    'min': 1000,
+                    'max': 20000
+                },
+                {
+                    'name': 'relevance_threshold',
+                    'type': 'number',
+                    'label': 'Relevance Threshold',
+                    'description': 'Minimum relevance score to include content (0-1)',
+                    'default': 0.3,
+                    'min': 0.1,
+                    'max': 1.0,
+                    'step': 0.1
+                },
+                {
+                    'name': 'user_agent',
+                    'type': 'text',
+                    'label': 'User Agent',
+                    'description': 'User agent string for web requests',
+                    'default': 'KooAgent Multi-Link Scraper 1.0',
+                    'placeholder': 'KooAgent Multi-Link Scraper 1.0'
+                },
+                {
+                    'name': 'request_delay',
+                    'type': 'number',
+                    'label': 'Request Delay (seconds)',
+                    'description': 'Delay between requests to avoid rate limiting',
+                    'default': 1,
+                    'min': 0.1,
+                    'max': 10,
+                    'step': 0.1
+                },
+                {
+                    'name': '_help',
+                    'type': 'info',
+                    'label': 'How to Use',
+                    'description': 'After configuring this tool, you can add website links through the agent interface. The tool will intelligently scrape content from your configured links based on user queries.',
+                    'default': 'Configure links and start asking questions!'
+                }
+            ])
+        else:
+            # General web scraper configuration
+            config_schema['config_fields'].extend([
+                {
+                    'name': 'user_agent',
+                    'type': 'text',
+                    'label': 'User Agent',
+                    'description': 'User agent string for web requests',
+                    'default': 'KooAgent Web Scraper 1.0',
+                    'placeholder': 'KooAgent Web Scraper 1.0'
+                },
+                {
+                    'name': 'request_delay',
+                    'type': 'number',
+                    'label': 'Request Delay (seconds)',
+                    'description': 'Delay between requests to avoid rate limiting',
+                    'default': 1,
+                    'min': 0.1,
+                    'max': 10,
+                    'step': 0.1
+                },
+                {
+                    'name': 'max_pages',
+                    'type': 'number',
+                    'label': 'Max Pages',
+                    'description': 'Maximum number of pages to scrape',
+                    'default': 10,
+                    'min': 1,
+                    'max': 100
+                },
+                {
+                    'name': 'respect_robots_txt',
+                    'type': 'boolean',
+                    'label': 'Respect robots.txt',
+                    'description': 'Follow robots.txt rules',
+                    'default': True
+                }
+            ])
+    
+    elif tool_type == 'Function':
         # Add function-specific fields
-        if 'web' in tool.name.lower() or 'search' in tool.name.lower():
+        if 'web' in tool_name.lower() or 'search' in tool_name.lower():
             config_schema['config_fields'].extend([
                 {
                     'name': 'safe_search',
@@ -751,7 +912,7 @@ async def get_tool_config_schema(
             ])
         
         # Calendar manager specific fields
-        elif 'calendar' in tool.name.lower():
+        elif 'calendar' in tool_name.lower():
             config_schema['config_fields'].extend([
                 {
                     'name': 'credentials_path',
@@ -789,7 +950,7 @@ async def get_tool_config_schema(
             ])
         
         # Reminder tool specific fields
-        elif 'reminder' in tool.name.lower():
+        elif 'reminder' in tool_name.lower():
             config_schema['config_fields'].extend([
                 {
                     'name': 'storage_file',
@@ -818,7 +979,7 @@ async def get_tool_config_schema(
             ])
         
         # Date calculator specific fields
-        elif 'date' in tool.name.lower() and 'calculator' in tool.name.lower():
+        elif 'date' in tool_name.lower() and 'calculator' in tool_name.lower():
             config_schema['config_fields'].extend([
                 {
                     'name': 'default_timezone',
@@ -1030,45 +1191,6 @@ async def get_tool_config_schema(
                 }
             ])
         
-        # Data scraper specific fields
-        elif 'scraper' in tool.name.lower() or 'scrape' in tool.name.lower():
-            config_schema['config_fields'].extend([
-                {
-                    'name': 'user_agent',
-                    'type': 'text',
-                    'label': 'User Agent',
-                    'description': 'User agent string for web requests',
-                    'default': 'KooAgent Data Scraper 1.0',
-                    'placeholder': 'KooAgent Data Scraper 1.0'
-                },
-                {
-                    'name': 'request_delay',
-                    'type': 'number',
-                    'label': 'Request Delay (seconds)',
-                    'description': 'Delay between requests to avoid rate limiting',
-                    'default': 1,
-                    'min': 0.1,
-                    'max': 10,
-                    'step': 0.1
-                },
-                {
-                    'name': 'max_pages',
-                    'type': 'number',
-                    'label': 'Max Pages',
-                    'description': 'Maximum number of pages to scrape',
-                    'default': 10,
-                    'min': 1,
-                    'max': 100
-                },
-                {
-                    'name': 'respect_robots_txt',
-                    'type': 'boolean',
-                    'label': 'Respect robots.txt',
-                    'description': 'Follow robots.txt rules',
-                    'default': True
-                }
-            ])
-        
         # Database query specific fields
         elif 'database' in tool.name.lower():
             config_schema['config_fields'].extend([
@@ -1253,9 +1375,9 @@ async def get_tool_config_schema(
                 }
             ])
     
-    elif tool.tool_type == 'Webhook':
+    elif tool_type == 'Webhook':
         # Slack integration specific fields
-        if 'slack' in tool.name.lower():
+        if 'slack' in tool_name.lower():
             config_schema['config_fields'].extend([
                 {
                     'name': 'bot_token',
@@ -1292,7 +1414,7 @@ async def get_tool_config_schema(
             ])
         
         # Zapier webhook specific fields
-        elif 'zapier' in tool.name.lower():
+        elif 'zapier' in tool_name.lower():
             config_schema['config_fields'].extend([
                 {
                     'name': 'webhook_url',
@@ -1364,6 +1486,171 @@ async def get_tool_config_schema(
                     'default': 30,
                     'min': 5,
                     'max': 300
+                }
+            ])
+        
+        # PDF Generator specific fields
+        if 'pdf_generator' in tool_name.lower():
+            config_schema['config_fields'].extend([
+                {
+                    'name': 'page_size',
+                    'type': 'select',
+                    'label': 'Page Size',
+                    'description': 'Page size for the PDF',
+                    'options': ['letter', 'A4', 'legal'],
+                    'default': 'A4'
+                },
+                {
+                    'name': 'template',
+                    'type': 'select',
+                    'label': 'Document Template',
+                    'description': 'Document template to use',
+                    'options': ['professional', 'resume', 'report', 'letter', 'minimal'],
+                    'default': 'professional'
+                },
+                {
+                    'name': 'font_size',
+                    'type': 'number',
+                    'label': 'Font Size',
+                    'description': 'Base font size',
+                    'default': 12,
+                    'min': 8,
+                    'max': 24
+                },
+                {
+                    'name': 'line_spacing',
+                    'type': 'number',
+                    'label': 'Line Spacing',
+                    'description': 'Line spacing multiplier',
+                    'default': 1.2,
+                    'min': 1.0,
+                    'max': 2.0,
+                    'step': 0.1
+                },
+                {
+                    'name': 'include_header',
+                    'type': 'boolean',
+                    'label': 'Include Header',
+                    'description': 'Include header with title and date',
+                    'default': True
+                },
+                {
+                    'name': 'include_footer',
+                    'type': 'boolean',
+                    'label': 'Include Footer',
+                    'description': 'Include footer with page numbers',
+                    'default': True
+                },
+                {
+                    'name': 'primary_color',
+                    'type': 'text',
+                    'label': 'Primary Color',
+                    'description': 'Primary color for styling (hex format)',
+                    'default': '#2563eb',
+                    'placeholder': '#2563eb'
+                },
+                {
+                    'name': 'font_family',
+                    'type': 'text',
+                    'label': 'Font Family',
+                    'description': 'Font family for the document',
+                    'default': 'Helvetica',
+                    'placeholder': 'Helvetica'
+                }
+            ])
+        
+        # ChromaDB specific fields
+        elif 'chromadb' in tool_name.lower():
+            config_schema['config_fields'].extend([
+                {
+                    'name': 'collection_name',
+                    'type': 'text',
+                    'label': 'Collection Name',
+                    'description': 'Name of the ChromaDB collection to use',
+                    'default': 'documents',
+                    'required': True,
+                    'placeholder': 'documents'
+                },
+                {
+                    'name': 'embedding_model',
+                    'type': 'text',
+                    'label': 'Embedding Model',
+                    'description': 'Embedding model to use',
+                    'default': 'all-MiniLM-L6-v2',
+                    'placeholder': 'all-MiniLM-L6-v2'
+                },
+                {
+                    'name': 'chunk_size',
+                    'type': 'number',
+                    'label': 'Chunk Size',
+                    'description': 'Size of text chunks for embedding',
+                    'default': 1000,
+                    'min': 100,
+                    'max': 5000
+                },
+                {
+                    'name': 'chunk_overlap',
+                    'type': 'number',
+                    'label': 'Chunk Overlap',
+                    'description': 'Overlap between text chunks',
+                    'default': 200,
+                    'min': 0,
+                    'max': 1000
+                },
+                {
+                    'name': 'persist_directory',
+                    'type': 'text',
+                    'label': 'Persist Directory',
+                    'description': 'Directory to persist ChromaDB data',
+                    'default': './chroma_db',
+                    'placeholder': './chroma_db'
+                }
+            ])
+        
+        # MongoDB Advanced specific fields
+        elif 'mongodb_advanced' in tool_name.lower():
+            config_schema['config_fields'].extend([
+                {
+                    'name': 'connection_string',
+                    'type': 'text',
+                    'label': 'Connection String',
+                    'description': 'MongoDB connection string (mongodb://username:password@host:port/database)',
+                    'required': True,
+                    'sensitive': True,
+                    'placeholder': 'mongodb://username:password@host:port/database'
+                },
+                {
+                    'name': 'database_name',
+                    'type': 'text',
+                    'label': 'Database Name',
+                    'description': 'Name of the database to connect to',
+                    'required': True,
+                    'placeholder': 'my_database'
+                },
+                {
+                    'name': 'max_query_time',
+                    'type': 'number',
+                    'label': 'Max Query Time',
+                    'description': 'Maximum query execution time in seconds',
+                    'default': 30,
+                    'min': 5,
+                    'max': 300
+                },
+                {
+                    'name': 'max_results',
+                    'type': 'number',
+                    'label': 'Max Results',
+                    'description': 'Maximum number of results to return',
+                    'default': 100,
+                    'min': 1,
+                    'max': 10000
+                },
+                {
+                    'name': 'enable_logging',
+                    'type': 'boolean',
+                    'label': 'Enable Logging',
+                    'description': 'Enable query logging',
+                    'default': False
                 }
             ])
     

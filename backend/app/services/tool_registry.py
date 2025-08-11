@@ -37,7 +37,11 @@ from marketplace_tools import (
     StatisticalAnalysisTool,
     ZapierWebhookTool,
     GoogleSheetsIntegrationTool,
-    DateCalculatorTool
+    DateCalculatorTool,
+    MultiLinkScraperTool,
+    ChromaDBTool,
+    MongoDBAdvancedTool,
+    PDFGeneratorTool
 )
 
 logger = logging.getLogger(__name__)
@@ -61,6 +65,9 @@ class ToolRegistry:
             'data_visualization': DataVisualizationTool,
             'statistical_analysis': StatisticalAnalysisTool,
             'data_scraper': DataScraperTool,
+            'multi_link_scraper': MultiLinkScraperTool,
+            'chromadb_tool': ChromaDBTool,
+            'mongodb_advanced': MongoDBAdvancedTool,
             
             # Communication tools
             'email_sender': EmailSenderTool,
@@ -70,6 +77,7 @@ class ToolRegistry:
             # File processing tools
             'file_processor': FileProcessorTool,
             'pdf_processor': PDFProcessorTool,
+            'pdf_generator': PDFGeneratorTool,
             'image_processor': ImageProcessorTool,
             
             # Scheduling tools
@@ -144,6 +152,10 @@ class ToolRegistry:
             'payment_processor_tool': 'payment_processor',
             'text_analyzer_tool': 'text_analyzer',
             'data_scraper_tool': 'data_scraper',
+            'multi_link_scraper_tool': 'multi_link_scraper',
+            'chromadb_tool': 'chromadb_tool',
+            'mongodb_advanced_tool': 'mongodb_advanced',
+            'pdf_generator_tool': 'pdf_generator',
         }
         
         # Database tool name mappings (database names to registry names)
@@ -163,6 +175,10 @@ class ToolRegistry:
             'Google Sheets Integration': 'google_sheets_integration',
             'Text Processor': 'text_analyzer',
             'Date Calculator': 'date_calculator',
+            'Multi Link Scraper': 'multi_link_scraper',
+            'ChromaDB Tool': 'chromadb_tool',
+            'MongoDB Advanced': 'mongodb_advanced',
+            'PDF Generator': 'pdf_generator',
         }
     
     def get_tool_class(self, tool_name: str) -> Optional[Type]:

@@ -20,7 +20,7 @@ interface IntegrationForm {
   webhook_url?: string
 }
 
-import type { Agent } from '../../../../lib/api'
+import type { Agent } from '../../../../lib/api'  
 
 const platforms = [
   {

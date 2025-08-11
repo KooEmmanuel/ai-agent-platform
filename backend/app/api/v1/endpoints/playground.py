@@ -3,11 +3,13 @@ Playground endpoints for testing agents
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 import asyncio
+import json
 
 from app.core.auth import get_current_user
 from app.core.database import get_db, User, Agent, Tool, Conversation, Message
@@ -30,6 +32,165 @@ class ConversationHistory(BaseModel):
     id: str
     messages: List[Dict[str, Any]]
     created_at: str
+
+@router.post("/{agent_id}/chat/stream")
+async def chat_with_agent_stream(
+    agent_id: int,
+    message_data: PlaygroundMessage,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Chat with an agent using Server-Sent Events (SSE) for streaming"""
+    import time
+    start_time = time.time()
+    
+    # Get agent
+    result = await db.execute(
+        select(Agent).where(
+            Agent.id == agent_id,
+            Agent.user_id == current_user.id
+        )
+    )
+    agent = result.scalar_one_or_none()
+    
+    if not agent:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Agent not found"
+        )
+    
+    if not agent.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Agent is not active"
+        )
+    
+    # Get or create conversation
+    session_id = message_data.session_id or f"playground_{agent_id}_{current_user.id}"
+    
+    result = await db.execute(
+        select(Conversation).where(
+            Conversation.agent_id == agent_id,
+            Conversation.session_id == session_id
+        )
+    )
+    conversation = result.scalar_one_or_none()
+    
+    if not conversation:
+        conversation = Conversation(
+            agent_id=agent_id,
+            user_id=current_user.id,
+            session_id=session_id,
+            title=f"Playground Session - {agent.name}"
+        )
+        db.add(conversation)
+        await db.commit()
+        await db.refresh(conversation)
+    
+    # Save user message
+    user_message = Message(
+        conversation_id=conversation.id,
+        role="user",
+        content=message_data.message
+    )
+    db.add(user_message)
+    await db.commit()
+    
+    # Get conversation history for context
+    from app.services.agent_service import AgentService
+    agent_service = AgentService(db)
+    conversation_history = await agent_service.get_conversation_history(conversation.id)
+    
+    async def generate_stream():
+        """Generate SSE stream for agent response"""
+        full_response = ""
+        tools_used = []
+        
+        try:
+            # Stream the agent response
+            async for chunk in agent_service.execute_agent_stream(
+                agent=agent,
+                user_message=message_data.message,
+                conversation_history=conversation_history,
+                session_id=session_id
+            ):
+                chunk_type = chunk.get("type")
+                content = chunk.get("content", "")
+                
+                if chunk_type == "content":
+                    full_response += content
+                    # Send content chunk
+                    yield f"data: {json.dumps({'type': 'content', 'content': content})}\n\n"
+                
+                elif chunk_type == "status":
+                    # Send status update
+                    yield f"data: {json.dumps({'type': 'status', 'content': content})}\n\n"
+                
+                elif chunk_type == "complete":
+                    tools_used = chunk.get("tools_used", [])
+                    # Send completion
+                    yield f"data: {json.dumps({'type': 'complete', 'content': content, 'tools_used': tools_used})}\n\n"
+                    break
+                
+                elif chunk_type == "error":
+                    # Send error
+                    yield f"data: {json.dumps({'type': 'error', 'content': content})}\n\n"
+                    break
+            
+            # Save assistant response to database
+            if full_response:
+                assistant_message = Message(
+                    conversation_id=conversation.id,
+                    role="assistant",
+                    content=full_response
+                )
+                db.add(assistant_message)
+                
+                # Consume credits for AI usage
+                from app.services.billing_service import BillingService, CreditRates
+                billing_service = BillingService(db)
+                
+                # Calculate credit consumption based on new rates
+                credit_amount = CreditRates.AGENT_MESSAGE  # 2 credits per AI response
+                if tools_used:
+                    # Add credits for tool usage
+                    for tool in tools_used:
+                        credit_amount += CreditRates.TOOL_EXECUTION  # 5 credits per tool
+                
+                # Consume credits
+                credit_result = await billing_service.consume_credits(
+                    user_id=current_user.id,
+                    amount=credit_amount,
+                    description=f"AI conversation with {agent.name}",
+                    agent_id=agent.id,
+                    conversation_id=conversation.id,
+                    tool_used="ai_conversation"
+                )
+                
+                # Check if credit consumption failed
+                if not credit_result['success']:
+                    error_msg = f"Insufficient credits: {credit_result.get('error', 'Unknown error')}"
+                    yield f"data: {json.dumps({'type': 'error', 'content': error_msg})}\n\n"
+                    return
+                
+                await db.commit()
+                
+                execution_time = time.time() - start_time
+                yield f"data: {json.dumps({'type': 'metadata', 'execution_time': execution_time, 'session_id': session_id})}\n\n"
+            
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'content': f'Streaming error: {str(e)}'})}\n\n"
+    
+    return StreamingResponse(
+        generate_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Cache-Control"
+        }
+    )
 
 @router.post("/{agent_id}/chat", response_model=PlaygroundResponse)
 async def chat_with_agent(

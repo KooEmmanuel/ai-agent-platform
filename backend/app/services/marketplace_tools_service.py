@@ -60,9 +60,12 @@ class MarketplaceToolsService:
     def get_tool_by_id(self, tool_id: int) -> Optional[Dict[str, Any]]:
         """Get a specific tool by ID"""
         tools = self._load_tools_from_json()
+        
         for tool in tools:
-            if tool.get('id') == tool_id:
+            tool_id_from_json = tool.get('id')
+            if tool_id_from_json == tool_id:
                 return tool
+        
         return None
     
     def get_tool_by_name(self, name: str) -> Optional[Dict[str, Any]]:

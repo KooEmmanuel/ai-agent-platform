@@ -3,10 +3,12 @@ Web Widget integration endpoints
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 from typing import Dict, Any, Optional
 import os
+import json
 
 from app.core.auth import get_current_user
 from app.core.database import get_db, User, Integration
@@ -78,6 +80,65 @@ async def handle_widget_message(
         print(f"Widget message error: {e}")
         raise HTTPException(status_code=500, detail="Failed to process message")
 
+@router.post("/message/stream")
+async def handle_widget_message_stream(
+    message_data: WidgetMessage,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Handle incoming web widget message with streaming response
+    This endpoint receives messages from embedded chat widgets and streams the response
+    """
+    try:
+        widget_service = WebWidgetIntegrationService()
+        
+        # Convert to dict for processing
+        message_dict = message_data.dict()
+        
+        async def generate_stream():
+            """Generate SSE stream for widget response"""
+            try:
+                # Stream the widget response
+                async for chunk in widget_service.process_widget_message_stream(message_dict, db):
+                    chunk_type = chunk.get("type")
+                    content = chunk.get("content", "")
+                    
+                    if chunk_type == "content":
+                        # Send content chunk
+                        yield f"data: {json.dumps({'type': 'content', 'content': content})}\n\n"
+                    
+                    elif chunk_type == "status":
+                        # Send status update
+                        yield f"data: {json.dumps({'type': 'status', 'content': content})}\n\n"
+                    
+                    elif chunk_type == "complete":
+                        # Send completion
+                        yield f"data: {json.dumps({'type': 'complete', 'content': content, 'agent_name': chunk.get('agent_name'), 'session_id': chunk.get('session_id')})}\n\n"
+                        break
+                    
+                    elif chunk_type == "error":
+                        # Send error
+                        yield f"data: {json.dumps({'type': 'error', 'content': content})}\n\n"
+                        break
+                        
+            except Exception as e:
+                yield f"data: {json.dumps({'type': 'error', 'content': f'Streaming error: {str(e)}'})}\n\n"
+        
+        return StreamingResponse(
+            generate_stream(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "Cache-Control"
+            }
+        )
+        
+    except Exception as e:
+        print(f"Widget streaming error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to process streaming message")
+
 @router.get("/script/{integration_id}")
 async def get_widget_script(
     integration_id: int,
@@ -108,6 +169,10 @@ async def get_widget_script(
         config['api_url'] = f"{base_url}/api/v1/web-widget"
         
         script = widget_service.generate_widget_script(config)
+        
+        # Debug logging
+        print(f"Generated script length: {len(script)}")
+        print(f"Script preview (first 100 chars): {script[:100]}")
         
         return {
             "script": script,

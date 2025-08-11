@@ -13,7 +13,7 @@ import {
   ChatBubbleLeftRightIcon,
   ClockIcon
 } from '@heroicons/react/24/outline'
-import { apiClient } from '../../../lib/api'
+import { apiClient } from '../../../lib/api'  
 
 // Use the Agent interface from the API client
 import type { Agent } from '../../../lib/api'

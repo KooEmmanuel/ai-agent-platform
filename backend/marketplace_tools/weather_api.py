@@ -31,7 +31,7 @@ class WeatherAPITool(BaseTool):
     def __init__(self, config: Dict[str, Any]):
         super().__init__(config)
         self.api_key = config.get('api_key', '')
-        self.base_url = "https://api.openweathermap.org/data/2.5"
+        self.base_url = config.get('base_url', 'https://api.openweathermap.org/data/2.5')
         self.units = config.get('units', 'metric')  # metric, imperial, kelvin
         self.language = config.get('language', 'en')
         

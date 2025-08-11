@@ -16,7 +16,8 @@ import {
   CodeBracketIcon,
   ClipboardDocumentIcon,
   EyeIcon,
-  EllipsisVerticalIcon
+  EllipsisVerticalIcon,
+  ArrowPathIcon
 } from '@heroicons/react/24/outline'
 import { useToast } from '../../../../components/ui/Toast'  
 
@@ -140,11 +141,16 @@ export default function IntegrationDetailPage() {
     
     setLoadingEmbedCode(true)
     try {
-      const response = await makeAuthenticatedRequest(`${API_BASE_URL}/v1/web-widget/script/${integrationId}`)
+      // Add timestamp to force fresh fetch and avoid caching
+      const timestamp = Date.now()
+      const response = await makeAuthenticatedRequest(`${API_BASE_URL}/web-widget/script/${integrationId}?t=${timestamp}`)
       
       if (response.ok) {
         const data = await response.json()
-        setEmbedCode(data.script)
+        console.log('🔍 Embed code data:', data)
+        console.log('📄 Script type:', typeof data.script)
+        console.log('📄 Script preview (first 100 chars):', data.script ? data.script.substring(0, 100) : 'No script')
+        setEmbedCode(data.script || '')
       } else {
         console.error('Failed to fetch embed code')
       }
@@ -572,6 +578,18 @@ export default function IntegrationDetailPage() {
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-medium text-gray-900">Embed Code</h3>
               <div className="flex items-center space-x-2">
+                <button
+                  onClick={fetchEmbedCode}
+                  disabled={loadingEmbedCode}
+                  className="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-lg text-purple-700 bg-purple-50 hover:bg-purple-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  {loadingEmbedCode ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600 mr-1"></div>
+                  ) : (
+                    <ArrowPathIcon className="w-4 h-4 mr-1" />
+                  )}
+                  Refresh
+                </button>
                 <button
                   onClick={copyEmbedCode}
                   disabled={!embedCode}

@@ -43,6 +43,8 @@ export default function AgentPlaygroundPage() {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
   const [editInput, setEditInput] = useState('')
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
+  const [streamingMode, setStreamingMode] = useState(true) // Enable streaming by default
+  const [streamingStatus, setStreamingStatus] = useState<string | null>(null)
   const endRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
 
@@ -108,6 +110,7 @@ export default function AgentPlaygroundPage() {
     if (!input.trim() || !agent || sending) return
     setError(null)
     setSending(true)
+    setStreamingStatus(null)
 
     const userMsg: ChatMessage = {
       id: `${Date.now()}_user`,
@@ -118,44 +121,125 @@ export default function AgentPlaygroundPage() {
     setMessages((prev) => [...prev, userMsg])
     setInput('')
 
+    // Create assistant message placeholder for streaming (but don't add it yet)
+    const assistantMsgId = `${Date.now()}_assistant`
+    const assistantMsg: ChatMessage = {
+      id: assistantMsgId,
+      role: 'assistant',
+      content: '',
+      created_at: new Date().toISOString(),
+    }
+
     try {
-      const resp = await apiClient.chatWithAgent(agent.id, userMsg.content, sessionId)
-      if (resp.session_id && typeof window !== 'undefined') {
-        localStorage.setItem(`playground_session_${agent.id}`, resp.session_id)
-        setSessionId(resp.session_id)
-      }
-      // Check if response contains downloadable content
-      let downloadable = undefined
-      let content = resp.response
-      
-      // Check if response is a JSON object with downloadable content
-      try {
-        const responseData = JSON.parse(resp.response)
-        if (responseData.success && responseData.pdf_base64) {
-          // This is a PDF response
-          downloadable = {
-            filename: responseData.filename || 'document.pdf',
-            fileType: 'application/pdf',
-            fileSize: responseData.file_size,
-            showPreview: true
+      if (streamingMode) {
+        // Use streaming mode
+        await apiClient.chatWithAgentStream(
+          agent.id,
+          userMsg.content,
+          sessionId,
+          (chunk) => {
+            // Handle streaming chunks
+            if (chunk.type === 'content') {
+              // Add the message to the list if it's the first content chunk
+              setMessages((prev) => {
+                const existingMessage = prev.find(msg => msg.id === assistantMsgId)
+                if (!existingMessage) {
+                  // First content chunk - add the message
+                  return [...prev, { ...assistantMsg, content: chunk.content }]
+                } else {
+                  // Update existing message
+                  return prev.map((msg) => 
+                    msg.id === assistantMsgId 
+                      ? { ...msg, content: msg.content + chunk.content }
+                      : msg
+                  )
+                }
+              })
+            } else if (chunk.type === 'status') {
+              setStreamingStatus(chunk.content)
+            }
+          },
+          (error) => {
+            setError(error || 'Streaming error occurred')
+            setSending(false)
+          },
+          (data) => {
+            // Handle completion
+            if (data.session_id && typeof window !== 'undefined') {
+              localStorage.setItem(`playground_session_${agent.id}`, data.session_id)
+              setSessionId(data.session_id)
+            }
+            
+            // Check for downloadable content
+            let downloadable = undefined
+            let content = data.content
+            
+            try {
+              const responseData = JSON.parse(data.content)
+              if (responseData.success && responseData.pdf_base64) {
+                downloadable = {
+                  filename: responseData.filename || 'document.pdf',
+                  fileType: 'application/pdf',
+                  fileSize: responseData.file_size,
+                  showPreview: true
+                }
+                content = responseData.pdf_base64
+              }
+            } catch (e) {
+              // Not JSON, treat as regular text response
+            }
+            
+            // Update the final message if it exists, otherwise add it
+            setMessages((prev) => {
+              const existingMessage = prev.find(msg => msg.id === assistantMsgId)
+              if (existingMessage) {
+                return prev.map((msg) => 
+                  msg.id === assistantMsgId 
+                    ? { ...msg, content: content, downloadable: downloadable }
+                    : msg
+                )
+              } else {
+                return [...prev, { ...assistantMsg, content: content, downloadable: downloadable }]
+              }
+            })
+            
+            setStreamingStatus(null)
+            setSending(false)
           }
-          content = responseData.pdf_base64
+        )
+      } else {
+        // Use regular mode
+        const resp = await apiClient.chatWithAgent(agent.id, userMsg.content, sessionId)
+        if (resp.session_id && typeof window !== 'undefined') {
+          localStorage.setItem(`playground_session_${agent.id}`, resp.session_id)
+          setSessionId(resp.session_id)
         }
-      } catch (e) {
-        // Not JSON, treat as regular text response
+        
+        // Check if response contains downloadable content
+        let downloadable = undefined
+        let content = resp.response
+        
+        try {
+          const responseData = JSON.parse(resp.response)
+          if (responseData.success && responseData.pdf_base64) {
+            downloadable = {
+              filename: responseData.filename || 'document.pdf',
+              fileType: 'application/pdf',
+              fileSize: responseData.file_size,
+              showPreview: true
+            }
+            content = responseData.pdf_base64
+          }
+        } catch (e) {
+          // Not JSON, treat as regular text response
+        }
+        
+        // Add the assistant message to the list
+        setMessages((prev) => [...prev, { ...assistantMsg, content: content, downloadable: downloadable }])
+        setSending(false)
       }
-      
-      const aiMsg: ChatMessage = {
-        id: `${Date.now()}_assistant`,
-        role: 'assistant',
-        content: content,
-        created_at: new Date().toISOString(),
-        downloadable: downloadable
-      }
-      setMessages((prev) => [...prev, aiMsg])
     } catch (e: any) {
       setError(e?.message || 'Failed to send message')
-    } finally {
       setSending(false)
     }
   }
@@ -481,7 +565,9 @@ export default function AgentPlaygroundPage() {
                 >
                   <div className="flex items-center gap-2">
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                    <span className="text-sm lg:text-base text-gray-600">Thinking...</span>
+                    <span className="text-sm lg:text-base text-gray-600">
+                      {streamingMode && streamingStatus ? streamingStatus : 'Thinking...'}
+                    </span>
                   </div>
                 </div>
               </motion.div>
@@ -570,6 +656,30 @@ export default function AgentPlaygroundPage() {
                     </option>
                   ))}
                 </select>
+              </div>
+              
+              <div>
+                <label className="flex items-center justify-between">
+                  <span className="block text-sm font-medium text-gray-700">
+                    Streaming Mode
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setStreamingMode(!streamingMode)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                      streamingMode ? 'bg-blue-600' : 'bg-gray-200'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        streamingMode ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </label>
+                <p className="mt-1 text-xs text-gray-500">
+                  Enable real-time streaming for faster response display
+                </p>
               </div>
               
               <div className="flex gap-3 pt-4">

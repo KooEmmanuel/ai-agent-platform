@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Streaming Widget Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 40px;
+            background: #f9fafb;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #1f2937;
+            margin-bottom: 20px;
+        }
+        .info {
+            background: #dbeafe;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            border-left: 4px solid #3b82f6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 Streaming Widget Test</h1>
+        
+        <div class="info">
+            <strong>Test the streaming widget:</strong> This page uses the actual streaming widget script from your backend. 
+            Look for the chat button in the bottom-right corner!
+        </div>
+        
+        <p>The widget should now stream responses in real-time using Server-Sent Events (SSE).</p>
+    </div>
+
+    <!-- AI Agent Chat Widget -->
+    <div id="ai-chat-widget-emmanuelagent"></div>
+    <script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
+    <script>
+    (function() {
+        // Widget configuration
+        const config = {
+            widgetId: 'emmanuelagent',
+            domain: 'mydomain.com',
+            apiUrl: 'http://localhost:8000/api/v1/web-widget',
+            themeColor: '#3B82F6',
+            position: 'bottom-right',
+            greetingMessage: 'Hello I\'m Mercy how can I assist you',
+            widgetName: 'Mercy',
+            avatarUrl: 'https://play-lh.googleusercontent.com/7Ak4Ye7wNUtheIvSKnVgGL_OIZWjGPZNV6TP_3XLxHC-sDHLSE45aDg41dFNmL5COA'
+        };
+        
+        // Markdown renderer setup
+        if (typeof marked !== 'undefined') {
+            marked.setOptions({
+                breaks: true,
+                gfm: true
+            });
+        }
+        
+        // Create widget container
+        const widgetContainer = document.createElement('div');
+        widgetContainer.id = 'ai-chat-widget-container';
+        widgetContainer.style.cssText = `
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 9999;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        `;
+        
+        // Widget button with improved design
+        const widgetButton = document.createElement('div');
+        widgetButton.style.cssText = `
+            width: 64px;
+            height: 64px;
+            background: linear-gradient(135deg, #3B82F6 0%, #3B82F6dd 100%);
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 3px solid rgba(255, 255, 255, 0.2);
+        `;
+        widgetButton.innerHTML = `
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="white">
+                <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
+            </svg>
+        `;
+        
+        // Hover effects for button
+        widgetButton.addEventListener('mouseenter', () => {
+            widgetButton.style.transform = 'scale(1.1)';
+            widgetButton.style.boxShadow = '0 6px 25px rgba(59, 130, 246, 0.4)';
+        });
+        widgetButton.addEventListener('mouseleave', () => {
+            widgetButton.style.transform = 'scale(1)';
+            widgetButton.style.boxShadow = '0 4px 20px rgba(59, 130, 246, 0.3)';
+        });
+        
+        // Modern chat window with playground styling
+        const chatWindow = document.createElement('div');
+        chatWindow.style.cssText = `
+            width: 400px;
+            height: 600px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+            display: none;
+            flex-direction: column;
+            position: absolute;
+            bottom: 80px;
+            right: 0px;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+        `;
+        
+        // Modern chat header with gradient
+        const chatHeader = document.createElement('div');
+        chatHeader.style.cssText = `
+            background: linear-gradient(135deg, #3B82F6 0%, #3B82F6dd 100%);
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        `;
+        chatHeader.innerHTML = `
+            <div style="display: flex; align-items: center;">
+                ${config.avatarUrl ? `<img src="${config.avatarUrl}" alt="Avatar" style="width: 32px; height: 32px; border-radius: 50%; margin-right: 12px; object-fit: cover;">` : ''}
+                <div>
+                    <div style="font-weight: 600; font-size: 18px; margin-bottom: 4px;">${config.widgetName}</div>
+                    <div style="font-size: 12px; opacity: 0.8;">Online • Ready to help</div>
+                </div>
+            </div>
+            <button id="close-chat" style="
+                background: rgba(255, 255, 255, 0.1); 
+                border: none; 
+                color: white; 
+                cursor: pointer; 
+                width: 32px; 
+                height: 32px; 
+                border-radius: 50%; 
+                display: flex; 
+                align-items: center; 
+                justify-content: center;
+                transition: background-color 0.2s;
+                font-size: 18px;
+            " onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">&times;</button>
+        `;
+        
+        // Chat messages area with playground styling
+        const chatMessages = document.createElement('div');
+        chatMessages.style.cssText = `
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+            background: #fafbfc;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        `;
+        
+        // Add welcome message with better styling
+        const welcomeMessage = document.createElement('div');
+        welcomeMessage.style.cssText = `
+            background: white;
+            padding: 16px 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            border: 1px solid rgba(0, 0, 0, 0.04);
+            margin-right: 40px;
+            position: relative;
+        `;
+        welcomeMessage.innerHTML = `
+            <div style="color: #374151; line-height: 1.6;">${config.greetingMessage}</div>
+            <div style="display: flex; align-items: center; margin-top: 8px; color: #9CA3AF; font-size: 12px;">
+                <div style="width: 6px; height: 6px; background: #10B981; border-radius: 50%; margin-right: 6px;"></div>
+                ${config.widgetName}
+            </div>
+        `;
+        chatMessages.appendChild(welcomeMessage);
+        
+        // Modern chat input with playground styling
+        const chatInput = document.createElement('div');
+        chatInput.style.cssText = `
+            padding: 20px;
+            border-top: 1px solid rgba(0, 0, 0, 0.06);
+            background: white;
+        `;
+        chatInput.innerHTML = `
+            <div style="display: flex; gap: 12px; align-items: flex-end;">
+                <textarea id="chat-message-input" placeholder="Type your message..." 
+                       style="
+                           flex: 1; 
+                           padding: 12px 16px; 
+                           border: 1px solid #E5E7EB; 
+                           border-radius: 12px; 
+                           outline: none;
+                           resize: none;
+                           min-height: 20px;
+                           max-height: 120px;
+                           font-family: inherit;
+                           font-size: 14px;
+                           line-height: 1.4;
+                           transition: border-color 0.2s;
+                       " 
+                       rows="1"
+                       onkeydown="handleKeyDown(event)"
+                       oninput="this.style.height='20px'; this.style.height=Math.min(this.scrollHeight, 120)+'px';"
+                       onfocus="this.style.borderColor='#3B82F6'"
+                       onblur="this.style.borderColor='#E5E7EB'"
+                ></textarea>
+                <button id="send-message" style="
+                    background: #3B82F6; 
+                    color: white; 
+                    border: none; 
+                    padding: 12px 20px; 
+                    border-radius: 12px; 
+                    cursor: pointer;
+                    font-weight: 500;
+                    transition: all 0.2s;
+                    min-width: 60px;
+                " onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(59,130,246,0.3)'" 
+                   onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                    </svg>
+                </button>
+            </div>
+        `;
+        
+        // Assemble widget
+        chatWindow.appendChild(chatHeader);
+        chatWindow.appendChild(chatMessages);
+        chatWindow.appendChild(chatInput);
+        
+        widgetContainer.appendChild(widgetButton);
+        widgetContainer.appendChild(chatWindow);
+        document.body.appendChild(widgetContainer);
+        
+        // Widget functionality with smooth animations
+        let isOpen = false;
+        let sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        
+        widgetButton.addEventListener('click', () => {
+            isOpen = !isOpen;
+            if (isOpen) {
+                chatWindow.style.display = 'flex';
+                chatWindow.style.opacity = '0';
+                chatWindow.style.transform = 'scale(0.9)';
+                setTimeout(() => {
+                    chatWindow.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+                    chatWindow.style.opacity = '1';
+                    chatWindow.style.transform = 'scale(1)';
+                }, 10);
+            } else {
+                chatWindow.style.transition = 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)';
+                chatWindow.style.opacity = '0';
+                chatWindow.style.transform = 'scale(0.9)';
+                setTimeout(() => {
+                    chatWindow.style.display = 'none';
+                }, 200);
+            }
+            document.getElementById('chat-message-input').focus();
+        });
+        
+        document.getElementById('close-chat').addEventListener('click', () => {
+            isOpen = false;
+            chatWindow.style.transition = 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)';
+            chatWindow.style.opacity = '0';
+            chatWindow.style.transform = 'scale(0.9)';
+            setTimeout(() => {
+                chatWindow.style.display = 'none';
+            }, 200);
+        });
+        
+        // Enhanced message creation functions
+        function createUserMessage(message) {
+            const messageContainer = document.createElement('div');
+            messageContainer.style.cssText = `
+                display: flex;
+                justify-content: flex-end;
+                margin-bottom: 16px;
+            `;
+            
+            const userMessage = document.createElement('div');
+            userMessage.style.cssText = `
+                background: #3B82F6;
+                color: white;
+                padding: 12px 16px;
+                border-radius: 16px 16px 4px 16px;
+                max-width: 280px;
+                word-wrap: break-word;
+                font-size: 14px;
+                line-height: 1.4;
+                box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+            `;
+            userMessage.textContent = message;
+            messageContainer.appendChild(userMessage);
+            return messageContainer;
+        }
+        
+        function createAIMessage(message) {
+            const messageContainer = document.createElement('div');
+            messageContainer.style.cssText = `
+                display: flex;
+                justify-content: flex-start;
+                margin-bottom: 16px;
+            `;
+            
+            const aiMessage = document.createElement('div');
+            aiMessage.style.cssText = `
+                background: white;
+                color: #374151;
+                padding: 16px 20px;
+                border-radius: 16px 16px 16px 4px;
+                max-width: 280px;
+                word-wrap: break-word;
+                font-size: 14px;
+                line-height: 1.6;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+                border: 1px solid rgba(0, 0, 0, 0.04);
+                position: relative;
+            `;
+            
+            // Add content div for streaming updates
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+            contentDiv.style.cssText = `
+                color: #374151;
+                line-height: 1.6;
+            `;
+            
+            // Render markdown if marked is available
+            if (typeof marked !== 'undefined') {
+                contentDiv.innerHTML = marked.parse(message);
+                // Style markdown elements
+                const style = document.createElement('style');
+                style.textContent = `
+                    #ai-chat-widget-container h1, #ai-chat-widget-container h2, #ai-chat-widget-container h3 {
+                        margin: 8px 0 4px 0;
+                        font-weight: 600;
+                    }
+                    #ai-chat-widget-container p {
+                        margin: 4px 0;
+                    }
+                    #ai-chat-widget-container code {
+                        background: #f3f4f6;
+                        padding: 2px 6px;
+                        border-radius: 4px;
+                        font-size: 12px;
+                    }
+                    #ai-chat-widget-container pre {
+                        background: #f8f9fa;
+                        padding: 12px;
+                        border-radius: 8px;
+                        overflow-x: auto;
+                        margin: 8px 0;
+                    }
+                    #ai-chat-widget-container ul, #ai-chat-widget-container ol {
+                        margin: 8px 0;
+                        padding-left: 20px;
+                    }
+                    #ai-chat-widget-container li {
+                        margin: 4px 0;
+                    }
+                    #ai-chat-widget-container blockquote {
+                        border-left: 3px solid #3B82F6;
+                        margin: 8px 0;
+                        padding-left: 12px;
+                        color: #6b7280;
+                    }
+                `;
+                document.head.appendChild(style);
+            } else {
+                contentDiv.textContent = message;
+            }
+            
+            aiMessage.appendChild(contentDiv);
+            
+            // Add AI indicator
+            const indicator = document.createElement('div');
+            indicator.style.cssText = `
+                display: flex;
+                align-items: center;
+                margin-top: 8px;
+                color: #9CA3AF;
+                font-size: 11px;
+            `;
+            indicator.innerHTML = `
+                <div style="width: 6px; height: 6px; background: #10B981; border-radius: 50%; margin-right: 6px;"></div>
+                ${config.widgetName}
+            `;
+            aiMessage.appendChild(indicator);
+            
+            messageContainer.appendChild(aiMessage);
+            return messageContainer;
+        }
+        
+        function createTypingIndicator() {
+            const messageContainer = document.createElement('div');
+            messageContainer.style.cssText = `
+                display: flex;
+                justify-content: flex-start;
+                margin-bottom: 16px;
+            `;
+            messageContainer.id = 'typing-indicator';
+            
+            const typingMessage = document.createElement('div');
+            typingMessage.style.cssText = `
+                background: white;
+                padding: 16px 20px;
+                border-radius: 16px 16px 16px 4px;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+                border: 1px solid rgba(0, 0, 0, 0.04);
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            `;
+            
+            typingMessage.innerHTML = `
+                <div style="display: flex; gap: 4px;">
+                    <div style="width: 6px; height: 6px; background: #9CA3AF; border-radius: 50%; animation: typing 1.4s infinite ease-in-out;"></div>
+                    <div style="width: 6px; height: 6px; background: #9CA3AF; border-radius: 50%; animation: typing 1.4s infinite ease-in-out 0.2s;"></div>
+                    <div style="width: 6px; height: 6px; background: #9CA3AF; border-radius: 50%; animation: typing 1.4s infinite ease-in-out 0.4s;"></div>
+                </div>
+                <span class="typing-text" style="color: #6B7280; font-size: 13px;">AI is thinking...</span>
+            `;
+            
+            messageContainer.appendChild(typingMessage);
+            return messageContainer;
+        }
+        
+        // Add typing animation styles
+        const animationStyle = document.createElement('style');
+        animationStyle.textContent = `
+            @keyframes typing {
+                0%, 60%, 100% {
+                    transform: translateY(0);
+                    opacity: 0.4;
+                }
+                30% {
+                    transform: translateY(-10px);
+                    opacity: 1;
+                }
+            }
+        `;
+        document.head.appendChild(animationStyle);
+        
+        // Enhanced send message functionality with streaming support
+        async function sendMessage(message) {
+            if (!message.trim()) return;
+            
+            const input = document.getElementById('chat-message-input');
+            input.value = '';
+            input.style.height = '20px';
+            
+            // Add user message
+            const userMsg = createUserMessage(message);
+            chatMessages.appendChild(userMsg);
+            
+            // Add typing indicator
+            const typingIndicator = createTypingIndicator();
+            chatMessages.appendChild(typingIndicator);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            try {
+                // Create AI message placeholder (but don't add it yet)
+                let aiMessageElement = null;
+                let fullResponse = '';
+                let isStreaming = false;
+                
+                // Send to streaming API
+                const response = await fetch(config.apiUrl + '/message/stream', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        widget_id: config.widgetId,
+                        session_id: sessionId,
+                        user_id: 'web_user',
+                        message: message,
+                        domain: window.location.hostname,
+                        timestamp: new Date().toISOString()
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                
+                while (true) {
+                    const { done, value } = await reader.read();
+                    
+                    if (done) break;
+                    
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || '';
+                    
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.slice(6));
+                                
+                                if (data.type === 'content') {
+                                    // Remove typing indicator on first content
+                                    if (!isStreaming) {
+                                        const typingEl = document.getElementById('typing-indicator');
+                                        if (typingEl) {
+                                            chatMessages.removeChild(typingEl);
+                                        }
+                                        
+                                        // Create AI message element
+                                        aiMessageElement = createAIMessage('');
+                                        chatMessages.appendChild(aiMessageElement);
+                                        isStreaming = true;
+                                    }
+                                    
+                                    // Add content to message
+                                    fullResponse += data.content;
+                                    if (aiMessageElement) {
+                                        const contentEl = aiMessageElement.querySelector('.message-content');
+                                        if (contentEl) {
+                                            contentEl.innerHTML = typeof marked !== 'undefined' ? marked.parse(fullResponse) : fullResponse;
+                                        }
+                                    }
+                                    
+                                } else if (data.type === 'status') {
+                                    // Update typing indicator with status
+                                    const typingEl = document.getElementById('typing-indicator');
+                                    if (typingEl) {
+                                        const statusEl = typingEl.querySelector('.typing-text');
+                                        if (statusEl) {
+                                            statusEl.textContent = data.content;
+                                        }
+                                    }
+                                    
+                                } else if (data.type === 'complete') {
+                                    // Finalize the message
+                                    if (aiMessageElement) {
+                                        const contentEl = aiMessageElement.querySelector('.message-content');
+                                        if (contentEl) {
+                                            contentEl.innerHTML = typeof marked !== 'undefined' ? marked.parse(data.content) : data.content;
+                                        }
+                                    }
+                                    break;
+                                    
+                                } else if (data.type === 'error') {
+                                    // Remove typing indicator
+                                    const typingEl = document.getElementById('typing-indicator');
+                                    if (typingEl) {
+                                        chatMessages.removeChild(typingEl);
+                                    }
+                                    
+                                    // Show error message
+                                    const errorMsg = createAIMessage(data.content || 'Sorry, I encountered an error. Please try again.');
+                                    chatMessages.appendChild(errorMsg);
+                                    return;
+                                }
+                                
+                            } catch (e) {
+                                console.warn('Failed to parse SSE data:', line, e);
+                            }
+                        }
+                    }
+                    
+                    // Scroll to bottom during streaming
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                }
+                
+                // Remove typing indicator if still showing
+                const typingEl = document.getElementById('typing-indicator');
+                if (typingEl) {
+                    chatMessages.removeChild(typingEl);
+                }
+                
+                // Ensure AI message is added if streaming didn't start
+                if (!aiMessageElement) {
+                    aiMessageElement = createAIMessage(fullResponse || 'Sorry, I could not process your request.');
+                    chatMessages.appendChild(aiMessageElement);
+                }
+                
+            } catch (error) {
+                console.error('Streaming error:', error);
+                
+                // Remove typing indicator
+                const typingEl = document.getElementById('typing-indicator');
+                if (typingEl) {
+                    chatMessages.removeChild(typingEl);
+                }
+                
+                // Show error message
+                const errorMsg = createAIMessage('Sorry, I encountered an error. Please try again.');
+                chatMessages.appendChild(errorMsg);
+            }
+            
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        
+        // Event listeners
+        document.getElementById('send-message').addEventListener('click', () => {
+            const input = document.getElementById('chat-message-input');
+            if (input.value.trim()) {
+                sendMessage(input.value);
+            }
+        });
+        
+        // Key handler function for textarea
+        function handleKeyDown(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                document.getElementById('send-message').click();
+            }
+        }
+    })();
+    </script>
+</body>
+</html> 

@@ -29,10 +29,10 @@ from .statistical_analysis import StatisticalAnalysisTool
 from .zapier_webhook import ZapierWebhookTool
 from .google_sheets_integration import GoogleSheetsIntegrationTool
 from .date_calculator import DateCalculatorTool
-from .multi_link_scraper import multi_link_scraper
-from .chromadb_tool import chromadb_tool
-from .mongodb_advanced import mongodb_advanced
-from .pdf_generator import pdf_generator
+from .multi_link_scraper import MultiLinkScraperTool
+from .chromadb_tool import ChromaDBTool
+from .mongodb_advanced import MongoDBAdvancedTool
+from .pdf_generator import PDFGeneratorTool
 
 __all__ = [
     'WebSearchTool',
@@ -59,8 +59,8 @@ __all__ = [
     'ZapierWebhookTool',
     'GoogleSheetsIntegrationTool',
     'DateCalculatorTool',
-    'multi_link_scraper',
-    'chromadb_tool',
-    'mongodb_advanced',
-    'pdf_generator'
+    'MultiLinkScraperTool',
+    'ChromaDBTool',
+    'MongoDBAdvancedTool',
+    'PDFGeneratorTool'
 ] 

@@ -5,7 +5,7 @@ Agent execution service for handling AI model calls and tool execution
 import asyncio
 import json
 import time
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Optional, Tuple, AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import openai
@@ -30,6 +30,114 @@ class AgentService:
         else:
             self.openai_client = None
             logger.warning("OpenAI API key not configured")
+
+    async def execute_agent_stream(
+        self, 
+        agent: Agent, 
+        user_message: str, 
+        conversation_history: List[Dict[str, str]] = None,
+        session_id: str = None
+    ) -> AsyncGenerator[Dict[str, Any], None]:
+        """
+        Execute an agent with streaming response
+        """
+        if not self.openai_client:
+            yield {"type": "error", "content": "OpenAI API not configured. Please set OPENAI_API_KEY."}
+            return
+
+        try:
+            # Prepare conversation history
+            messages = self._prepare_messages(agent, user_message, conversation_history)
+            
+            # Prepare tools if agent has any
+            tools = await self._prepare_tools(agent)
+            
+            # Make streaming API call
+            stream = await self.openai_client.chat.completions.create(
+                model=agent.model or "gpt-4o-mini",
+                messages=messages,
+                tools=tools if tools else None,
+                tool_choice="auto" if tools else None,
+                temperature=0.7,
+                max_tokens=1000,
+                stream=True
+            )
+            
+            # Process streaming response
+            assistant_message = {"role": "assistant", "content": "", "tool_calls": []}
+            tools_used = []
+            full_response = ""
+            
+            async for chunk in stream:
+                if chunk.choices[0].delta.content:
+                    content = chunk.choices[0].delta.content
+                    assistant_message["content"] += content
+                    full_response += content
+                    
+                    # Stream the content chunk
+                    yield {"type": "content", "content": content}
+                
+                # Handle tool calls in streaming
+                if chunk.choices[0].delta.tool_calls:
+                    for tool_call in chunk.choices[0].delta.tool_calls:
+                        if tool_call.index is not None:
+                            # Initialize tool call if not exists
+                            while len(assistant_message["tool_calls"]) <= tool_call.index:
+                                assistant_message["tool_calls"].append({
+                                    "id": "",
+                                    "type": "function",
+                                    "function": {"name": "", "arguments": ""}
+                                })
+                            
+                            # Update tool call
+                            if tool_call.id:
+                                assistant_message["tool_calls"][tool_call.index]["id"] = tool_call.id
+                            if tool_call.function:
+                                if tool_call.function.name:
+                                    assistant_message["tool_calls"][tool_call.index]["function"]["name"] = tool_call.function.name
+                                if tool_call.function.arguments:
+                                    assistant_message["tool_calls"][tool_call.index]["function"]["arguments"] += tool_call.function.arguments
+            
+            # Handle tool calls if any
+            if assistant_message["tool_calls"]:
+                logger.info(f"🔧 Agent {agent.id} using {len(assistant_message['tool_calls'])} tools")
+                yield {"type": "status", "content": "Using tools..."}
+                
+                # Add the assistant message with tool calls to the conversation
+                messages.append(assistant_message)
+                
+                tools_used = await self._handle_tool_calls_stream(
+                    agent, assistant_message["tool_calls"], messages
+                )
+                
+                # Make a follow-up streaming call to get the final response after tool execution
+                logger.info(f"🔄 Agent {agent.id} making follow-up streaming call after tool execution")
+                yield {"type": "status", "content": "Processing results..."}
+                
+                follow_up_stream = await self.openai_client.chat.completions.create(
+                    model=agent.model or "gpt-4o-mini",
+                    messages=messages,  # Now includes assistant message + tool results
+                    temperature=0.7,
+                    max_tokens=1000,
+                    stream=True
+                )
+                
+                # Stream the final response
+                final_response = ""
+                async for chunk in follow_up_stream:
+                    if chunk.choices[0].delta.content:
+                        content = chunk.choices[0].delta.content
+                        final_response += content
+                        yield {"type": "content", "content": content}
+                
+                full_response = final_response
+            
+            # Send completion status
+            yield {"type": "complete", "content": full_response, "tools_used": tools_used}
+            
+        except Exception as e:
+            logger.error(f"Error in streaming agent execution: {str(e)}")
+            yield {"type": "error", "content": f"Error: {str(e)}"}
 
     async def execute_agent(
         self, 
@@ -98,26 +206,17 @@ class AgentService:
                 
                 # Get the final response content
                 final_message = follow_up_response.choices[0].message
-                final_content = final_message.content or "I've executed the requested tools but couldn't generate a response."
-                
-                # Calculate cost for both calls
-                cost = await self._calculate_cost(response, tools_used) + await self._calculate_cost(follow_up_response, [])
-                
-                logger.info(f"✅ Follow-up response generated: {final_content[:100]}{'...' if len(final_content) > 100 else ''}")
-                
+                agent_response = final_message.content or "No response generated."
             else:
-                # No tools used, use original response
-                final_content = assistant_message.content or "No response generated"
-                cost = await self._calculate_cost(response, tools_used)
+                agent_response = assistant_message.content or "No response generated."
             
-            # Log successful execution summary
-            if tools_used:
-                logger.info(f"🚀 Agent {agent.id} execution completed with {len(tools_used)} tools used")
-                logger.info(f"💰 Execution cost: ${cost:.4f}")
-            else:
-                logger.info(f"🚀 Agent {agent.id} execution completed without tools")
+            # Calculate cost
+            cost = await self._calculate_cost(response, tools_used)
             
-            return final_content, tools_used, cost
+            logger.info(f"🚀 Agent {agent.id} execution completed with {len(tools_used)} tools used")
+            logger.info(f"💰 Execution cost: ${cost:.4f}")
+            
+            return agent_response, tools_used, cost
             
         except Exception as e:
             logger.error(f"Error executing agent {agent.id}: {str(e)}")
@@ -391,6 +490,53 @@ Please respond in a helpful and professional manner. If you have access to tools
             # Log session summary periodically (every 10 tool uses)
             if tool_usage_tracker.session_stats['total_tools_used'] % 10 == 0:
                 tool_usage_tracker.log_session_summary()
+        
+        return tools_used
+
+    async def _handle_tool_calls_stream(
+        self, 
+        agent: Agent, 
+        tool_calls: List[Dict], 
+        messages: List[Dict[str, str]]
+    ) -> List[str]:
+        """Handle tool calls with streaming updates"""
+        tools_used = []
+        
+        for i, tool_call in enumerate(tool_calls):
+            try:
+                tool_name = tool_call["function"]["name"]
+                arguments = tool_call["function"]["arguments"]
+                
+                logger.info(f"🔧 Tool Call: {tool_name}")
+                logger.info(f"📋 Arguments: {arguments}")
+                
+                # Execute tool
+                logger.info(f"🔄 Starting tool execution: {tool_name}")
+                tool_result = await self._execute_tool(tool_name, arguments)
+                logger.info(f"✅ Tool execution completed: {tool_name}")
+                
+                # Add tool result to messages
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tool_call["id"],
+                    "content": tool_result
+                })
+                
+                tools_used.append(tool_name)
+                
+                logger.info(f"✅ Tool '{tool_name}' executed successfully")
+                logger.info(f"📤 Tool Result: {tool_result}")
+                
+            except Exception as e:
+                error_msg = f"Tool execution failed: {str(e)}"
+                logger.error(f"❌ Tool {tool_name} failed: {str(e)}")
+                
+                # Add error to messages
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tool_call["id"],
+                    "content": error_msg
+                })
         
         return tools_used
 

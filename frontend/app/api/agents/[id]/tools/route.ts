@@ -85,10 +85,12 @@ export async function POST(
     console.log('📡 Backend response status:', response.status)
     
     const data = await response.json()
+    console.log('📄 Backend response data:', data)
     
     if (response.ok) {
       return NextResponse.json(data)
     } else {
+      console.error('❌ Backend error:', data)
       return NextResponse.json(
         { error: data.detail || 'Failed to add tool to agent' },
         { status: response.status }

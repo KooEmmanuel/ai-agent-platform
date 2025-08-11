@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
@@ -21,6 +21,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { apiClient, type Tool, type Agent } from '../../../../../lib/api'
 import ToolConfigForm from '../../../../../components/ToolConfigForm'
+import { useToast } from '../../../../../components/ui/Toast'
 
 interface AgentTool {
   id: number
@@ -125,6 +126,7 @@ export default function AgentToolsPage() {
   const params = useParams()
   const router = useRouter()
   const agentId = params.id as string
+  const { showToast } = useToast()
   
   const [agent, setAgent] = useState<Agent | null>(null)
   const [agentTools, setAgentTools] = useState<AgentTool[]>([])
@@ -198,9 +200,29 @@ export default function AgentToolsPage() {
         apiClient.getTools()
       ])
       
-      // Combine marketplace and user tools
+      console.log('🔍 Marketplace tools:', marketplaceTools.map(t => ({ id: t.id, name: t.name })))
+      console.log('🔍 User tools:', userTools.map(t => ({ id: t.id, name: t.name })))
+      
+      // Combine marketplace and user tools, ensuring unique IDs
       const allTools = [...marketplaceTools, ...userTools]
-      setAvailableTools(allTools)
+      
+      // Remove duplicates based on ID, keeping user tools over marketplace tools
+      const uniqueTools = allTools.reduce((acc, tool) => {
+        const existingIndex = acc.findIndex(t => t.id === tool.id)
+        if (existingIndex === -1) {
+          acc.push(tool)
+        } else {
+          // If it's a user tool, replace the marketplace tool
+          if (tool.user_id && acc[existingIndex].user_id) {
+            acc[existingIndex] = tool
+          }
+        }
+        return acc
+      }, [] as Tool[])
+      
+      console.log('🔍 Final unique tools:', uniqueTools.map(t => ({ id: t.id, name: t.name })))
+      
+      setAvailableTools(uniqueTools)
     } catch (error) {
       console.error('Error loading available tools:', error)
     } finally {
@@ -222,7 +244,15 @@ export default function AgentToolsPage() {
     
     setSaving(true)
     try {
+      console.log('🔧 Attempting to add tool:', {
+        agentId: parseInt(agentId),
+        toolId: selectedTool.id,
+        toolName: selectedTool.name,
+        customConfig: selectedTool.custom_config
+      })
+      
       const result = await apiClient.addToolToAgent(parseInt(agentId), selectedTool.id, selectedTool.custom_config)
+      console.log('✅ Tool added successfully:', result)
       
       // Reload agent tools to get updated data
       await loadAgentTools()
@@ -232,17 +262,33 @@ export default function AgentToolsPage() {
       
       setShowAddToolModal(false)
       setSelectedTool(null)
+      
+      // Show success toast
+      showToast({
+        type: 'success',
+        title: 'Tool Added Successfully',
+        message: `${selectedTool.name} has been added to your agent.`
+      })
     } catch (error) {
-      console.error('Error adding tool:', error)
-      alert('Failed to add tool. Please try again.')
+      console.error('❌ Error adding tool:', error)
+      console.error('❌ Error details:', {
+        message: error.message,
+        status: error.status,
+        response: error.response
+      })
+      showToast({
+        type: 'error',
+        title: 'Failed to Add Tool',
+        message: `Failed to add tool: ${error.message || 'Unknown error'}`
+      })
     } finally {
       setSaving(false)
     }
   }
 
-  const handleRemoveTool = async (toolId: number) => {
+  const handleRemoveTool = async (tool: AgentTool) => {
     try {
-      await apiClient.removeToolFromAgent(parseInt(agentId), toolId)
+      await apiClient.removeToolFromAgent(parseInt(agentId), tool.name)
       
       // Reload agent tools to get updated data
       await loadAgentTools()
@@ -252,14 +298,15 @@ export default function AgentToolsPage() {
   }
 
   const handleConfigureTool = async (tool: AgentTool) => {
+    console.log('🔧 Configuring tool:', { id: tool.id, name: tool.name, description: tool.description })
     setConfiguringTool(tool)
     setToolConfig(tool.custom_config || {})
     setShowConfigureModal(true)
     
-    // Fetch tool configuration schema
+    // Fetch tool configuration schema using tool name instead of ID
     setLoadingSchema(true)
     try {
-      const schema = await apiClient.getToolConfigSchema(tool.id)
+      const schema = await apiClient.getToolConfigSchema(tool.name)
       setConfigSchema(schema)
       
       // Initialize config with defaults from schema
@@ -284,8 +331,8 @@ export default function AgentToolsPage() {
     
     setSaving(true)
     try {
-      // Update the tool configuration in the agent
-      await apiClient.updateToolConfig(parseInt(agentId), configuringTool.id, toolConfig)
+      // Update the tool configuration in the agent using tool name
+      await apiClient.updateToolConfig(parseInt(agentId), configuringTool.name, toolConfig)
       
       // Reload agent tools to get updated data
       await loadAgentTools()
@@ -294,12 +341,19 @@ export default function AgentToolsPage() {
       setConfiguringTool(null)
       setToolConfig({})
       
-      // Show success message (you can add a toast notification here)
-      console.log('Tool configuration saved successfully!')
+      // Show success toast
+      showToast({
+        type: 'success',
+        title: 'Configuration Saved',
+        message: 'Tool configuration has been saved successfully.'
+      })
     } catch (error) {
       console.error('Error saving tool configuration:', error)
-      // Show error message to user (you can add a toast notification here)
-      alert('Failed to save tool configuration. Please try again.')
+      showToast({
+        type: 'error',
+        title: 'Configuration Error',
+        message: 'Failed to save tool configuration. Please try again.'
+      })
     } finally {
       setSaving(false)
     }
@@ -446,7 +500,7 @@ export default function AgentToolsPage() {
                           <Cog6ToothIcon className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handleRemoveTool(tool.id)}
+                          onClick={() => handleRemoveTool(tool)}
                           className="p-2 text-gray-400 hover:text-red-600 transition-colors rounded-md hover:bg-red-50"
                           title="Remove Tool"
                         >
@@ -639,7 +693,7 @@ export default function AgentToolsPage() {
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-lg w-full max-w-md mx-4 max-h-[80vh] overflow-hidden flex flex-col"
+            className="bg-white rounded-lg w-full max-w-2xl mx-4 max-h-[80vh] overflow-hidden flex flex-col"
           >
             <div className="p-6 border-b border-gray-200 flex-shrink-0">
               <div className="flex items-center justify-between">

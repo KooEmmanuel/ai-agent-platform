@@ -2,6 +2,7 @@
 AI Agent management endpoints
 """
 
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -10,6 +11,8 @@ from typing import Optional, List, Dict, Any
 
 from app.core.auth import get_current_user
 from app.core.database import get_db, User, Agent, Tool
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -441,10 +444,12 @@ class AgentToolAdd(BaseModel):
     custom_config: Optional[Dict[str, Any]] = None
 
 class AgentToolRemove(BaseModel):
-    tool_id: int
+    tool_id: Optional[int] = None
+    tool_name: Optional[str] = None
 
 class AgentToolUpdate(BaseModel):
-    tool_id: int
+    tool_id: Optional[int] = None
+    tool_name: Optional[str] = None
     custom_config: Dict[str, Any]
 
 @router.post("/{agent_id}/tools", response_model=AgentResponse)
@@ -455,6 +460,9 @@ async def add_tool_to_agent(
     db: AsyncSession = Depends(get_db)
 ):
     """Add a tool to an agent"""
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"🔧 Adding tool {tool_data.tool_id} to agent {agent_id}")
     # Get agent
     result = await db.execute(
         select(Agent).where(Agent.id == agent_id, Agent.user_id == current_user.id)
@@ -467,17 +475,35 @@ async def add_tool_to_agent(
             detail="Agent not found"
         )
     
-    # Get tool
+    # Get tool from database or marketplace
     tool_result = await db.execute(
         select(Tool).where(Tool.id == tool_data.tool_id)
     )
     tool = tool_result.scalar_one_or_none()
     
-    if not tool:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tool not found"
-        )
+    if tool:
+        pass  # Tool found in database
+    else:
+        from app.services.marketplace_tools_service import marketplace_tools_service
+        tool_data_marketplace = marketplace_tools_service.get_tool_by_id(tool_data.tool_id)
+        
+        if not tool_data_marketplace:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Tool not found"
+            )
+        
+        # Create a mock tool object from marketplace data
+        class MockTool:
+            def __init__(self, data):
+                self.id = data.get('id')
+                self.name = data.get('name')
+                self.description = data.get('description')
+                self.category = data.get('category')
+                self.tool_type = data.get('tool_type')
+                self.config = data.get('config', {})
+        
+        tool = MockTool(tool_data_marketplace)
     
     # Check if tool is already added
     current_tools = agent.tools or []
@@ -487,10 +513,10 @@ async def add_tool_to_agent(
             detail="Tool is already added to this agent"
         )
     
-    # Add tool to agent
+    # Add tool to agent using name as primary identifier
     tool_config = {
-        'id': tool.id,
-        'name': tool.name,
+        'id': tool.id,  # Keep ID for backward compatibility
+        'name': tool.name,  # Use name as primary identifier
         'description': tool.description,
         'category': tool.category,
         'tool_type': tool.tool_type,
@@ -541,9 +567,9 @@ async def remove_tool_from_agent(
             detail="Agent not found"
         )
     
-    # Remove tool from agent
+    # Remove tool from agent (support both ID and name)
     current_tools = agent.tools or []
-    updated_tools = [t for t in current_tools if t.get('id') != tool_data.tool_id]
+    updated_tools = [t for t in current_tools if t.get('id') != tool_data.tool_id and t.get('name') != tool_data.tool_name]
     
     if len(updated_tools) == len(current_tools):
         raise HTTPException(
@@ -592,12 +618,13 @@ async def update_tool_config(
             detail="Agent not found"
         )
     
-    # Update tool configuration in agent
+    # Update tool configuration in agent (support both ID and name)
     current_tools = agent.tools or []
     tool_found = False
     
     for tool in current_tools:
-        if tool.get('id') == tool_data.tool_id:
+        if (tool.get('id') == tool_data.tool_id or 
+            tool.get('name') == tool_data.tool_name):
             tool['custom_config'] = tool_data.custom_config
             tool_found = True
             break
@@ -648,9 +675,11 @@ async def get_agent_tools(
             detail="Agent not found"
         )
     
+    tools = agent.tools or []
+    
     return {
         "agent_id": agent.id,
         "agent_name": agent.name,
-        "tools": agent.tools or [],
-        "tool_count": len(agent.tools or [])
+        "tools": tools,
+        "tool_count": len(tools)
     } 
