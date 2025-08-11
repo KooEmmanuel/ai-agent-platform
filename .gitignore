@@ -42,6 +42,15 @@ dist/
 *.sqlite
 *.sqlite3
 
+# Credentials and sensitive files
+credentials/
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+!next.config.js
+!tailwind.config.js
+
 # Logs
 logs/
 *.log
