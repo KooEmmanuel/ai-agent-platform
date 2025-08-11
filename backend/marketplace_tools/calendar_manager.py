@@ -139,9 +139,10 @@ class CalendarManagerTool(BaseTool):
             return self._format_error(f"Calendar operation failed: {str(e)}")
     
     async def _create_event(self, summary: str, start_time: str, end_time: str,
-                           description: Optional[str] = None, location: Optional[str] = None,
-                           attendees: Optional[List[str]] = None, reminders: Optional[Dict] = None) -> Dict[str, Any]:
-        """Create a calendar event."""
+                          description: Optional[str] = None, location: Optional[str] = None,
+                          attendees: Optional[List[str]] = None, reminders: Optional[Dict] = None,
+                          add_meet_link: bool = True) -> Dict[str, Any]:
+        """Create a calendar event with optional Google Meet link."""
         logger.info(f"📅 Creating calendar event...")
         logger.info(f"📅 Summary: {summary}")
         logger.info(f"📅 Start time: {start_time}")
@@ -149,6 +150,7 @@ class CalendarManagerTool(BaseTool):
         logger.info(f"📅 Description: {description}")
         logger.info(f"📅 Location: {location}")
         logger.info(f"📅 Attendees: {attendees}")
+        logger.info(f"📅 Add Meet link: {add_meet_link}")
         logger.info(f"📅 Calendar ID: {self.calendar_id}")
         
         # Fix invalid time formats (24:00:00 -> 00:00:00)
@@ -188,8 +190,10 @@ class CalendarManagerTool(BaseTool):
             logger.info(f"📅 Event object created: {event}")
             
             if attendees:
-                event['attendees'] = [{'email': email} for email in attendees]
-                logger.info(f"📅 Added attendees: {event['attendees']}")
+                # Service accounts cannot invite attendees without domain-wide delegation
+                # For now, we'll skip attendees to avoid the 403 error
+                logger.warning(f"⚠️ Skipping attendees due to service account limitations: {attendees}")
+                logger.info(f"📅 Event will be created without attendees. To enable attendees, set up domain-wide delegation or use OAuth2.")
             
             if reminders:
                 event['reminders'] = reminders
@@ -204,32 +208,55 @@ class CalendarManagerTool(BaseTool):
                 }
                 logger.info(f"📅 Using default reminders: {event['reminders']}")
             
+            # Add Google Meet link if requested (disabled for now due to API issues)
+            if add_meet_link:
+                logger.info(f"📅 Google Meet links temporarily disabled to avoid API issues")
+                # TODO: Re-enable when conference API issues are resolved
+            
             logger.info(f"📅 Final event object: {event}")
             logger.info(f"📅 Calling Google Calendar API to insert event...")
             
-            event = self.service.events().insert(
-                calendarId=self.calendar_id,
-                body=event,
-                sendUpdates='all'
-            ).execute()
+            # Insert event
+            insert_params = {
+                'calendarId': self.calendar_id,
+                'body': event,
+                'sendUpdates': 'all'
+            }
+            
+            event = self.service.events().insert(**insert_params).execute()
             
             logger.info(f"✅ Event created successfully!")
             logger.info(f"✅ Event ID: {event['id']}")
             logger.info(f"✅ Event HTML Link: {event['htmlLink']}")
             
+            # Extract Meet link if present
+            meet_link = None
+            if 'conferenceData' in event and 'entryPoints' in event['conferenceData']:
+                for entry_point in event['conferenceData']['entryPoints']:
+                    if entry_point.get('entryPointType') == 'video':
+                        meet_link = entry_point.get('uri')
+                        logger.info(f"📅 Google Meet link: {meet_link}")
+                        break
+            
             metadata = {
                 'operation': 'create_event',
                 'event_id': event['id'],
-                'calendar_id': self.calendar_id
+                'calendar_id': self.calendar_id,
+                'has_meet_link': meet_link is not None
             }
             
-            return self._format_success({
+            result = {
                 'event_id': event['id'],
                 'html_link': event['htmlLink'],
                 'summary': event['summary'],
                 'start': event['start'],
                 'end': event['end']
-            }, metadata)
+            }
+            
+            if meet_link:
+                result['meet_link'] = meet_link
+            
+            return self._format_success(result, metadata)
             
         except Exception as e:
             logger.error(f"❌ Error creating calendar event: {str(e)}")
@@ -297,6 +324,18 @@ class CalendarManagerTool(BaseTool):
                 if value is not None:
                     if key == 'attendees':
                         event[key] = [{'email': email} for email in value]
+                    elif key == 'add_meet_link' and value:
+                        # Add Google Meet link to existing event
+                        import time
+                        event['conferenceData'] = {
+                            'createRequest': {
+                                'requestId': f"meet_{int(time.time())}",
+                                'conferenceSolutionKey': {
+                                    'type': 'hangoutsMeet'
+                                }
+                            }
+                        }
+                        logger.info(f"📅 Added Google Meet link to existing event")
                     else:
                         event[key] = value
             

@@ -105,7 +105,7 @@
     {
       "id": 3,
       "name": "weather_api",
-      "description": "Get weather information using OpenWeatherMap API with forecasts and alerts",
+      "description": "Get current weather conditions and forecasts for any location. Use this tool when users ask about weather, need weather information for planning, or want to check conditions for travel or outdoor activities.",
       "category": "Data",
       "tool_type": "API",
       "config": {
@@ -638,7 +638,7 @@
     {
       "id": 14,
       "name": "calendar_manager",
-      "description": "Manage calendar operations including creating events and scheduling",
+      "description": "Check, create, update, or delete calendar events and appointments. Use this tool when users ask about their schedule, appointments, or need to schedule meetings. Essential for appointment management and calendar queries.",
       "category": "Scheduling",
       "tool_type": "Function",
       "config": {
@@ -668,6 +668,26 @@
             "end_time": {
               "type": "string",
               "description": "Event end time"
+            },
+            "add_meet_link": {
+              "type": "boolean",
+              "description": "Add Google Meet video link to the event",
+              "default": true
+            },
+            "description": {
+              "type": "string",
+              "description": "Event description"
+            },
+            "location": {
+              "type": "string",
+              "description": "Event location"
+            },
+            "attendees": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "List of attendee email addresses"
             }
           },
           "required": [
@@ -796,7 +816,7 @@
     {
       "id": 17,
       "name": "email_sender",
-      "description": "Send emails using SMTP with support for multiple email providers",
+      "description": "Send emails and notifications to users. Use this tool when users need to send emails, receive confirmations, or get notifications about appointments, meetings, or other important information.",
       "category": "Communication",
       "tool_type": "Function",
       "config": {

@@ -48,7 +48,7 @@ class AgentService:
 
         try:
             # Prepare conversation history
-            messages = self._prepare_messages(agent, user_message, conversation_history)
+            messages = await self._prepare_messages(agent, user_message, conversation_history)
             
             # Prepare tools if agent has any
             tools = await self._prepare_tools(agent)
@@ -155,17 +155,32 @@ class AgentService:
 
         try:
             # Prepare conversation history
-            messages = self._prepare_messages(agent, user_message, conversation_history)
+            messages = await self._prepare_messages(agent, user_message, conversation_history)
             
             # Prepare tools if agent has any
             tools = await self._prepare_tools(agent)
+            
+            # Log the tools being sent to the AI
+            logger.info(f"🛠️ Tools being sent to AI: {[tool['function']['name'] for tool in tools] if tools else 'No tools'}")
+            logger.info(f"📝 Tool descriptions: {[tool['function']['description'] for tool in tools] if tools else 'No descriptions'}")
+            
+            # Detailed tool logging
+            if tools:
+                logger.info(f"🔍 DETAILED TOOL INFORMATION:")
+                for i, tool in enumerate(tools):
+                    logger.info(f"  Tool {i+1}: {tool['function']['name']}")
+                    logger.info(f"    Description: {tool['function']['description']}")
+                    logger.info(f"    Parameters: {tool['function']['parameters']}")
+                    logger.info(f"    ---")
+            else:
+                logger.warning(f"⚠️ No tools available for agent {agent.id} ({agent.name})")
             
             # Make API call
             response = await self.openai_client.chat.completions.create(
                 model=agent.model or "gpt-4o-mini",
                 messages=messages,
                 tools=tools if tools else None,
-                tool_choice="auto" if tools else None,
+                tool_choice="auto" if tools else None,  # Let AI decide when to use tools
                 temperature=0.7,
                 max_tokens=1000
             )
@@ -173,6 +188,10 @@ class AgentService:
             # Process response
             assistant_message = response.choices[0].message
             tools_used = []
+            
+            # Log the assistant's response for debugging
+            logger.info(f"🤖 Assistant response: {assistant_message.content}")
+            logger.info(f"🔧 Tool calls: {assistant_message.tool_calls}")
             
             # Handle tool calls if any
             if assistant_message.tool_calls:
@@ -223,7 +242,7 @@ class AgentService:
             logger.error(f"Error executing agent {agent.id}: {str(e)}")
             return f"Error: {str(e)}", [], 0.0
 
-    def _prepare_messages(
+    async def _prepare_messages(
         self, 
         agent: Agent, 
         user_message: str, 
@@ -240,21 +259,42 @@ class AgentService:
         current_timezone = current_datetime.strftime("%Z")
         day_of_week = current_datetime.strftime("%A")
         
-        # System message with agent instructions and current date/time
-        system_message = f"""You are {agent.name}, an AI agent with the following instructions:
-
-{agent.instructions}
-
-#IMPORTANT:
--it's important to follow the instructions of the agent.
-
-**CURRENT DATE AND TIME CONTEXT:**
-- Current Date: {current_date} ({day_of_week})
-- Current Time: {current_time} {current_timezone}
-- Timezone: {current_timezone}
-
-Please respond in a helpful and professional manner. If you have access to tools, use them when appropriate to provide accurate and up-to-date information. 
-Always consider the current date and time when scheduling appointments, providing information, or making time-sensitive decisions."""
+        # Get available tools for the agent
+        tools = await self._prepare_tools(agent)
+        tool_names = [tool['function']['name'] for tool in tools] if tools else []
+        
+        # Build system message using agent's own instructions
+        system_message_parts = [
+            f"You are {agent.name}, an AI agent with the following instructions:",
+            "",
+            agent.instructions,
+            "",
+            f"**CURRENT DATE AND TIME:** {current_date} ({day_of_week}) at {current_time} {current_timezone}",
+            ""
+        ]
+        
+        # Add tool information if tools are available
+        if tool_names:
+            system_message_parts.extend([
+                f"**AVAILABLE TOOLS:** You have access to: {', '.join(tool_names)}",
+                ""
+            ])
+            
+            # Add tool descriptions to help the AI understand when to use each tool
+            for tool in tools:
+                tool_name = tool['function']['name']
+                tool_description = tool['function']['description']
+                system_message_parts.extend([
+                    f"**{tool_name}:** {tool_description}",
+                    ""
+                ])
+            
+            system_message_parts.extend([
+                "**TOOL USAGE:** Use these tools when they can help you provide better service to users.",
+                ""
+            ])
+        
+        system_message = "\n".join(system_message_parts)
 
         messages.append({"role": "system", "content": system_message})
         
@@ -264,6 +304,19 @@ Always consider the current date and time when scheduling appointments, providin
         
         # Add current user message
         messages.append({"role": "user", "content": user_message})
+        
+        # Log the messages being sent for debugging
+        logger.info(f"📤 System message length: {len(system_message)} characters")
+        logger.info(f"📤 User message: {user_message}")
+        logger.info(f"📤 Total messages: {len(messages)}")
+        
+        # Log agent information
+        logger.info(f"🤖 AGENT INFORMATION:")
+        logger.info(f"  Name: {agent.name}")
+        logger.info(f"  ID: {agent.id}")
+        logger.info(f"  Instructions: {agent.instructions[:200]}{'...' if len(agent.instructions) > 200 else ''}")
+        logger.info(f"  Available tools: {tool_names}")
+        logger.info(f"  System message preview: {system_message[:300]}{'...' if len(system_message) > 300 else ''}")
         
         return messages
 
@@ -342,9 +395,31 @@ Always consider the current date and time when scheduling appointments, providin
                 # Check if this is a tool with an 'id' field (new format)
                 if isinstance(tool_config, dict) and 'id' in tool_config:
                     logger.info(f"🔍 Looking up tool by 'id' field: {tool_config['id']}")
-                    # Get tool from JSON instead of database
+                    
+                    # First try to get tool by ID
                     tool_data = json_tool_loader.get_tool_by_id(tool_config['id'])
                     logger.info(f"🔍 JSON lookup result for tool ID {tool_config['id']}: {tool_data}")
+                    
+                    # Check if the found tool matches the expected name
+                    expected_tool_name = tool_config.get('name')
+                    if tool_data and expected_tool_name:
+                        found_tool_name = tool_data.get('name')
+                        if found_tool_name != expected_tool_name:
+                            logger.warning(f"⚠️ Tool ID {tool_config['id']} returned '{found_tool_name}' but expected '{expected_tool_name}'")
+                            logger.info(f"🔍 Trying to find expected tool by name: {expected_tool_name}")
+                            tool_data_by_name = json_tool_loader.get_tool_by_name(expected_tool_name)
+                            if tool_data_by_name:
+                                logger.info(f"✅ Found expected tool by name: {tool_data_by_name.get('name')}")
+                                tool_data = tool_data_by_name
+                            else:
+                                logger.warning(f"⚠️ Expected tool '{expected_tool_name}' not found by name, using ID result: {found_tool_name}")
+                    
+                    # If not found by ID, try to get by name from the tool_config
+                    if not tool_data and 'name' in tool_config:
+                        expected_tool_name = tool_config['name']
+                        logger.info(f"🔍 Tool not found by ID, trying to find by name: {expected_tool_name}")
+                        tool_data = json_tool_loader.get_tool_by_name(expected_tool_name)
+                        logger.info(f"🔍 JSON lookup result for tool name '{expected_tool_name}': {tool_data}")
                     
                     if tool_data:
                         tool_name = tool_data.get('name')
@@ -377,7 +452,7 @@ Always consider the current date and time when scheduling appointments, providin
                                     "parameters": self._get_tool_parameters_from_json(tool_config_data, tool_info)
                                 }
                             })
-                            logger.info(f"✅ Added tool '{tool_name}' (by ID with class) to agent's tool list")
+                            logger.info(f"✅ Added tool '{tool_name}' (by ID/name with class) to agent's tool list")
                         else:
                             logger.warning(f"⚠️ Tool class not found for {tool_name}, using fallback")
                             tools.append({
@@ -388,10 +463,10 @@ Always consider the current date and time when scheduling appointments, providin
                                     "parameters": self._get_tool_parameters_from_json(tool_config_data, {})
                                 }
                             })
-                            logger.info(f"✅ Added tool '{tool_name}' (by ID fallback) to agent's tool list")
+                            logger.info(f"✅ Added tool '{tool_name}' (by ID/name fallback) to agent's tool list")
                         continue
                     else:
-                        logger.error(f"❌ Tool not found in JSON for ID: {tool_config['id']}")
+                        logger.error(f"❌ Tool not found in JSON for ID: {tool_config['id']} or name: {tool_config.get('name', 'N/A')}")
                         logger.error(f"❌ Falling back to inline tool processing")
                 
                 # Fallback to inline configuration
