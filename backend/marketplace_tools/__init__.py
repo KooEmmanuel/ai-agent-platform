@@ -33,6 +33,7 @@ from .multi_link_scraper import MultiLinkScraperTool
 from .chromadb_tool import ChromaDBTool
 from .mongodb_advanced import MongoDBAdvancedTool
 from .pdf_generator import PDFGeneratorTool
+from .website_knowledge_base import WebsiteKnowledgeBaseTool
 
 __all__ = [
     'WebSearchTool',
@@ -62,5 +63,6 @@ __all__ = [
     'MultiLinkScraperTool',
     'ChromaDBTool',
     'MongoDBAdvancedTool',
-    'PDFGeneratorTool'
+    'PDFGeneratorTool',
+    'WebsiteKnowledgeBaseTool'
 ] 

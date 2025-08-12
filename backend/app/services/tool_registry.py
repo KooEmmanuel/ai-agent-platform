@@ -41,7 +41,8 @@ from marketplace_tools import (
     MultiLinkScraperTool,
     ChromaDBTool,
     MongoDBAdvancedTool,
-    PDFGeneratorTool
+    PDFGeneratorTool,
+    WebsiteKnowledgeBaseTool
 )
 
 logger = logging.getLogger(__name__)
@@ -68,6 +69,7 @@ class ToolRegistry:
             'multi_link_scraper': MultiLinkScraperTool,
             'chromadb_tool': ChromaDBTool,
             'mongodb_advanced': MongoDBAdvancedTool,
+            'website_knowledge_base': WebsiteKnowledgeBaseTool,
             
             # Communication tools
             'email_sender': EmailSenderTool,
@@ -156,6 +158,7 @@ class ToolRegistry:
             'chromadb_tool': 'chromadb_tool',
             'mongodb_advanced_tool': 'mongodb_advanced',
             'pdf_generator_tool': 'pdf_generator',
+            'website_knowledge_base_tool': 'website_knowledge_base',
         }
         
         # Database tool name mappings (database names to registry names)

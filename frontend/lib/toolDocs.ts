@@ -955,6 +955,55 @@ export const TOOL_DOCS: Record<string, ToolDoc> = {
       'Test trigger',
       'Set up automation'
     ]
+  },
+
+  website_knowledge_base: {
+    name: 'Website Knowledge Base',
+    description: 'Comprehensive website scraping and knowledge base tool with ChromaDB integration',
+    category: 'Data',
+    toolType: 'Function',
+    icon: '🏗️',
+    overview: 'The Website Knowledge Base tool automatically crawls entire websites, extracts content using multiple strategies, and stores it in ChromaDB for intelligent retrieval. Perfect for creating searchable knowledge bases from your own website content.',
+    features: [
+      'Automatic website crawling and page discovery',
+      'Multi-strategy content extraction with fallbacks',
+      'ChromaDB vector storage for semantic search',
+      'Intelligent content retrieval and context assembly',
+      'Configurable scraping parameters and content filtering',
+      'Respectful crawling with rate limiting',
+      'Support for include/exclude URL patterns',
+      'Automatic content validation and quality scoring',
+      'Persistent knowledge base collections'
+    ],
+    useCases: [
+      'Company website knowledge base creation',
+      'Documentation site indexing',
+      'Blog and content site search',
+      'FAQ and support site automation',
+      'Internal knowledge management',
+      'Competitive website analysis',
+      'Content discovery and organization'
+    ],
+    configuration: [
+      { field: 'Website Name', description: 'Name for your knowledge base (used for collection name)', required: true, type: 'Text' },
+      { field: 'Website URL', description: 'The main URL of your website to scrape', required: true, type: 'URL' },
+      { field: 'Max Pages to Crawl', description: 'Maximum number of pages to discover and scrape', required: false, type: 'Number' },
+      { field: 'Max Crawl Depth', description: 'Maximum depth for following links', required: false, type: 'Number' },
+      { field: 'Request Delay (seconds)', description: 'Delay between requests to be respectful to the server', required: false, type: 'Number' },
+      { field: 'Exclude Patterns', description: 'URL patterns to exclude (one per line, supports wildcards)', required: false, type: 'Textarea' },
+      { field: 'Include Patterns', description: 'URL patterns to include (leave empty to include all)', required: false, type: 'Textarea' },
+      { field: 'Similarity Threshold', description: 'Minimum similarity score for content retrieval (0-1)', required: false, type: 'Number' },
+      { field: 'Top K Results', description: 'Number of most relevant results to return', required: false, type: 'Number' }
+    ],
+    setupSteps: [
+      'Configure your website URL and name',
+      'Set appropriate crawling limits and depth',
+      'Configure include/exclude patterns for targeted scraping',
+      'Set similarity threshold for content retrieval',
+      'Build your knowledge base from the website',
+      'Test knowledge base queries',
+      'Monitor and update the knowledge base as needed'
+    ]
   }
 }
 

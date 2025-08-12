@@ -976,8 +976,59 @@ async def get_tool_config_schema(
             ])
     
     elif tool_type == 'Function':
-        # Add function-specific fields
-        if 'web' in tool_name.lower() or 'search' in tool_name.lower():
+        # Website Knowledge Base specific fields (check this first)
+        if 'website_knowledge_base' in tool_name.lower():
+            # Get available collections for dropdown
+            try:
+                from marketplace_tools.website_knowledge_base import WebsiteKnowledgeBaseTool
+                temp_tool = WebsiteKnowledgeBaseTool({})
+                available_collections = temp_tool.get_available_collections()
+                # Convert to simple string array for frontend compatibility
+                collection_options = [''] + [opt['value'] for opt in available_collections]
+                logger.info(f"✅ Available collections for dropdown: {collection_options}")
+            except Exception as e:
+                logger.warning(f"Failed to get available collections: {e}")
+                collection_options = ['']
+            
+            config_schema['config_fields'].extend([
+                {
+                    'name': 'collection_name',
+                    'type': 'select',
+                    'label': 'Collection Name',
+                    'description': 'Select a knowledge base collection to query',
+                    'required': True,
+                    'options': collection_options
+                },
+                {
+                    'name': 'similarity_threshold',
+                    'type': 'number',
+                    'label': 'Similarity Threshold',
+                    'description': 'Minimum similarity score for results (0.0 - 1.0)',
+                    'default': 0.7,
+                    'min': 0.0,
+                    'max': 1.0,
+                    'step': 0.1
+                },
+                {
+                    'name': 'top_k_results',
+                    'type': 'number',
+                    'label': 'Max Results',
+                    'description': 'Maximum number of results to return',
+                    'default': 5,
+                    'min': 1,
+                    'max': 20
+                },
+                {
+                    'name': '_help',
+                    'type': 'info',
+                    'label': 'How to Use',
+                    'description': 'This tool queries pre-built knowledge base collections. First, create collections and add content in the Knowledge Base section, then configure this tool to query those collections.',
+                    'default': 'Create collections in Knowledge Base section first, then configure this tool to query them!'
+                }
+            ])
+        
+        # Add other function-specific fields
+        elif 'web' in tool_name.lower() or 'search' in tool_name.lower():
             config_schema['config_fields'].extend([
                 {
                     'name': 'safe_search',
@@ -1739,6 +1790,41 @@ async def get_tool_config_schema(
                     'default': False
                 }
             ])
+    
+    # For website knowledge base tools, fetch the actual page count
+    if tool_name == 'website_knowledge_base':
+        logger.info(f"🔍 Fetching page count for website knowledge base tool")
+        try:
+            # Get the website name from the agent's tool configuration if it exists
+            website_name = None
+            
+            # Check if agent_id is provided in the request
+            agent_id = None
+            if hasattr(current_user, 'id'):
+                # Try to get the agent_id from query parameters or request context
+                # For now, we'll try to find any agent with this tool configured
+                result = await db.execute(
+                    select(Agent).where(Agent.user_id == current_user.id)
+                )
+                agents = result.scalars().all()
+                
+                for agent in agents:
+                    if agent.tools:
+                        for tool in agent.tools:
+                            if (tool.get('name') == tool_name or 
+                                tool.get('tool_name') == tool_name or
+                                str(tool.get('id')) == tool_name or
+                                str(tool.get('tool_id')) == tool_name):
+                                if tool.get('custom_config'):
+                                    website_name = tool['custom_config'].get('website_name')
+                                    if website_name:
+                                        break
+                        if website_name:
+                            break
+            
+
+        except Exception as e:
+            logger.warning(f"Error fetching page count: {str(e)}")
     
     return config_schema 
 

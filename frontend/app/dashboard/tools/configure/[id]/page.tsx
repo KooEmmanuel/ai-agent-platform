@@ -135,7 +135,7 @@ export default function ToolConfigurationPage() {
   const getConfigFields = (): ConfigField[] => {
     if (!tool?.parameters?.properties) return []
     
-    return Object.entries(tool.parameters.properties).map(([name, props]: [string, any]) => ({
+    const fields = Object.entries(tool.parameters.properties).map(([name, props]: [string, any]) => ({
       name,
       type: props.type || 'string',
       description: props.description || '',
@@ -145,6 +145,8 @@ export default function ToolConfigurationPage() {
       min: props.minimum,
       max: props.maximum
     }))
+    
+    return fields
   }
 
   const renderConfigField = (field: ConfigField) => {

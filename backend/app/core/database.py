@@ -201,6 +201,7 @@ class User(Base):
     user_preferences = relationship("UserPreferences", back_populates="user")
     subscription = relationship("UserSubscription", back_populates="user", uselist=False)
     billing_history = relationship("BillingHistory", back_populates="user")
+    knowledge_base_collections = relationship("KnowledgeBaseCollection", back_populates="user")
 
 class UserCredits(Base):
     __tablename__ = "user_credits"
@@ -527,3 +528,38 @@ class BillingHistory(Base):
     # Relationships
     user = relationship("User", back_populates="billing_history")
     subscription = relationship("UserSubscription") 
+
+class KnowledgeBaseCollection(Base):
+    """Knowledge Base Collection model."""
+    __tablename__ = "knowledge_base_collections"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    collection_type = Column(String, nullable=False)  # 'website', 'files', 'mixed'
+    chroma_collection_name = Column(String, nullable=False, unique=True)
+    pages_extracted = Column(Integer, default=0)  # Number of pages extracted from websites
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationship
+    user = relationship("User", back_populates="knowledge_base_collections")
+    documents = relationship("KnowledgeBaseDocument", back_populates="collection", cascade="all, delete-orphan")
+
+class KnowledgeBaseDocument(Base):
+    """Knowledge Base Document model."""
+    __tablename__ = "knowledge_base_documents"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    collection_id = Column(Integer, ForeignKey("knowledge_base_collections.id"), nullable=False)
+    title = Column(String, nullable=False)
+    content = Column(Text, nullable=False)
+    source_url = Column(String, nullable=True)  # For website documents
+    file_path = Column(String, nullable=True)   # For uploaded files
+    document_type = Column(String, nullable=False)  # 'website', 'file', 'text'
+    document_metadata = Column(JSON, nullable=True)  # Additional metadata
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationship
+    collection = relationship("KnowledgeBaseCollection", back_populates="documents") 

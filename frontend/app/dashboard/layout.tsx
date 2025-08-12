@@ -16,7 +16,8 @@ import {
   XMarkIcon,
   ChartBarIcon,
   CreditCardIcon,
-  ArrowRightOnRectangleIcon
+  ArrowRightOnRectangleIcon,
+  DocumentTextIcon
 } from '@heroicons/react/24/outline'
 import { LogOut } from 'lucide-react'
 import { signOut, auth } from '../../lib/firebase'
@@ -28,6 +29,7 @@ const navigation = [
   { name: 'Overview', href: '/dashboard', icon: HomeIcon },
   { name: 'Agents', href: '/dashboard/agents', icon: CpuChipIcon },
   { name: 'Tools', href: '/dashboard/tools', icon: WrenchScrewdriverIcon },
+  { name: 'Knowledge Base', href: '/dashboard/knowledge-base', icon: DocumentTextIcon },
   { name: 'Integrations', href: '/dashboard/integrations', icon: ChatBubbleLeftRightIcon },
   { name: 'Playground', href: '/dashboard/playground', icon: SparklesIcon },
   { name: 'Analytics', href: '/dashboard/analytics', icon: ChartBarIcon },

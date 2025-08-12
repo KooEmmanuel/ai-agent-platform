@@ -53,6 +53,18 @@ class AgentService:
             # Prepare tools if agent has any
             tools = await self._prepare_tools(agent)
             
+            # Check if agent has web search tools and add OpenAI web search
+            has_web_search = any('web_search' in str(tool).lower() for tool in tools) if tools else False
+            
+            # Add OpenAI's web search tool if agent has web search capabilities
+            if has_web_search:
+                logger.info("🌐 Adding OpenAI web search tool")
+                if not tools:
+                    tools = []
+                tools.append({
+                    "type": "web_search"
+                })
+            
             # Make streaming API call
             stream = await self.openai_client.chat.completions.create(
                 model=agent.model or "gpt-4o-mini",
@@ -175,6 +187,18 @@ class AgentService:
             else:
                 logger.warning(f"⚠️ No tools available for agent {agent.id} ({agent.name})")
             
+            # Check if agent has web search tools and add OpenAI web search
+            has_web_search = any('web_search' in str(tool).lower() for tool in tools) if tools else False
+            
+            # Add OpenAI's web search tool if agent has web search capabilities
+            if has_web_search:
+                logger.info("🌐 Adding OpenAI web search tool")
+                if not tools:
+                    tools = []
+                tools.append({
+                    "type": "web_search"
+                })
+            
             # Make API call
             response = await self.openai_client.chat.completions.create(
                 model=agent.model or "gpt-4o-mini",
@@ -286,6 +310,17 @@ class AgentService:
                 tool_description = tool['function']['description']
                 system_message_parts.extend([
                     f"**{tool_name}:** {tool_description}",
+                    ""
+                ])
+            
+            # Add specific guidance for web search
+            if any('web_search' in tool['function']['name'].lower() for tool in tools):
+                system_message_parts.extend([
+                    "**WEB SEARCH GUIDANCE:**",
+                    "- Use web_search when users ask about current events, recent news, or information that might have changed",
+                    "- Use web_search for questions about recent developments, latest updates, or real-time information",
+                    "- Use web_search when you need to verify current facts or get the most up-to-date information",
+                    "- Use web_search for questions about recent technology, products, or services",
                     ""
                 ])
             

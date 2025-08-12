@@ -5,7 +5,7 @@
     {
       "id": 1,
       "name": "web_search",
-      "description": "Search the web using DuckDuckGo API with result filtering and formatting",
+      "description": "Search the web for current information using OpenAI's reliable web search. Use this when you need to find recent or real-time information about topics, news, current events, or any information that might have changed recently.",
       "category": "Search",
       "tool_type": "API",
       "config": {
@@ -1427,6 +1427,95 @@
       "updated_at": "2025-08-10T08:26:15.640269",
       "user_id": 1,
       "cost": 30
+    },
+    {
+      "id": 29,
+      "name": "website_knowledge_base",
+      "description": "Comprehensive website scraping and knowledge base tool. Automatically crawls entire websites, extracts content using multiple strategies, and stores it in ChromaDB for intelligent retrieval. Perfect for creating searchable knowledge bases from your own website content.",
+      "category": "Data",
+      "tool_type": "Function",
+      "config": {
+        "websites": [
+          {
+            "name": "example_website",
+            "base_url": "https://example.com",
+            "allowed_domains": ["example.com", "www.example.com"],
+            "max_pages": 100,
+            "exclude_patterns": ["/admin/*", "/private/*", "/api/*"],
+            "include_patterns": ["/services/*", "/about/*", "/contact/*"],
+            "chroma_collection_name": "example_website_kb"
+          }
+        ],
+        "scraping": {
+          "user_agent": "KooAgent Website KB Scraper 1.0",
+          "delay_between_requests": 1,
+          "timeout": 30,
+          "max_retries": 3,
+          "respect_robots_txt": true
+        },
+        "vectorization": {
+          "chunk_size": 1000,
+          "chunk_overlap": 200,
+          "embedding_model": "text-embedding-3-small",
+          "metadata_fields": ["url", "title", "section", "last_updated"]
+        },
+        "retrieval": {
+          "top_k": 5,
+          "similarity_threshold": 0.7,
+          "max_tokens": 2000
+        },
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "type": "string",
+              "description": "Type of operation to perform",
+              "enum": [
+                "build_knowledge_base",
+                "query_knowledge_base", 
+                "update_knowledge_base",
+                "list_collections",
+                "get_collection_stats",
+                "delete_collection"
+              ],
+              "default": "query_knowledge_base"
+            },
+            "website_name": {
+              "type": "string",
+              "description": "Name for the knowledge base (used for collection name)"
+            },
+            "base_url": {
+              "type": "string",
+              "description": "Website URL to scrape and build knowledge base from"
+            },
+            "collection_name": {
+              "type": "string",
+              "description": "Name of the knowledge base collection to query. First run 'list_collections' operation to see available collections, then use the collection name from the results."
+            },
+            "query": {
+              "type": "string",
+              "description": "Search query for knowledge base retrieval"
+            },
+            "max_pages": {
+              "type": "integer",
+              "description": "Maximum number of pages to crawl",
+              "default": 100
+            },
+            "max_depth": {
+              "type": "integer", 
+              "description": "Maximum depth for crawling links",
+              "default": 3
+            }
+          },
+          "required": ["query"]
+        }
+      },
+      "is_public": true,
+      "is_active": true,
+      "created_at": "2025-08-12T00:00:00.000000",
+      "updated_at": "2025-08-12T00:00:00.000000",
+      "user_id": 1,
+      "cost": 50
     }
   ]
 }

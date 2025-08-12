@@ -674,6 +674,83 @@ class ApiClient {
     // Use Next.js API route for agent-config to avoid CORS issues
     return this.request(`/tools/${toolId}/agent-config?agent_id=${agentId}`, {}, true)
   }
+
+  // Knowledge Base methods
+  async getKnowledgeBaseCollections(): Promise<Array<{
+    id: number
+    name: string
+    description: string | null
+    collection_type: string
+    chroma_collection_name: string
+    created_at: string
+    updated_at: string
+    document_count: number
+    pages_extracted: number
+  }>> {
+    return this.request('/knowledge-base/collections', {}, true)
+  }
+
+  async createKnowledgeBaseCollection(collectionData: {
+    name: string
+    description?: string
+    collection_type: string
+  }): Promise<{
+    id: number
+    name: string
+    description: string | null
+    collection_type: string
+    chroma_collection_name: string
+    created_at: string
+    updated_at: string
+    document_count: number
+    pages_extracted: number
+  }> {
+    return this.request('/knowledge-base/collections', {
+      method: 'POST',
+      body: JSON.stringify(collectionData),
+    }, true)
+  }
+
+  async crawlWebsiteToCollection(collectionId: number, websiteData: {
+    website_url: string
+    max_pages: number
+    max_depth: number
+  }): Promise<{
+    success: boolean
+    message: string
+    data: any
+  }> {
+    return this.request(`/knowledge-base/collections/${collectionId}/crawl-website`, {
+      method: 'POST',
+      body: JSON.stringify({
+        collection_id: collectionId,
+        ...websiteData
+      }),
+    }, true)
+  }
+
+  async uploadFileToCollection(collectionId: number, file: File): Promise<{
+    success: boolean
+    message: string
+    data: any
+  }> {
+    const formData = new FormData()
+    formData.append('file', file)
+    
+    return this.request(`/knowledge-base/collections/${collectionId}/upload-file`, {
+      method: 'POST',
+      body: formData,
+    }, true)
+  }
+
+  async deleteKnowledgeBaseCollection(collectionId: number): Promise<{
+    success: boolean
+    message: string
+  }> {
+    return this.request(`/knowledge-base/collections/${collectionId}`, {
+      method: 'DELETE',
+    }, true)
+  }
 }
 
 // Create a singleton instance with the correct base URL
