@@ -72,6 +72,7 @@ export interface Conversation {
 export interface PlaygroundResponse {
   response: string
   session_id: string
+  conversation_id: number
   agent_id: number
   tools_used: string[]
   execution_time: number
@@ -504,6 +505,38 @@ class ApiClient {
     return this.request<Conversation[]>(`/playground/${agent_id}/conversations`)
   }
 
+  async createConversation(agent_id: number, title?: string): Promise<{
+    id: number
+    user_id: number
+    agent_id: number
+    session_id: string
+    title: string
+    created_at: string
+    updated_at: string | null
+  }> {
+    console.log('📡 API Client: Creating conversation...')
+    console.log('📋 Request details:', { agent_id, title })
+    
+    const response = await this.request<{
+      id: number
+      user_id: number
+      agent_id: number
+      session_id: string
+      title: string
+      created_at: string
+      updated_at: string | null
+    }>(`/conversations/`, {
+      method: 'POST',
+      body: JSON.stringify({
+        agent_id: agent_id,
+        title: title || `Playground Session - Agent ${agent_id}`
+      })
+    })
+    
+    console.log('✅ API Client: Conversation created successfully:', response)
+    return response
+  }
+
   async getConversationMessages(agent_id: number, conversation_id: number): Promise<{
     conversation_id: number
     agent_id: number
@@ -516,6 +549,12 @@ class ApiClient {
     }>
   }> {
     return this.request(`/playground/${agent_id}/conversations/${conversation_id}`)
+  }
+
+  async deleteConversation(agent_id: number, conversation_id: number): Promise<{ message: string }> {
+    return this.request(`/playground/${agent_id}/conversations/${conversation_id}`, {
+      method: 'DELETE'
+    })
   }
 
   // Tool Categories and Types

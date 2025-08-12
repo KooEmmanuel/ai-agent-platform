@@ -315,7 +315,7 @@ class Conversation(Base):
     __tablename__ = "conversations"
     
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # Nullable for anonymous users
     agent_id = Column(Integer, ForeignKey("agents.id"))
     session_id = Column(String, nullable=True)  # Session tracking
     title = Column(String)
@@ -323,6 +323,13 @@ class Conversation(Base):
     memory_metadata = Column(JSON, nullable=True)  # Memory metadata
     retention_policy = Column(JSON, nullable=True)  # Retention settings
     meta_data = Column(JSON, nullable=True)
+    
+    # Customer persistence fields
+    customer_type = Column(String, default="authenticated")  # 'authenticated' or 'anonymous'
+    customer_identifier = Column(String, nullable=True, index=True)  # Cookie ID for anonymous users
+    linked_email = Column(String, nullable=True, index=True)  # Optional email for persistence
+    expires_at = Column(DateTime, nullable=True)  # NULL for persistent conversations
+    
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
     

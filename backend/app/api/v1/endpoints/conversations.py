@@ -35,6 +35,13 @@ class ConversationCreate(BaseModel):
     memory_metadata: Optional[Dict[str, Any]] = None
     retention_policy: Optional[Dict[str, Any]] = None
 
+class AnonymousConversationCreate(BaseModel):
+    agent_id: int
+    customer_identifier: str
+    session_id: Optional[str] = None
+    title: Optional[str] = None
+    linked_email: Optional[str] = None
+
 class ConversationUpdate(BaseModel):
     title: Optional[str] = None
     context_summary: Optional[str] = None
@@ -77,7 +84,16 @@ async def create_conversation(
     db: AsyncSession = Depends(get_db)
 ):
     """Create a new conversation"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    logger.info(f"🔄 Creating new conversation...")
+    logger.info(f"📊 Request data: {conversation_data}")
+    logger.info(f"👤 User ID: {current_user.id}")
+    logger.info(f"🤖 Agent ID: {conversation_data.agent_id}")
+    
     # Verify agent exists and belongs to user
+    logger.info(f"🔍 Verifying agent exists and belongs to user...")
     agent_result = await db.execute(
         select(Agent).where(
             Agent.id == conversation_data.agent_id,
@@ -87,12 +103,16 @@ async def create_conversation(
     agent = agent_result.scalar_one_or_none()
     
     if not agent:
+        logger.error(f"❌ Agent not found: ID {conversation_data.agent_id} for user {current_user.id}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Agent not found"
         )
     
+    logger.info(f"✅ Agent found: {agent.name} (ID: {agent.id})")
+    
     # Create new conversation
+    logger.info(f"📝 Creating conversation object...")
     new_conversation = Conversation(
         user_id=current_user.id,
         agent_id=conversation_data.agent_id,
@@ -103,9 +123,103 @@ async def create_conversation(
         retention_policy=conversation_data.retention_policy
     )
     
+    logger.info(f"💾 Adding conversation to database...")
     db.add(new_conversation)
     await db.commit()
     await db.refresh(new_conversation)
+    
+    logger.info(f"✅ Conversation created successfully!")
+    logger.info(f"📋 Conversation details: ID={new_conversation.id}, Session={new_conversation.session_id}, Title={new_conversation.title}")
+    
+    return ConversationResponse(
+        id=new_conversation.id,
+        user_id=new_conversation.user_id,
+        agent_id=new_conversation.agent_id,
+        session_id=new_conversation.session_id,
+        title=new_conversation.title,
+        context_summary=new_conversation.context_summary,
+        memory_metadata=new_conversation.memory_metadata,
+        retention_policy=new_conversation.retention_policy,
+        created_at=new_conversation.created_at.isoformat(),
+        updated_at=new_conversation.updated_at.isoformat() if new_conversation.updated_at else None
+    )
+
+@router.post("/anonymous", response_model=ConversationResponse)
+async def create_anonymous_conversation(
+    conversation_data: AnonymousConversationCreate,
+    db: AsyncSession = Depends(get_db)
+):
+    """Create a new conversation for anonymous users"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    logger.info(f"🔄 Creating anonymous conversation...")
+    logger.info(f"📊 Request data: {conversation_data}")
+    logger.info(f"🆔 Customer ID: {conversation_data.customer_identifier}")
+    logger.info(f"🤖 Agent ID: {conversation_data.agent_id}")
+    
+    # Verify agent exists (no user ownership check for anonymous)
+    logger.info(f"🔍 Verifying agent exists...")
+    agent_result = await db.execute(
+        select(Agent).where(Agent.id == conversation_data.agent_id)
+    )
+    agent = agent_result.scalar_one_or_none()
+    
+    if not agent:
+        logger.error(f"❌ Agent not found: ID {conversation_data.agent_id}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Agent not found"
+        )
+    
+    logger.info(f"✅ Agent found: {agent.name} (ID: {agent.id})")
+    
+    # Check if conversation already exists for this customer and agent
+    logger.info(f"🔍 Checking for existing conversation...")
+    existing_conversation = await db.execute(
+        select(Conversation).where(
+            Conversation.customer_identifier == conversation_data.customer_identifier,
+            Conversation.agent_id == conversation_data.agent_id,
+            Conversation.customer_type == "anonymous"
+        )
+    )
+    existing = existing_conversation.scalar_one_or_none()
+    
+    if existing:
+        logger.info(f"✅ Found existing conversation: ID={existing.id}")
+        return ConversationResponse(
+            id=existing.id,
+            user_id=existing.user_id,
+            agent_id=existing.agent_id,
+            session_id=existing.session_id,
+            title=existing.title,
+            context_summary=existing.context_summary,
+            memory_metadata=existing.memory_metadata,
+            retention_policy=existing.retention_policy,
+            created_at=existing.created_at.isoformat(),
+            updated_at=existing.updated_at.isoformat() if existing.updated_at else None
+        )
+    
+    # Create new anonymous conversation
+    logger.info(f"📝 Creating new anonymous conversation...")
+    new_conversation = Conversation(
+        user_id=None,  # No user for anonymous
+        agent_id=conversation_data.agent_id,
+        session_id=conversation_data.session_id,
+        title=conversation_data.title or f"Anonymous Chat - {agent.name}",
+        customer_type="anonymous",
+        customer_identifier=conversation_data.customer_identifier,
+        linked_email=conversation_data.linked_email,
+        expires_at=None  # Persistent conversation
+    )
+    
+    logger.info(f"💾 Adding conversation to database...")
+    db.add(new_conversation)
+    await db.commit()
+    await db.refresh(new_conversation)
+    
+    logger.info(f"✅ Anonymous conversation created successfully!")
+    logger.info(f"📋 Conversation details: ID={new_conversation.id}, Customer={new_conversation.customer_identifier}")
     
     return ConversationResponse(
         id=new_conversation.id,

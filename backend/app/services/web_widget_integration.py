@@ -19,7 +19,40 @@ class WebWidgetIntegrationService:
     """
     
     def __init__(self):
-        pass
+        # Simple in-memory rate limiting
+        self.rate_limit_data = {}  # {customer_id: {'count': 0, 'reset_time': timestamp}}
+        self.rate_limit_max = 50  # Max messages per hour per customer
+        self.rate_limit_window = 3600  # 1 hour in seconds
+    
+    def _check_rate_limit(self, customer_identifier: str) -> bool:
+        """Check if customer is within rate limits"""
+        import time
+        current_time = time.time()
+        
+        if customer_identifier not in self.rate_limit_data:
+            # First message from this customer
+            self.rate_limit_data[customer_identifier] = {
+                'count': 1,
+                'reset_time': current_time + self.rate_limit_window
+            }
+            return True
+        
+        customer_data = self.rate_limit_data[customer_identifier]
+        
+        # Check if window has expired
+        if current_time > customer_data['reset_time']:
+            # Reset counter
+            customer_data['count'] = 1
+            customer_data['reset_time'] = current_time + self.rate_limit_window
+            return True
+        
+        # Check if within limit
+        if customer_data['count'] >= self.rate_limit_max:
+            return False
+        
+        # Increment counter
+        customer_data['count'] += 1
+        return True
     
     async def process_widget_message(self, message_data: Dict[str, Any], db: AsyncSession):
         """Process incoming web widget message and route to appropriate agent"""
@@ -28,11 +61,24 @@ class WebWidgetIntegrationService:
             widget_id = message_data.get('widget_id', '')
             session_id = message_data.get('session_id', '')
             user_id = message_data.get('user_id', 'anonymous')
+            customer_identifier = message_data.get('customer_identifier', '')
             message = message_data.get('message', '')
             domain = message_data.get('domain', '')
             
             if not widget_id or not message:
                 return
+            
+            # Check rate limiting for anonymous users
+            if customer_identifier and user_id == 'anonymous':
+                if not self._check_rate_limit(customer_identifier):
+                    print(f"⚠️ Rate limit exceeded for customer: {customer_identifier}")
+                    return {
+                        "response": "You've sent too many messages. Please wait a bit before sending another message.",
+                        "session_id": session_id,
+                        "agent_name": "AI Assistant",
+                        "timestamp": message_data.get('timestamp'),
+                        "error": "rate_limit_exceeded"
+                    }
             
             # Find integration by widget ID or domain
             integration = await self._get_integration_by_widget(widget_id, domain, db)
@@ -49,6 +95,47 @@ class WebWidgetIntegrationService:
             if not agent:
                 print(f"No agent found for integration: {integration.id}")
                 return
+            
+            # Handle conversation creation/resumption for anonymous users
+            conversation_id = None
+            if customer_identifier and user_id == 'anonymous':
+                print(f"🔍 Looking for existing conversation for customer: {customer_identifier}")
+                
+                # Check for existing conversation
+                from sqlalchemy import select
+                from app.core.database import Conversation
+                
+                existing_conversation = await db.execute(
+                    select(Conversation).where(
+                        Conversation.customer_identifier == customer_identifier,
+                        Conversation.agent_id == agent.id,
+                        Conversation.customer_type == "anonymous"
+                    )
+                )
+                conversation = existing_conversation.scalar_one_or_none()
+                
+                if conversation:
+                    print(f"✅ Found existing conversation: {conversation.id}")
+                    conversation_id = conversation.id
+                    session_id = conversation.session_id
+                else:
+                    print(f"📝 Creating new conversation for customer: {customer_identifier}")
+                    # Create new conversation
+                    new_conversation = Conversation(
+                        user_id=None,
+                        agent_id=agent.id,
+                        session_id=session_id or f"widget_{customer_identifier}_{agent.id}",
+                        title=f"Widget Chat - {agent.name}",
+                        customer_type="anonymous",
+                        customer_identifier=customer_identifier,
+                        expires_at=None
+                    )
+                    db.add(new_conversation)
+                    await db.commit()
+                    await db.refresh(new_conversation)
+                    conversation_id = new_conversation.id
+                    session_id = new_conversation.session_id
+                    print(f"✅ Created new conversation: {conversation_id}")
             
             # Process message with agent
             agent_service = AgentService(db)
@@ -106,12 +193,20 @@ class WebWidgetIntegrationService:
             widget_id = message_data.get('widget_id', '')
             session_id = message_data.get('session_id', '')
             user_id = message_data.get('user_id', 'anonymous')
+            customer_identifier = message_data.get('customer_identifier', '')
             message = message_data.get('message', '')
             domain = message_data.get('domain', '')
             
             if not widget_id or not message:
                 yield {"type": "error", "content": "Invalid message data"}
                 return
+            
+            # Check rate limiting for anonymous users
+            if customer_identifier and user_id == 'anonymous':
+                if not self._check_rate_limit(customer_identifier):
+                    print(f"⚠️ Rate limit exceeded for customer: {customer_identifier}")
+                    yield {"type": "error", "content": "You've sent too many messages. Please wait a bit before sending another message."}
+                    return
             
             # Find integration by widget ID or domain
             integration = await self._get_integration_by_widget(widget_id, domain, db)
@@ -128,6 +223,47 @@ class WebWidgetIntegrationService:
             if not agent:
                 yield {"type": "error", "content": "Agent not found"}
                 return
+            
+            # Handle conversation creation/resumption for anonymous users
+            conversation_id = None
+            if customer_identifier and user_id == 'anonymous':
+                print(f"🔍 Looking for existing conversation for customer: {customer_identifier}")
+                
+                # Check for existing conversation
+                from sqlalchemy import select
+                from app.core.database import Conversation
+                
+                existing_conversation = await db.execute(
+                    select(Conversation).where(
+                        Conversation.customer_identifier == customer_identifier,
+                        Conversation.agent_id == agent.id,
+                        Conversation.customer_type == "anonymous"
+                    )
+                )
+                conversation = existing_conversation.scalar_one_or_none()
+                
+                if conversation:
+                    print(f"✅ Found existing conversation: {conversation.id}")
+                    conversation_id = conversation.id
+                    session_id = conversation.session_id
+                else:
+                    print(f"📝 Creating new conversation for customer: {customer_identifier}")
+                    # Create new conversation
+                    new_conversation = Conversation(
+                        user_id=None,
+                        agent_id=agent.id,
+                        session_id=session_id or f"widget_{customer_identifier}_{agent.id}",
+                        title=f"Widget Chat - {agent.name}",
+                        customer_type="anonymous",
+                        customer_identifier=customer_identifier,
+                        expires_at=None
+                    )
+                    db.add(new_conversation)
+                    await db.commit()
+                    await db.refresh(new_conversation)
+                    conversation_id = new_conversation.id
+                    session_id = new_conversation.session_id
+                    print(f"✅ Created new conversation: {conversation_id}")
             
             # Process message with agent using streaming
             agent_service = AgentService(db)
@@ -496,6 +632,37 @@ class WebWidgetIntegrationService:
     let isOpen = false;
     let sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
     
+    // Customer identification
+    let customerId = '';
+    
+    // Generate or retrieve customer ID
+    function getCustomerId() {{
+        if (customerId) return customerId;
+        
+        // Try to get from cookie first
+        const cookieValue = document.cookie
+            .split('; ')
+            .find(row => row.startsWith('ai_widget_customer='))
+            ?.split('=')[1];
+        
+        if (cookieValue) {{
+            customerId = cookieValue;
+            console.log('📂 Retrieved customer ID from cookie:', customerId);
+            return customerId;
+        }}
+        
+        // Generate new customer ID
+        customerId = 'customer_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        
+        // Store in cookie for 1 year
+        const expires = new Date();
+        expires.setFullYear(expires.getFullYear() + 1);
+        document.cookie = `ai_widget_customer=${{customerId}}; expires=${{expires.toUTCString()}}; path=/; SameSite=Lax`;
+        
+        console.log('🆔 Generated new customer ID:', customerId);
+        return customerId;
+    }}
+    
     widgetButton.addEventListener('click', () => {{
         isOpen = !isOpen;
         if (isOpen) {{
@@ -727,6 +894,7 @@ class WebWidgetIntegrationService:
                     widget_id: config.widgetId,
                     session_id: sessionId,
                     user_id: 'web_user',
+                    customer_identifier: getCustomerId(),
                     message: message,
                     domain: window.location.hostname,
                     timestamp: new Date().toISOString()

@@ -24,6 +24,7 @@ class PlaygroundMessage(BaseModel):
 class PlaygroundResponse(BaseModel):
     response: str
     session_id: str
+    conversation_id: int
     agent_id: str
     tools_used: List[str] = []
     execution_time: float
@@ -176,7 +177,7 @@ async def chat_with_agent_stream(
                 await db.commit()
                 
                 execution_time = time.time() - start_time
-                yield f"data: {json.dumps({'type': 'metadata', 'execution_time': execution_time, 'session_id': session_id})}\n\n"
+                yield f"data: {json.dumps({'type': 'metadata', 'execution_time': execution_time, 'session_id': session_id, 'conversation_id': conversation.id})}\n\n"
             
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'content': f'Streaming error: {str(e)}'})}\n\n"
@@ -312,6 +313,7 @@ async def chat_with_agent(
     return PlaygroundResponse(
         response=agent_response,
         session_id=session_id,
+        conversation_id=conversation.id,
         agent_id=str(agent_id),
         tools_used=tools_used,
         execution_time=execution_time
