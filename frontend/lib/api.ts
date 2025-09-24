@@ -881,6 +881,114 @@ class ApiClient {
       }),
     })
   }
+
+  // File Management Methods
+  async uploadFile(file: File, agentId?: number, folderPath?: string): Promise<{
+    success: boolean
+    file_id?: number
+    blob_url?: string
+    original_name?: string
+    file_size?: number
+    mime_type?: string
+    error?: string
+  }> {
+    const formData = new FormData()
+    formData.append('file', file)
+    if (agentId) formData.append('agent_id', agentId.toString())
+    if (folderPath) formData.append('folder_path', folderPath)
+
+    return this.request('/files/upload', {
+      method: 'POST',
+      body: formData,
+    })
+  }
+
+  async getFiles(agentId?: number, folderPath?: string, fileType?: string): Promise<Array<{
+    id: number
+    original_name: string
+    stored_name: string
+    blob_url: string
+    file_size: number
+    mime_type: string
+    file_extension: string
+    folder_path: string
+    is_public: boolean
+    created_at: string
+    expires_at?: string
+  }>> {
+    const params = new URLSearchParams()
+    if (agentId) params.append('agent_id', agentId.toString())
+    if (folderPath) params.append('folder_path', folderPath)
+    if (fileType) params.append('file_type', fileType)
+
+    const endpoint = `/files/list${params.toString() ? `?${params.toString()}` : ''}`
+    return this.request(endpoint)
+  }
+
+  async getSharedFiles(): Promise<Array<{
+    id: number
+    original_name: string
+    blob_url: string
+    file_size: number
+    mime_type: string
+    file_extension: string
+    folder_path: string
+    owner_user_id: number
+    permission: string
+    shared_at: string
+    created_at: string
+  }>> {
+    return this.request('/files/shared')
+  }
+
+  async shareFile(fileId: number, sharedWithUserId: number, permission: string = 'view'): Promise<{
+    success: boolean
+    message?: string
+    permission?: string
+    error?: string
+  }> {
+    return this.request('/files/share', {
+      method: 'POST',
+      body: JSON.stringify({
+        file_id: fileId,
+        shared_with_user_id: sharedWithUserId,
+        permission: permission
+      }),
+    })
+  }
+
+  async deleteFile(fileId: number): Promise<{
+    success: boolean
+    message?: string
+    error?: string
+  }> {
+    return this.request(`/files/${fileId}`, {
+      method: 'DELETE',
+    })
+  }
+
+  async downloadFile(fileId: number): Promise<{
+    download_url: string
+    filename: string
+  }> {
+    return this.request(`/files/${fileId}/download`)
+  }
+
+  async getFileInfo(fileId: number): Promise<{
+    id: number
+    original_name: string
+    stored_name: string
+    blob_url: string
+    file_size: number
+    mime_type: string
+    file_extension: string
+    folder_path: string
+    is_public: boolean
+    created_at: string
+    expires_at?: string
+  }> {
+    return this.request(`/files/${fileId}/info`)
+  }
 }
 
 // Create a singleton instance with the correct base URL
