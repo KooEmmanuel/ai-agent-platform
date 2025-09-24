@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
 from pathlib import Path
 import mimetypes
-from vercel_blob import put, del_blob, list_blobs, head_blob
+from vercel_blob import put, delete, list, head
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, or_
 
@@ -241,7 +241,7 @@ class FileManagementService:
             
             # Delete from Vercel Blob
             try:
-                await del_blob(file.blob_path, token=self.blob_token)
+                await delete(file.blob_path, token=self.blob_token)
             except Exception as e:
                 logger.warning(f"Error deleting blob: {str(e)}")
             
