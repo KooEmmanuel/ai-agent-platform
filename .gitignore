@@ -142,3 +142,4 @@ Thumbs.db
 
 # Local development
 .local/ credentials/
+backend/debug_hubspot_config.py

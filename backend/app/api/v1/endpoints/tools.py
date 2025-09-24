@@ -20,6 +20,7 @@ from app.core.auth import get_current_user
 from app.services.marketplace_tools_service import marketplace_tools_service
 from app.services.tool_registry import ToolRegistry
 from app.services.json_tool_loader import json_tool_loader
+from app.services.tool_system_prompts import tool_system_prompts_service
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -729,6 +730,7 @@ async def get_tool_config_schema(
     ]
     
     # Add tool-specific configuration fields based on tool type
+    logger.info(f"🔧 Processing tool: {tool_name}, type: {tool_type}")
     if tool_type == 'API':
         config_schema['config_fields'].extend([
             {
@@ -1791,6 +1793,67 @@ async def get_tool_config_schema(
                 }
             ])
     
+    # Reddit tool specific fields - applies to all tool types
+    if 'reddit' in tool_name.lower():
+        logger.info(f"🔧 Reddit tool detected: {tool_name}")
+        # Remove the generic fields and replace with Reddit-specific ones
+        config_schema['config_fields'] = [
+            {
+                'name': 'max_results',
+                'type': 'number',
+                'label': 'Max Results',
+                'description': 'Maximum number of results to return',
+                'default': 10,
+                'min': 1,
+                'max': 100
+            },
+            {
+                'name': 'timeout',
+                'type': 'number',
+                'label': 'Timeout (seconds)',
+                'description': 'Request timeout in seconds',
+                'default': 30,
+                'min': 5,
+                'max': 300
+            },
+            {
+                'name': 'client_id',
+                'type': 'text',
+                'label': 'Reddit Client ID',
+                'description': 'Reddit API client ID from your Reddit app (required for live data)',
+                'required': True,
+                'sensitive': True,
+                'placeholder': 'your_reddit_client_id'
+            },
+            {
+                'name': 'client_secret',
+                'type': 'text',
+                'label': 'Reddit Client Secret',
+                'description': 'Reddit API client secret from your Reddit app (required for live data)',
+                'required': True,
+                'sensitive': True,
+                'placeholder': 'your_reddit_client_secret'
+            },
+            {
+                'name': 'username',
+                'type': 'text',
+                'label': 'Reddit Username (Optional)',
+                'description': 'Your Reddit username (optional, only needed for user-specific actions)',
+                'required': False,
+                'placeholder': 'your_reddit_username'
+            },
+            {
+                'name': 'password',
+                'type': 'password',
+                'label': 'Reddit Password (Optional)',
+                'description': 'Your Reddit password (optional, only needed for user-specific actions)',
+                'required': False,
+                'sensitive': True,
+                'placeholder': 'your_reddit_password'
+            }
+        ]
+        logger.info(f"🔧 Reddit tool config fields set: {len(config_schema['config_fields'])} fields")
+    
     # For website knowledge base tools, fetch the actual page count
     if tool_name == 'website_knowledge_base':
         logger.info(f"🔍 Fetching page count for website knowledge base tool")
@@ -1888,4 +1951,101 @@ async def upload_credentials(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to upload credentials"
+        )
+
+@router.get("/system-prompts")
+async def get_tool_system_prompts(
+    current_user: User = Depends(get_current_user)
+):
+    """Get all tool system prompts"""
+    try:
+        prompts = {}
+        for tool_name in tool_system_prompts_service.list_tool_prompts():
+            prompts[tool_name] = tool_system_prompts_service.get_tool_prompt(tool_name)
+        
+        return {
+            "success": True,
+            "prompts": prompts,
+            "total_tools": len(prompts)
+        }
+    except Exception as e:
+        logger.error(f"Error getting tool system prompts: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get tool system prompts"
+        )
+
+@router.get("/{tool_name}/system-prompt")
+async def get_tool_system_prompt(
+    tool_name: str,
+    current_user: User = Depends(get_current_user)
+):
+    """Get system prompt for a specific tool"""
+    try:
+        prompt = tool_system_prompts_service.get_tool_prompt(tool_name)
+        
+        if prompt is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"No system prompt found for tool: {tool_name}"
+            )
+        
+        return {
+            "success": True,
+            "tool_name": tool_name,
+            "prompt": prompt
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting system prompt for {tool_name}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get tool system prompt"
+        )
+
+class ToolSystemPromptUpdate(BaseModel):
+    prompt: str
+
+@router.put("/{tool_name}/system-prompt")
+async def update_tool_system_prompt(
+    tool_name: str,
+    prompt_data: ToolSystemPromptUpdate,
+    current_user: User = Depends(get_current_user)
+):
+    """Update system prompt for a specific tool"""
+    try:
+        tool_system_prompts_service.add_tool_prompt(tool_name, prompt_data.prompt)
+        
+        return {
+            "success": True,
+            "tool_name": tool_name,
+            "message": f"System prompt updated for tool: {tool_name}"
+        }
+    except Exception as e:
+        logger.error(f"Error updating system prompt for {tool_name}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update tool system prompt"
+        )
+
+@router.delete("/{tool_name}/system-prompt")
+async def delete_tool_system_prompt(
+    tool_name: str,
+    current_user: User = Depends(get_current_user)
+):
+    """Delete system prompt for a specific tool"""
+    try:
+        tool_system_prompts_service.remove_tool_prompt(tool_name)
+        
+        return {
+            "success": True,
+            "tool_name": tool_name,
+            "message": f"System prompt deleted for tool: {tool_name}"
+        }
+    except Exception as e:
+        logger.error(f"Error deleting system prompt for {tool_name}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete tool system prompt"
         ) 

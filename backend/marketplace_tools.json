@@ -1666,13 +1666,13 @@
         "user_agent": "RedditContentTool/1.0",
         "username": "YOUR_REDDIT_USERNAME",
         "password": "YOUR_REDDIT_PASSWORD",
-        "limit": 15,
+        "limit": 10,
         "sort_by": "hot",
         "time_filter": "day",
-        "min_upvotes": 0,
-        "max_upvotes": 100000,
+        "min_upvotes": 10,
+        "max_upvotes": 10000,
         "min_comments": 0,
-        "max_age_hours": 8760,
+        "max_age_hours": 24,
         "parameters": {
           "type": "object",
           "properties": {
@@ -1692,7 +1692,7 @@
               "description": "Number of posts to retrieve",
               "minimum": 1,
               "maximum": 100,
-              "default": 15
+              "default": 10
             },
             "time_filter": {
               "type": "string",
@@ -1710,13 +1710,13 @@
               "type": "integer",
               "description": "Minimum upvotes filter",
               "minimum": 0,
-              "default": 0
+              "default": 10
             },
             "max_upvotes": {
               "type": "integer",
               "description": "Maximum upvotes filter",
               "minimum": 0,
-              "default": 100000
+              "default": 10000
             },
             "min_comments": {
               "type": "integer",
@@ -1728,7 +1728,7 @@
               "type": "integer",
               "description": "Maximum age in hours",
               "minimum": 1,
-              "default": 8760
+              "default": 24
             },
             "format_for": {
               "type": "string",
