@@ -51,6 +51,9 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "./uploads"
     MAX_FILE_SIZE: int = 10 * 1024 * 1024  # 10MB
     
+    # Vercel Blob Storage
+    BLOB_READ_WRITE_TOKEN: Optional[str] = None
+    
     # Agent Settings
     MAX_AGENTS_PER_USER: int = 10
     MAX_TOOLS_PER_AGENT: int = 20
