@@ -546,7 +546,7 @@ async def get_tool_agent_config(
         tool_id = int(tool_identifier)
         
         # Get base tool configuration from JSON
-        tool_data = json_tool_loader.get_tool_by_id(tool_id)
+        tool_data = marketplace_tools_service.get_tool_by_id(tool_id)
         if not tool_data:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
