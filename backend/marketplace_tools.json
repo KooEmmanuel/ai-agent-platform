@@ -1,6 +1,6 @@
 {
-  "exported_at": "2025-08-10T08:26:15.640269",
-  "total_tools": 31,
+  "exported_at": "2025-01-24T00:00:00.000000",
+  "total_tools": 33,
   "tools": [
     {
       "id": 1,
@@ -1751,6 +1751,123 @@
       "updated_at": "2025-08-12T00:00:00.000000",
       "user_id": 1,
       "cost": 15
+    },
+    {
+      "id": 32,
+      "name": "rss_feed_tool",
+      "description": "Fetch and process RSS feeds from multiple sources for content discovery. Aggregates content from BBC News, TechCrunch, Hacker News, Reddit feeds, and more with content filtering and social media formatting.",
+      "category": "Search",
+      "tool_type": "API",
+      "config": {
+        "feed_urls": [],
+        "max_items_per_feed": 20,
+        "max_total_items": 50,
+        "min_date_hours": 0,
+        "max_date_hours": 168,
+        "keywords_filter": [],
+        "exclude_keywords": [],
+        "include_content": false,
+        "max_description_length": 500,
+        "include_images": true,
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "category": {
+              "type": "string",
+              "description": "Category to filter by (optional)"
+            },
+            "keywords": {
+              "type": "string",
+              "description": "Keywords to search for (optional)"
+            },
+            "max_items": {
+              "type": "integer",
+              "description": "Maximum items to return (optional)",
+              "default": 50
+            },
+            "hours_back": {
+              "type": "integer",
+              "description": "How many hours back to look (optional)",
+              "default": 168
+            },
+            "format_for": {
+              "type": "string",
+              "description": "Platform to format for (twitter, instagram, tiktok) (optional)",
+              "enum": ["twitter", "instagram", "tiktok"],
+              "default": "twitter"
+            }
+          },
+          "required": []
+        }
+      },
+      "is_public": true,
+      "is_active": true,
+      "created_at": "2025-01-24T00:00:00.000000",
+      "updated_at": "2025-01-24T00:00:00.000000",
+      "user_id": 1,
+      "cost": 10
+    },
+    {
+      "id": 33,
+      "name": "telegram_tool",
+      "description": "Fetch and process content from Telegram channels and groups. Access content from Durov, Telegram, TechCrunch, BBC, and more with message filtering, media extraction, and social media formatting.",
+      "category": "Search",
+      "tool_type": "API",
+      "config": {
+        "api_id": "YOUR_TELEGRAM_API_ID",
+        "api_hash": "YOUR_TELEGRAM_API_HASH",
+        "phone_number": "YOUR_PHONE_NUMBER",
+        "session_name": "telegram_session",
+        "channel_usernames": [],
+        "group_usernames": [],
+        "max_messages_per_channel": 50,
+        "max_total_messages": 100,
+        "min_date_hours": 0,
+        "max_date_hours": 168,
+        "keywords_filter": [],
+        "exclude_keywords": [],
+        "include_media": true,
+        "include_links": true,
+        "max_message_length": 1000,
+        "include_forwarded": true,
+        "include_replies": false,
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "channel": {
+              "type": "string",
+              "description": "Specific channel to search (optional)"
+            },
+            "keywords": {
+              "type": "string",
+              "description": "Keywords to search for (optional)"
+            },
+            "max_messages": {
+              "type": "integer",
+              "description": "Maximum messages to return (optional)",
+              "default": 100
+            },
+            "hours_back": {
+              "type": "integer",
+              "description": "How many hours back to look (optional)",
+              "default": 168
+            },
+            "format_for": {
+              "type": "string",
+              "description": "Platform to format for (twitter, instagram, tiktok) (optional)",
+              "enum": ["twitter", "instagram", "tiktok"],
+              "default": "twitter"
+            }
+          },
+          "required": []
+        }
+      },
+      "is_public": true,
+      "is_active": true,
+      "created_at": "2025-01-24T00:00:00.000000",
+      "updated_at": "2025-01-24T00:00:00.000000",
+      "user_id": 1,
+      "cost": 20
     }
   ]
 }
