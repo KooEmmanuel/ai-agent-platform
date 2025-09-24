@@ -3,7 +3,7 @@ import { AnimatedTestimonials } from "./animated-testimonials"
 const testimonials = [
   {
     quote:
-      "Kwickbuild has transformed how we build AI assistants. The tool marketplace and playground make development incredibly fast.",
+      "Drixai has transformed how we build AI assistants. The tool marketplace and playground make development incredibly fast.",
     name: "Sarah Chen",
     designation: "AI Engineer at TechCorp",
     src: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=3560&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
@@ -31,7 +31,7 @@ const testimonials = [
   },
   {
     quote:
-      "Kwickbuild's real-time playground saved us weeks of testing. We can iterate and deploy faster than ever before.",
+      "Drixai's real-time playground saved us weeks of testing. We can iterate and deploy faster than ever before.",
     name: "Lisa Thompson",
     designation: "VP of Technology at FutureNet",
     src: "https://images.unsplash.com/photo-1624561172888-ac93c696e10c?q=80&w=2592&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
@@ -48,7 +48,7 @@ export default function TestimonialsSection() {
             Loved by developers worldwide
           </h2>
           <p className="text-sm sm:text-base lg:text-lg text-gray-600 max-w-2xl mx-auto px-4">
-            See what our users are saying about Kwickbuild
+            See what our users are saying about Drixai
           </p>
         </div>
 

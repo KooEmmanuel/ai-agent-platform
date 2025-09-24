@@ -21,7 +21,7 @@ import {
 const features = [
   {
     title: 'Seamless Integration',
-    description: 'Connect Kwickbuild to any MCP-compatible client or application',
+    description: 'Connect Drixai to any MCP-compatible client or application',
     icon: GlobeAltIcon,
     color: 'text-blue-600'
   },
@@ -33,7 +33,7 @@ const features = [
   },
   {
     title: 'Tool Access',
-    description: 'Access all Kwickbuild tools and capabilities through MCP',
+    description: 'Access all Drixai tools and capabilities through MCP',
     icon: WrenchScrewdriverIcon,
     color: 'text-purple-600'
   },
@@ -55,22 +55,22 @@ const setupSteps = [
   },
   {
     step: 2,
-    title: 'Configure Kwickbuild MCP',
-description: 'Set up the Kwickbuild MCP server with your API credentials',
-code: 'kwickbuild-mcp --api-key YOUR_API_KEY --server-port 3001',
+    title: 'Configure Drixai MCP',
+    description: 'Set up the Drixai MCP server with your API credentials',
+    code: 'drixai-mcp --api-key YOUR_API_KEY --server-port 3001',
     icon: ServerIcon
   },
   {
     step: 3,
     title: 'Connect Your Client',
-    description: 'Configure your MCP client to connect to the Kwickbuild server',
+    description: 'Configure your MCP client to connect to the Drixai server',
     code: 'mcp://localhost:3001',
     icon: GlobeAltIcon
   },
   {
     step: 4,
     title: 'Start Using Agents',
-    description: 'Access your Kwickbuild agents and tools directly from your MCP client',
+    description: 'Access your Drixai agents and tools directly from your MCP client',
     code: '/agents list',
     icon: PlayIcon
   }
@@ -118,7 +118,7 @@ export default function MCPPage() {
                 <GlobeAltIcon className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">Kwickbuild MCP</h1>
+                <h1 className="text-3xl font-bold text-gray-900">Drixai MCP</h1>
                 <p className="text-gray-600 mt-1">Model Context Protocol integration for seamless AI agent access</p>
               </div>
             </div>
@@ -158,7 +158,7 @@ export default function MCPPage() {
             <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-8 text-white">
               <div className="max-w-3xl">
                 <h2 className="text-3xl font-bold mb-4">
-                  Connect Kwickbuild to Any MCP-Compatible Application
+                  Connect Drixai to Any MCP-Compatible Application
                 </h2>
                 <p className="text-xl text-blue-100 mb-6">
                   Access your AI agents, tools, and integrations directly from Claude Desktop, 
@@ -210,9 +210,9 @@ export default function MCPPage() {
                   <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <ServerIcon className="w-8 h-8 text-purple-600" />
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">2. Kwickbuild MCP</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">2. Drixai MCP</h3>
                   <p className="text-gray-600 text-sm">
-                    Kwickbuild MCP server bridges your client and AI agents
+                    Drixai MCP server bridges your client and AI agents
                   </p>
                 </div>
                 <div className="text-center">
@@ -260,10 +260,10 @@ export default function MCPPage() {
               <div className="mt-8 p-6 bg-blue-50 rounded-lg">
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">Prerequisites</h3>
                 <ul className="space-y-2 text-gray-600">
-                  <li>• Kwickbuild account with API access</li>
+                  <li>• Drixai account with API access</li>
                   <li>• MCP-compatible client (Claude Desktop, etc.)</li>
                   <li>• Node.js 18+ installed</li>
-                  <li>• API key from your Kwickbuild dashboard</li>
+                  <li>• API key from your Drixai dashboard</li>
                 </ul>
               </div>
             </div>

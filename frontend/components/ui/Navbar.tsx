@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { onAuthStateChanged } from 'firebase/auth'
 import { auth } from '../../lib/firebase'
 import { SparklesIcon } from '@heroicons/react/24/outline'
-import KwickbuildLogo from './kwickbuild-logo'
+import DrixaiLogo from './drixai-logo'
 
 interface NavbarProps {
   currentPage?: string
@@ -101,7 +101,7 @@ export default function Navbar({ currentPage }: NavbarProps) {
         <div className="relative bg-white/95 backdrop-blur-xl rounded-full px-6 py-3 shadow-[0_4px_20px_rgba(59,130,246,0.15)] border border-white/20">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-2">
-              <KwickbuildLogo width={120} height={40} />
+              <DrixaiLogo width={120} height={40} />
             </div>
 
             {/* Desktop Navigation */}

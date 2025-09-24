@@ -1,4 +1,4 @@
-// API client for Kwickbuild platform
+// API client for Drixai platform
 
 // Use Railway URL in production, localhost in development
 const API_BASE_URL = process.env.NODE_ENV === 'production' 

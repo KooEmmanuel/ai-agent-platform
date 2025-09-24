@@ -53,7 +53,7 @@ export default function ContactPage() {
                 <h1 className="text-4xl font-bold text-gray-900">Contact Us</h1>
               </div>
               <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-                Have questions about Kwickbuild? We'd love to hear from you. Send us a message and we'll respond as soon as possible.
+                Have questions about Drixai? We'd love to hear from you. Send us a message and we'll respond as soon as possible.
               </p>
             </motion.div>
           </div>
@@ -189,7 +189,7 @@ export default function ContactPage() {
                   </div>
                   <div>
                     <h3 className="font-semibold text-gray-900 mb-1">Email</h3>
-                    <p className="text-gray-600">hello@kwickbuild.com</p>
+                    <p className="text-gray-600">hello@drixai.com</p>
                     <p className="text-sm text-gray-500">We'll respond within 24 hours</p>
                   </div>
                 </div>
@@ -259,14 +259,14 @@ export default function ContactPage() {
           >
             <h2 className="text-3xl font-bold text-gray-900 mb-6">Frequently Asked Questions</h2>
             <p className="text-lg text-gray-600">
-              Find quick answers to common questions about Kwickbuild
+              Find quick answers to common questions about Drixai
             </p>
           </motion.div>
 
           <div className="space-y-8">
             {[
               {
-                question: "How do I get started with Kwickbuild?",
+                question: "How do I get started with Drixai?",
                 answer: "Sign up for a free account, explore our documentation, and start building your first AI agent in minutes."
               },
               {

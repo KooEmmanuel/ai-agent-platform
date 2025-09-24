@@ -43,7 +43,7 @@ export default function HeroSection() {
               <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold leading-tight">
                 Build your ideas{" "}
                 <span className="bg-gradient-to-r from-[#3B82F6] via-[#8B5CF6] to-[#06B6D4] bg-clip-text text-transparent font-extrabold">
-                  with Kwickbuild
+                  with Drixai
                 </span>
               </h1>
 

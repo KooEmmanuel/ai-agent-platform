@@ -53,7 +53,7 @@ export default function StatsSection() {
             Trusted by developers worldwide
           </h2>
           <p className="text-sm sm:text-base lg:text-lg xl:text-xl text-gray-600 max-w-2xl sm:max-w-3xl mx-auto leading-relaxed px-4">
-            Join thousands of developers who are building the future with Kwickbuild
+            Join thousands of developers who are building the future with Drixai
           </p>
         </div>
 

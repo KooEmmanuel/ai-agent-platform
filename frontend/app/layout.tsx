@@ -21,7 +21,7 @@ const nataSans = {
 }
 
 export const metadata: Metadata = {
-  title: 'Kwickbuild Platform',
+  title: 'Drixai Platform',
   description: 'Build, test, and deploy AI agents with powerful tools and integrations',
 }
 

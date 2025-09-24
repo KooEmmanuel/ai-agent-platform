@@ -1,10 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
 import { signInWithGoogle } from '../../../lib/firebase'
+import { useToast } from '../../../components/ui/Toast'
+import DrixaiLogo from '../../../components/ui/drixai-logo'
 
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false)
@@ -17,6 +19,23 @@ export default function RegisterPage() {
     password: '',
     confirmPassword: ''
   })
+  const { showToast } = useToast()
+
+  // Check if user is already logged in
+  useEffect(() => {
+    const token = localStorage.getItem('auth_token')
+    if (token) {
+      showToast({
+        type: 'info',
+        title: 'Already logged in',
+        message: 'Redirecting to dashboard...',
+        duration: 2000
+      })
+      setTimeout(() => {
+        window.location.href = '/dashboard'
+      }, 2000)
+    }
+  }, [showToast])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -38,11 +57,25 @@ export default function RegisterPage() {
       setIsGoogleLoading(true)
       await signInWithGoogle()
       
-      // Redirect to dashboard on success
-      window.location.href = '/dashboard'
+      // Show success toast and redirect
+      showToast({
+        type: 'success',
+        title: 'Account created successfully!',
+        message: 'Welcome! Redirecting to dashboard...',
+        duration: 2000
+      })
+      
+      setTimeout(() => {
+        window.location.href = '/dashboard'
+      }, 2000)
     } catch (error) {
       console.error('Google signup error:', error)
-      alert('Google signup failed. Please try again.')
+      showToast({
+        type: 'error',
+        title: 'Signup failed',
+        message: 'Please try again or check your connection.',
+        duration: 4000
+      })
     } finally {
       setIsGoogleLoading(false)
     }
@@ -59,11 +92,7 @@ export default function RegisterPage() {
           className="text-center"
         >
           <div className="flex justify-center">
-            <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            </div>
+            <DrixaiLogo width={120} height={60} />
           </div>
           <h2 className="mt-6 text-3xl font-bold text-gray-900">Create your account</h2>
           <p className="mt-2 text-sm text-gray-600">

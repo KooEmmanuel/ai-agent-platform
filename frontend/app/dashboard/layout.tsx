@@ -22,7 +22,7 @@ import {
 import { LogOut } from 'lucide-react'
 import { signOut, auth } from '../../lib/firebase'
 import { onAuthStateChanged } from 'firebase/auth'
-import KwickbuildLogo from '../../components/ui/kwickbuild-logo'
+import DrixaiLogo from '../../components/ui/drixai-logo'
 import { initializeApiClient } from '../../lib/api'
 
 const navigation = [
@@ -106,7 +106,7 @@ export default function DashboardLayout({
         >
           <div className="flex h-20 items-center justify-between px-4 overflow-visible">
             <Link href="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity w-full">
-              <KwickbuildLogo width={160} height={50} />
+              <DrixaiLogo width={160} height={50} />
             </Link>
             <button
               onClick={() => setSidebarOpen(false)}
@@ -169,7 +169,7 @@ export default function DashboardLayout({
         <div className="flex flex-col flex-grow bg-white m-4 rounded-2xl shadow-[0_2px_8px_rgba(59,130,246,0.08)]">
           <div className="flex h-20 items-center px-4 overflow-visible">
             <Link href="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity w-full">
-              <KwickbuildLogo width={160} height={50} />
+              <DrixaiLogo width={160} height={50} />
             </Link>
           </div>
           <nav className="flex-1 space-y-1 px-2 py-4 ml-2">

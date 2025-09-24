@@ -60,19 +60,29 @@ try:
     database_url = get_async_database_url()
     print(f"🚀 Creating async engine with URL: {database_url}")
     
-    engine = create_async_engine(
-        database_url,
-        echo=settings.DEBUG,
-        pool_pre_ping=True,
-        pool_size=5,  # Reduced pool size for Railway
-        max_overflow=10,  # Reduced overflow
-        pool_timeout=30,  # Connection timeout
-        connect_args={
-            "server_settings": {
-                "application_name": "ai_agent_platform"
+    # Configure engine based on database type
+    if database_url.startswith('sqlite'):
+        # SQLite configuration - no pooling parameters
+        engine = create_async_engine(
+            database_url,
+            echo=settings.DEBUG,
+            connect_args={"check_same_thread": False}
+        )
+    else:
+        # PostgreSQL configuration - with pooling parameters
+        engine = create_async_engine(
+            database_url,
+            echo=settings.DEBUG,
+            pool_pre_ping=True,
+            pool_size=5,  # Reduced pool size for Railway
+            max_overflow=10,  # Reduced overflow
+            pool_timeout=30,  # Connection timeout
+            connect_args={
+                "server_settings": {
+                    "application_name": "ai_agent_platform"
+                }
             }
-        }
-    )
+        )
     print("✅ Async engine created successfully")
 except Exception as e:
     print(f"❌ Error creating async engine: {e}")
@@ -145,20 +155,38 @@ async def check_db_connection():
 async def test_db_connection():
     """Test database connection and return detailed status"""
     try:
-        # Test basic connection
-        async with engine.begin() as conn:
-            result = await conn.execute(text("SELECT version()"))
-            version = result.fetchone()
-            
-        # Test if tables exist
-        async with engine.begin() as conn:
-            result = await conn.execute(text("""
-                SELECT table_name 
-                FROM information_schema.tables 
-                WHERE table_schema = 'public'
-                LIMIT 5
-            """))
-            tables = result.fetchall()
+        database_url = get_async_database_url()
+        
+        if database_url.startswith('sqlite'):
+            # SQLite-specific queries
+            async with engine.begin() as conn:
+                result = await conn.execute(text("SELECT sqlite_version()"))
+                version = result.fetchone()
+                
+            # Test if tables exist (SQLite)
+            async with engine.begin() as conn:
+                result = await conn.execute(text("""
+                    SELECT name 
+                    FROM sqlite_master 
+                    WHERE type='table' AND name NOT LIKE 'sqlite_%'
+                    LIMIT 5
+                """))
+                tables = result.fetchall()
+        else:
+            # PostgreSQL-specific queries
+            async with engine.begin() as conn:
+                result = await conn.execute(text("SELECT version()"))
+                version = result.fetchone()
+                
+            # Test if tables exist (PostgreSQL)
+            async with engine.begin() as conn:
+                result = await conn.execute(text("""
+                    SELECT table_name 
+                    FROM information_schema.tables 
+                    WHERE table_schema = 'public'
+                    LIMIT 5
+                """))
+                tables = result.fetchall()
             
         return {
             "status": "connected",

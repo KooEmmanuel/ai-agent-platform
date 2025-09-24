@@ -56,10 +56,10 @@ export default function PrivacyPage() {
               <div className="mb-8">
                 <h2 className="text-2xl font-bold text-gray-900 mb-4">Introduction</h2>
                 <p className="text-gray-600 mb-4">
-                  Kwickbuild ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our AI agent development platform and services.
+                  Drixai ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our AI agent development platform and services.
                 </p>
                 <p className="text-gray-600">
-                  By using Kwickbuild, you agree to the collection and use of information in accordance with this policy.
+                  By using Drixai, you agree to the collection and use of information in accordance with this policy.
                 </p>
               </div>
 
@@ -223,10 +223,10 @@ export default function PrivacyPage() {
                 </p>
                 <div className="bg-gray-50 rounded-lg p-6">
                   <p className="text-gray-600 mb-2">
-                    <strong>Email:</strong> privacy@kwickbuild.com
+                    <strong>Email:</strong> privacy@drixai.com
                   </p>
                   <p className="text-gray-600 mb-2">
-                    <strong>Address:</strong> Kwickbuild, San Francisco, CA, United States
+                    <strong>Address:</strong> Drixai, San Francisco, CA, United States
                   </p>
                   <p className="text-gray-600">
                     <strong>Phone:</strong> +1 (555) 123-4567

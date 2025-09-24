@@ -108,7 +108,7 @@ export default function DocumentationPage() {
     
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">Documentation</h1>
-                <p className="text-gray-600 mt-1">Learn how to build and deploy AI agents with Kwickbuild</p>
+                <p className="text-gray-600 mt-1">Learn how to build and deploy AI agents with Drixai</p>
               </div>
             </div>
           </div>
@@ -164,13 +164,13 @@ export default function DocumentationPage() {
                 <h2 className="text-2xl font-bold text-gray-900 mb-4">Quick Start Guide</h2>
                 <div className="prose prose-gray max-w-none">
                   <p className="text-gray-600 mb-6">
-                    Get started with Kwickbuild in just a few minutes. This guide will walk you through creating your first AI agent.
+                    Get started with Drixai in just a few minutes. This guide will walk you through creating your first AI agent.
                   </p>
                   
                   <div className="bg-gray-50 rounded-lg p-6 mb-6">
                     <h3 className="text-lg font-semibold text-gray-900 mb-3">Prerequisites</h3>
                     <ul className="space-y-2 text-gray-600">
-                      <li>• A Kwickbuild account (sign up for free)</li>
+                      <li>• A Drixai account (sign up for free)</li>
                       <li>• Basic understanding of AI and automation concepts</li>
                       <li>• API keys for any external services you want to integrate</li>
                     </ul>
@@ -273,7 +273,7 @@ export default function DocumentationPage() {
                 <h2 className="text-2xl font-bold text-gray-900 mb-4">Available Tools</h2>
                 <div className="prose prose-gray max-w-none">
                   <p className="text-gray-600 mb-6">
-                    Kwickbuild provides a comprehensive marketplace of tools to enhance your agents' capabilities.
+                    Drixai provides a comprehensive marketplace of tools to enhance your agents' capabilities.
                   </p>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -308,7 +308,7 @@ export default function DocumentationPage() {
                 <h2 className="text-2xl font-bold text-gray-900 mb-4">API Reference</h2>
                 <div className="prose prose-gray max-w-none">
                   <p className="text-gray-600 mb-6">
-                    Integrate Kwickbuild into your applications using our REST API.
+                    Integrate Drixai into your applications using our REST API.
                   </p>
 
                   <div className="bg-gray-900 rounded-lg p-6 text-white">
@@ -324,7 +324,7 @@ export default function DocumentationPage() {
                   <div className="mt-6 space-y-4">
                     <div className="border border-gray-200 rounded-lg p-4">
                       <h4 className="font-semibold text-gray-900 mb-2">Base URL</h4>
-                      <code className="bg-gray-100 px-2 py-1 rounded text-sm">https://api.kwickbuild.com/api/v1</code>
+                      <code className="bg-gray-100 px-2 py-1 rounded text-sm">https://api.drixai.com/api/v1</code>
                     </div>
 
                     <div className="border border-gray-200 rounded-lg p-4">

@@ -8,7 +8,7 @@ import os
 
 class Settings(BaseSettings):
     # Application
-    APP_NAME: str = "AI Agent Platform"
+    APP_NAME: str = "Drixai Platform"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
     
@@ -66,6 +66,8 @@ class Settings(BaseSettings):
     FIREBASE_MEASUREMENT_ID: Optional[str] = None
     FIREBASE_PRIVATE_KEY: Optional[str] = None
     FIREBASE_CLIENT_EMAIL: Optional[str] = None
+    FIREBASE_PRIVATE_KEY_ID: Optional[str] = None
+    FIREBASE_CLIENT_ID: Optional[str] = None
     
     # Stripe Configuration
     STRIPE_SECRET_KEY: Optional[str] = None

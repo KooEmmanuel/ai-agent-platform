@@ -48,7 +48,7 @@ export default function FeaturesSection() {
             Everything you need to build powerful AI agents
           </h2>
           <p className="text-sm sm:text-base lg:text-lg xl:text-xl text-gray-600 max-w-2xl sm:max-w-3xl mx-auto leading-relaxed px-4">
-            From simple chatbots to complex enterprise solutions, Kwickbuild provides all the tools you need to create intelligent, scalable AI agents.
+            From simple chatbots to complex enterprise solutions, Drixai provides all the tools you need to create intelligent, scalable AI agents.
           </p>
         </div>
 
@@ -63,7 +63,7 @@ export default function FeaturesSection() {
                   <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-white text-sm sm:text-base">Kwickbuild Studio</h3>
+                  <h3 className="font-semibold text-white text-sm sm:text-base">Drixai Studio</h3>
                   <p className="text-xs sm:text-sm text-white/80">AI Agent Development Platform</p>
                 </div>
               </div>
