@@ -139,8 +139,12 @@ class ApiClient {
     })
     
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
       ...options.headers as Record<string, string>,
+    }
+    
+    // Only set Content-Type for JSON, let browser handle FormData
+    if (!(options.body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json'
     }
 
     if (this.token) {
