@@ -1854,6 +1854,92 @@ async def get_tool_config_schema(
         ]
         logger.info(f"🔧 Reddit tool config fields set: {len(config_schema['config_fields'])} fields")
     
+    # RSS Feed tool specific fields - no configuration needed
+    if 'rss' in tool_name.lower() or tool_name == 'rss_feed_tool':
+        logger.info(f"🔧 RSS Feed tool detected: {tool_name}")
+        # RSS feeds are public, no authentication needed
+        config_schema['config_fields'] = [
+            {
+                'name': 'max_results',
+                'type': 'number',
+                'label': 'Max Results',
+                'description': 'Maximum number of RSS items to return',
+                'default': 50,
+                'min': 1,
+                'max': 200
+            },
+            {
+                'name': 'timeout',
+                'type': 'number',
+                'label': 'Timeout (seconds)',
+                'description': 'Request timeout in seconds',
+                'default': 30,
+                'min': 5,
+                'max': 300
+            }
+        ]
+        logger.info(f"🔧 RSS Feed tool config fields set: {len(config_schema['config_fields'])} fields")
+    
+    # Telegram tool specific fields
+    if 'telegram' in tool_name.lower() or tool_name == 'telegram_tool':
+        logger.info(f"🔧 Telegram tool detected: {tool_name}")
+        config_schema['config_fields'] = [
+            {
+                'name': 'max_results',
+                'type': 'number',
+                'label': 'Max Results',
+                'description': 'Maximum number of messages to return',
+                'default': 100,
+                'min': 1,
+                'max': 500
+            },
+            {
+                'name': 'timeout',
+                'type': 'number',
+                'label': 'Timeout (seconds)',
+                'description': 'Request timeout in seconds',
+                'default': 30,
+                'min': 5,
+                'max': 300
+            },
+            {
+                'name': 'api_id',
+                'type': 'text',
+                'label': 'Telegram API ID',
+                'description': 'Telegram API ID from my.telegram.org (required)',
+                'required': True,
+                'sensitive': True,
+                'placeholder': 'your_telegram_api_id'
+            },
+            {
+                'name': 'api_hash',
+                'type': 'text',
+                'label': 'Telegram API Hash',
+                'description': 'Telegram API Hash from my.telegram.org (required)',
+                'required': True,
+                'sensitive': True,
+                'placeholder': 'your_telegram_api_hash'
+            },
+            {
+                'name': 'phone_number',
+                'type': 'text',
+                'label': 'Phone Number',
+                'description': 'Your phone number with country code (e.g., +1234567890)',
+                'required': True,
+                'sensitive': True,
+                'placeholder': '+1234567890'
+            },
+            {
+                'name': 'session_name',
+                'type': 'text',
+                'label': 'Session Name',
+                'description': 'Name for the Telegram session (optional)',
+                'required': False,
+                'placeholder': 'telegram_session'
+            }
+        ]
+        logger.info(f"🔧 Telegram tool config fields set: {len(config_schema['config_fields'])} fields")
+    
     # For website knowledge base tools, fetch the actual page count
     if tool_name == 'website_knowledge_base':
         logger.info(f"🔍 Fetching page count for website knowledge base tool")
