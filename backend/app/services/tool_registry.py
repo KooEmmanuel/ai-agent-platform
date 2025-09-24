@@ -42,7 +42,8 @@ from marketplace_tools import (
     ChromaDBTool,
     MongoDBAdvancedTool,
     PDFGeneratorTool,
-    WebsiteKnowledgeBaseTool
+    WebsiteKnowledgeBaseTool,
+    RedditTool
 )
 
 logger = logging.getLogger(__name__)
@@ -59,6 +60,7 @@ class ToolRegistry:
             # Search tools
             'web_search': WebSearchTool,
             'news_search': NewsSearchTool,
+            'reddit_tool': RedditTool,
             
             # Data tools
             'database_query': DatabaseQueryTool,
