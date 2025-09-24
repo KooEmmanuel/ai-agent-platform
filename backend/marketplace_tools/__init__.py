@@ -35,6 +35,7 @@ from .mongodb_advanced import MongoDBAdvancedTool
 from .pdf_generator import PDFGeneratorTool
 from .website_knowledge_base import WebsiteKnowledgeBaseTool
 from .reddit_tool import RedditTool
+from .rss_feed_tool import RSSFeedTool
 
 __all__ = [
     'WebSearchTool',
@@ -66,5 +67,6 @@ __all__ = [
     'MongoDBAdvancedTool',
     'PDFGeneratorTool',
     'WebsiteKnowledgeBaseTool',
-    'RedditTool'
+    'RedditTool',
+    'RSSFeedTool'
 ] 

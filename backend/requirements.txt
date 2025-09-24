@@ -97,4 +97,7 @@ python-docx==1.1.0
 
 # PDF generation
 reportlab==4.0.7
-markdown==3.5.1 
+markdown==3.5.1
+
+# RSS feed parsing
+feedparser==6.0.10
