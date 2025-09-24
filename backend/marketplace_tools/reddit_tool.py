@@ -10,8 +10,8 @@ import json
 import logging
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Union
-import praw
-from praw.models import Submission, Comment
+import asyncpraw
+from asyncpraw.models import Submission, Comment
 import re
 
 from .base import BaseTool
@@ -272,7 +272,7 @@ class RedditTool(BaseTool):
                 reddit_config['username'] = self.username
                 reddit_config['password'] = self.password
             
-            self.reddit = praw.Reddit(**reddit_config)
+            self.reddit = asyncpraw.Reddit(**reddit_config)
             
             # Test connection - for script apps, we can't call user.me() without username/password
             # Instead, let's try to access a public subreddit to test the connection
@@ -597,11 +597,19 @@ class RedditTool(BaseTool):
             # Get top comments for context
             top_comments = self._get_top_comments(post, 3)
             
+            # Clean and validate the URL
+            permalink = post.permalink
+            if not permalink.startswith('/'):
+                permalink = '/' + permalink
+            reddit_url = f"https://www.reddit.com{permalink}"
+            
+            logger.info(f"🔗 Generated Reddit URL: {reddit_url}")
+            
             result = {
                 'id': post.id,
                 'title': post.title,
                 'content': post.selftext[:500] if post.selftext else '',
-                'url': f"https://reddit.com{post.permalink}",
+                'url': reddit_url,
                 'subreddit': str(post.subreddit),
                 'author': str(post.author) if post.author else '[deleted]',
                 'score': post.score,
@@ -873,7 +881,7 @@ class RedditTool(BaseTool):
         base_content = {
             'title': post.title,
             'summary': self._create_summary(post),
-            'url': f"https://reddit.com{post.permalink}"
+            'url': f"https://www.reddit.com{post.permalink}"
         }
         
         if platform == 'twitter':
