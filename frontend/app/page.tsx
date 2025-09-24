@@ -8,6 +8,7 @@ import Image from 'next/image'
 import { cn } from '../lib/utils' 
 import { auth } from '../lib/firebase'
 import { onAuthStateChanged } from 'firebase/auth'
+import { apiClient } from '../lib/api'
 import HeroSection from '../components/ui/hero-section'
 import MobileHeroSection from '../components/ui/mobile-hero-section'
 import FeaturesSection from '../components/ui/features-section'
@@ -240,17 +241,16 @@ export default function LandingPage() {
   ]
 
   // Use Next.js API routes instead of direct backend calls
-  const API_BASE_URL = '/api'
+  
 
   const fetchPricingPlans = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/billing/plans`)
-      if (response.ok) {
-        const plans = await response.json()
-        setPricingPlans(plans)
-      } else {
-        // Fallback to static plans if API fails
-        setPricingPlans([
+      const plans = await apiClient.getBillingPlans()
+      setPricingPlans(plans)
+    } catch (error) {
+      console.error('Error fetching pricing plans:', error)
+      // Fallback to static plans if API fails
+      setPricingPlans([
           {
             id: 1,
             name: 'free',
@@ -320,82 +320,6 @@ export default function LandingPage() {
             is_current: false
           }
         ])
-      }
-    } catch (error) {
-      console.error('Error fetching pricing plans:', error)
-      // Use fallback plans
-      setPricingPlans([
-        {
-          id: 1,
-          name: 'free',
-          display_name: 'Starter',
-          description: 'Perfect for getting started',
-          price: 0,
-          currency: 'USD',
-          monthly_credits: 1000,
-          max_agents: 3,
-          max_custom_tools: 10,
-          features: [
-            '3 AI Agents',
-            '10 Tools',
-            '1,000 API calls/month',
-            'Basic Integrations',
-            'Community Support'
-          ],
-          support_level: 'community',
-          custom_branding: false,
-          api_access: false,
-          is_current: false
-        },
-        {
-          id: 2,
-          name: 'pro',
-          display_name: 'Pro',
-          description: 'For growing teams',
-          price: 29,
-          currency: 'USD',
-          monthly_credits: 50000,
-          max_agents: -1,
-          max_custom_tools: -1,
-          features: [
-            'Unlimited AI Agents',
-            'Unlimited Tools',
-            '50,000 API calls/month',
-            'All Integrations',
-            'Priority Support',
-            'Advanced Analytics'
-          ],
-          support_level: 'priority',
-          custom_branding: true,
-          api_access: true,
-          is_current: false
-        },
-        {
-          id: 3,
-          name: 'enterprise',
-          display_name: 'Enterprise',
-          description: 'For large organizations',
-          price: -1,
-          currency: 'USD',
-          monthly_credits: -1,
-          max_agents: -1,
-          max_custom_tools: -1,
-          features: [
-            'Everything in Pro',
-            'Custom Rate Limits',
-            'Dedicated Support',
-            'SLA Guarantee',
-            'Custom Integrations',
-            'On-premise Deployment'
-          ],
-          support_level: 'dedicated',
-          custom_branding: true,
-          api_access: true,
-          is_current: false
-        }
-      ])
-    } finally {
-      setPricingLoading(false)
     }
   }
 

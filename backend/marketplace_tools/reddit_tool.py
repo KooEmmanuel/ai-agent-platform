@@ -60,6 +60,201 @@ class RedditTool(BaseTool):
         if self.client_id and self.client_secret:
             self._initialize_reddit()
     
+    def get_config_schema(self) -> Dict[str, Any]:
+        """Get the configuration schema for this tool"""
+        return {
+            "name": "Reddit Content Discovery Tool",
+            "description": "Discover trending content from Reddit for social media creation",
+            "parameters": {
+                "client_id": {
+                    "type": "string",
+                    "description": "Reddit API client ID",
+                    "required": True,
+                    "sensitive": True
+                },
+                "client_secret": {
+                    "type": "string", 
+                    "description": "Reddit API client secret",
+                    "required": True,
+                    "sensitive": True
+                },
+                "user_agent": {
+                    "type": "string",
+                    "description": "User agent string for Reddit API requests",
+                    "default": "RedditContentTool/1.0"
+                },
+                "username": {
+                    "type": "string",
+                    "description": "Reddit username (optional, for user-specific actions)",
+                    "required": False,
+                    "sensitive": True
+                },
+                "password": {
+                    "type": "string",
+                    "description": "Reddit password (optional, for user-specific actions)",
+                    "required": False,
+                    "sensitive": True
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Default number of posts to retrieve",
+                    "default": 15,
+                    "min": 1,
+                    "max": 100
+                },
+                "sort_by": {
+                    "type": "string",
+                    "description": "Default sort method for posts",
+                    "enum": ["hot", "new", "top", "rising"],
+                    "default": "hot"
+                },
+                "time_filter": {
+                    "type": "string",
+                    "description": "Time filter for top posts",
+                    "enum": ["hour", "day", "week", "month", "year", "all"],
+                    "default": "day"
+                },
+                "min_upvotes": {
+                    "type": "integer",
+                    "description": "Minimum upvotes filter",
+                    "default": 0,
+                    "min": 0
+                },
+                "max_upvotes": {
+                    "type": "integer",
+                    "description": "Maximum upvotes filter",
+                    "default": 100000,
+                    "min": 1
+                },
+                "min_comments": {
+                    "type": "integer",
+                    "description": "Minimum comments filter",
+                    "default": 0,
+                    "min": 0
+                },
+                "max_age_hours": {
+                    "type": "integer",
+                    "description": "Maximum age of posts in hours",
+                    "default": 8760,
+                    "min": 1
+                }
+            },
+            "capabilities": [
+                "subreddit_monitoring",
+                "content_discovery",
+                "engagement_analysis",
+                "social_media_formatting",
+                "hashtag_generation",
+                "content_filtering"
+            ],
+            "config_fields": [
+                {
+                    "name": "client_id",
+                    "type": "text",
+                    "label": "Reddit Client ID",
+                    "description": "Your Reddit API client ID from reddit.com/prefs/apps",
+                    "required": True,
+                    "sensitive": True
+                },
+                {
+                    "name": "client_secret",
+                    "type": "text",
+                    "label": "Reddit Client Secret",
+                    "description": "Your Reddit API client secret from reddit.com/prefs/apps",
+                    "required": True,
+                    "sensitive": True
+                },
+                {
+                    "name": "user_agent",
+                    "type": "text",
+                    "label": "User Agent",
+                    "description": "User agent string for API requests",
+                    "default": "RedditContentTool/1.0",
+                    "required": False
+                },
+                {
+                    "name": "username",
+                    "type": "text",
+                    "label": "Reddit Username",
+                    "description": "Your Reddit username (optional, for user-specific actions)",
+                    "required": False,
+                    "sensitive": True
+                },
+                {
+                    "name": "password",
+                    "type": "password",
+                    "label": "Reddit Password",
+                    "description": "Your Reddit password (optional, for user-specific actions)",
+                    "required": False,
+                    "sensitive": True
+                },
+                {
+                    "name": "limit",
+                    "type": "number",
+                    "label": "Default Post Limit",
+                    "description": "Default number of posts to retrieve",
+                    "default": 15,
+                    "min": 1,
+                    "max": 100,
+                    "required": False
+                },
+                {
+                    "name": "sort_by",
+                    "type": "select",
+                    "label": "Default Sort Method",
+                    "description": "Default sort method for posts",
+                    "options": ["hot", "new", "top", "rising"],
+                    "default": "hot",
+                    "required": False
+                },
+                {
+                    "name": "time_filter",
+                    "type": "select",
+                    "label": "Default Time Filter",
+                    "description": "Time filter for top posts",
+                    "options": ["hour", "day", "week", "month", "year", "all"],
+                    "default": "day",
+                    "required": False
+                },
+                {
+                    "name": "min_upvotes",
+                    "type": "number",
+                    "label": "Minimum Upvotes",
+                    "description": "Minimum upvotes filter",
+                    "default": 0,
+                    "min": 0,
+                    "required": False
+                },
+                {
+                    "name": "max_upvotes",
+                    "type": "number",
+                    "label": "Maximum Upvotes",
+                    "description": "Maximum upvotes filter",
+                    "default": 100000,
+                    "min": 1,
+                    "required": False
+                },
+                {
+                    "name": "min_comments",
+                    "type": "number",
+                    "label": "Minimum Comments",
+                    "description": "Minimum comments filter",
+                    "default": 0,
+                    "min": 0,
+                    "required": False
+                },
+                {
+                    "name": "max_age_hours",
+                    "type": "number",
+                    "label": "Maximum Age (Hours)",
+                    "description": "Maximum age of posts in hours",
+                    "default": 8760,
+                    "min": 1,
+                    "required": False
+                }
+            ]
+        }
+    
     def _initialize_reddit(self):
         """Initialize Reddit API client."""
         try:

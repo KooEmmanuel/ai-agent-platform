@@ -15,9 +15,8 @@ import {
   EllipsisVerticalIcon
 } from '@heroicons/react/24/outline'
 import { useToast } from '../../../../../components/ui/Toast'
+import { apiClient } from '../../../../../lib/api'
 
-// Use Next.js API routes instead of direct backend calls
-const API_BASE_URL = '/api'
 
 interface Integration {
   id: number
@@ -105,24 +104,20 @@ export default function EditIntegrationPage() {
 
   const fetchIntegration = async () => {
     try {
-      const response = await makeAuthenticatedRequest(`${API_BASE_URL}/v1/integrations/${integrationId}`)
+      const data = await apiClient.getIntegrations()
+      const integration = data.find(int => int.id === parseInt(integrationId))
       
-      if (!response.ok) {
-        if (response.status === 404) {
-          setError('Integration not found')
-        } else {
-          setError('Failed to load integration')
-        }
+      if (!integration) {
+        setError('Integration not found')
         setLoading(false)
         return
       }
-
-      const integrationData = await response.json()
-      setIntegration(integrationData)
+      
+      setIntegration(integration)
       setForm({
-        config: integrationData.config || {},
-        webhook_url: integrationData.webhook_url || '',
-        is_active: integrationData.is_active
+        config: integration.config || {},
+        webhook_url: integration.webhook_url || '',
+        is_active: integration.is_active
       })
     } catch (error) {
       console.error('Error fetching integration:', error)
@@ -137,16 +132,7 @@ export default function EditIntegrationPage() {
       setSaving(true)
       setError(null)
 
-      const response = await makeAuthenticatedRequest(`${API_BASE_URL}/v1/integrations/${integrationId}`, {
-        method: 'PUT',
-        body: JSON.stringify(form)
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to update integration')
-      }
-
-      const updatedIntegration = await response.json()
+      const updatedIntegration = await apiClient.updateIntegration(parseInt(integrationId), form)
       setIntegration(updatedIntegration)
       
       showToast({

@@ -27,7 +27,6 @@ class Settings(BaseSettings):
         "https://kwickbuild.vercel.app",  # Production frontend
         "https://kwickbuild.up.railway.app",  # Backend itself
         "https://ai-agent-platform-production.up.railway.app",  # Alternative backend URL
-        "*",  # Allow all origins for development (remove in production)
     ]
     
     # External APIs

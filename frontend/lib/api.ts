@@ -1,13 +1,10 @@
 // API client for Drixai platform
 
-// Use Railway URL in production, localhost in development
-const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://kwickbuild.up.railway.app'
-  : 'http://localhost:8000'
+// Use environment variable for API URL, fallback to localhost for development
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 console.log('🔧 Environment:', process.env.NODE_ENV)
 console.log('🌐 API_BASE_URL:', API_BASE_URL)
-console.log('📡 NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL)
 
 export interface User {
   id: number
@@ -100,8 +97,8 @@ class ApiClient {
         // Get a fresh ID token
         const idToken = await currentUser.getIdToken(true) // force refresh
         
-        // Send to backend API route to get new access token
-        const response = await fetch(`/api/v1/auth/firebase`, {
+        // Send directly to backend to get new access token
+        const response = await fetch(`${this.baseUrl}/api/v1/auth/firebase`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -128,28 +125,15 @@ class ApiClient {
 
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {},
-    forceNextJsRoute: boolean = false
+    options: RequestInit = {}
   ): Promise<T> {
-    // Use backend routes directly for dynamic routes that aren't working in frontend
-    // Use frontend routes for static routes that are working
-    const isDynamicRoute = endpoint.match(/\/\d+/) // Any route with a numeric ID
+    // Clean endpoint - remove /api/v1 prefix if present
+    const cleanEndpoint = endpoint.replace(/^\/api\/v1/, '')
+    const url = `${this.baseUrl}/api/v1${cleanEndpoint}`
     
-    let url: string
-    if (forceNextJsRoute || !isDynamicRoute) {
-      // For forced Next.js routes or static routes, use relative URLs that go through Next.js API routes
-      url = `/api${endpoint.replace('/api/v1', '')}`
-    } else {
-      // For dynamic routes, use the full backend URL
-      url = `${this.baseUrl}/api/v1${endpoint.replace('/api/v1', '')}`
-    }
-    
-    console.log('🔍 API Request Details:', {
-      originalEndpoint: endpoint,
-      isDynamicRoute,
-      forceNextJsRoute,
-      baseUrl: this.baseUrl,
-      finalUrl: url,
+    console.log('🔍 API Request:', {
+      endpoint: cleanEndpoint,
+      url,
       method: options.method || 'GET',
       hasBody: !!options.body
     })
@@ -242,6 +226,16 @@ class ApiClient {
     return this.request<User>('/auth/me')
   }
 
+  async updateUserProfile(data: {
+    name?: string
+    email?: string
+  }): Promise<User> {
+    return this.request<User>('/auth/me', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
   logout(): void {
     this.token = null
     if (typeof window !== 'undefined') {
@@ -269,6 +263,22 @@ class ApiClient {
   // Agents
   async getAgents(): Promise<Agent[]> {
     return this.request<Agent[]>('/agents')
+  }
+
+  async getConversations(): Promise<Array<{
+    id: number
+    agent_id: number
+    user_id: number
+    messages: Array<{
+      id: number
+      content: string
+      role: string
+      timestamp: string
+    }>
+    created_at: string
+    updated_at: string
+  }>> {
+    return this.request('/conversations')
   }
 
   async getAgent(id: number): Promise<Agent> {
@@ -596,42 +606,6 @@ class ApiClient {
     return this.request('/integrations/platforms/list')
   }
 
-  // Billing
-  async getBillingPlans(): Promise<Array<{
-    id: number
-    name: string
-    display_name: string
-    description: string
-    price: number
-    currency: string
-    monthly_credits: number
-    max_agents: number
-    max_custom_tools: number
-    features: string[]
-    support_level: string
-    custom_branding: boolean
-    api_access: boolean
-    is_current: boolean
-  }>> {
-    return this.request('/billing/plans')
-  }
-
-  async getSubscriptionStatus(): Promise<{
-    plan_name: string
-    display_name: string
-    status: string
-    current_period_end: string
-    credits_remaining: number
-    credits_total: number
-    can_create_agents: boolean
-    can_create_custom_tools: boolean
-    agents_count: number
-    agents_limit: number
-    custom_tools_count: number
-    custom_tools_limit: number
-  }> {
-    return this.request('/billing/subscription')
-  }
 
   async updateToolConfig(
     agentId: number,
@@ -672,8 +646,7 @@ class ApiClient {
       options?: string[]
     }>
   }> {
-    // Use Next.js API route for config-schema to avoid CORS issues
-    return this.request(`/tools/${toolIdentifier}/config-schema`, {}, true)
+    return this.request(`/tools/${toolIdentifier}/config-schema`)
   }
 
   async getToolAgentConfig(toolId: number, agentId: number): Promise<{
@@ -688,8 +661,7 @@ class ApiClient {
     agent_id: number
     agent_name: string
   }> {
-    // Use Next.js API route for agent-config to avoid CORS issues
-    return this.request(`/tools/${toolId}/agent-config?agent_id=${agentId}`, {}, true)
+    return this.request(`/tools/${toolId}/agent-config?agent_id=${agentId}`)
   }
 
   // Knowledge Base methods
@@ -704,7 +676,7 @@ class ApiClient {
     document_count: number
     pages_extracted: number
   }>> {
-    return this.request('/knowledge-base/collections', {}, true)
+    return this.request('/knowledge-base/collections')
   }
 
   async createKnowledgeBaseCollection(collectionData: {
@@ -725,7 +697,7 @@ class ApiClient {
     return this.request('/knowledge-base/collections', {
       method: 'POST',
       body: JSON.stringify(collectionData),
-    }, true)
+    })
   }
 
   async crawlWebsiteToCollection(collectionId: number, websiteData: {
@@ -743,7 +715,7 @@ class ApiClient {
         collection_id: collectionId,
         ...websiteData
       }),
-    }, true)
+    })
   }
 
   async uploadFileToCollection(collectionId: number, file: File): Promise<{
@@ -757,7 +729,7 @@ class ApiClient {
     return this.request(`/knowledge-base/collections/${collectionId}/upload-file`, {
       method: 'POST',
       body: formData,
-    }, true)
+    })
   }
 
   async deleteKnowledgeBaseCollection(collectionId: number): Promise<{
@@ -766,7 +738,148 @@ class ApiClient {
   }> {
     return this.request(`/knowledge-base/collections/${collectionId}`, {
       method: 'DELETE',
-    }, true)
+    })
+  }
+
+  // Web Widget methods
+  async getWebWidgetScript(integrationId: number): Promise<{
+    script: string
+    integration_id: number
+    agent_id: number
+    platform: string
+  }> {
+    return this.request(`/web-widget/script/${integrationId}`)
+  }
+
+  async updateIntegration(integrationId: number, data: {
+    config?: Record<string, any>
+    webhook_url?: string
+    is_active?: boolean
+  }): Promise<Integration> {
+    return this.request(`/integrations/${integrationId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteIntegration(integrationId: number): Promise<{ message: string }> {
+    return this.request(`/integrations/${integrationId}`, {
+      method: 'DELETE',
+    })
+  }
+
+  // Analytics
+  async getAnalyticsOverview(): Promise<{
+    total_agents: number
+    total_conversations: number
+    total_messages: number
+    active_integrations: number
+    recent_activity: Array<{
+      type: string
+      description: string
+      timestamp: string
+    }>
+  }> {
+    return this.request('/analytics/overview')
+  }
+
+  // Billing
+  async getCreditsBalance(): Promise<{
+    total_credits: number
+    used_credits: number
+    available_credits: number
+    usage_percentage: number
+  }> {
+    return this.request('/credits/balance')
+  }
+
+  async getCreditTransactions(limit?: number): Promise<Array<{
+    id: number
+    amount: number
+    type: string
+    description: string
+    timestamp: string
+    status: string
+  }>> {
+    const endpoint = limit ? `/credits/transactions?limit=${limit}` : '/credits/transactions'
+    return this.request(endpoint)
+  }
+
+  async getBillingPlans(): Promise<Array<{
+    id: number
+    name: string
+    display_name: string
+    description: string
+    price: number
+    currency: string
+    monthly_credits: number
+    max_agents: number
+    max_custom_tools: number
+    features: string[]
+    support_level: string
+    custom_branding: boolean
+    api_access: boolean
+    is_current: boolean
+  }>> {
+    return this.request('/billing/plans')
+  }
+
+  async getSubscriptionStatus(): Promise<{
+    plan_name: string
+    display_name: string
+    status: string
+    current_period_end: string
+    credits_remaining: number
+    credits_total: number
+    can_create_agents: boolean
+    can_create_custom_tools: boolean
+    agents_count: number
+    agents_limit: number
+    custom_tools_count: number
+    custom_tools_limit: number
+  }> {
+    return this.request('/billing/subscription')
+  }
+
+  // Notifications
+  async getNotificationPreferences(): Promise<{
+    email_notifications: boolean
+    weekly_reports: boolean
+    agent_updates: boolean
+    billing_alerts: boolean
+  }> {
+    return this.request('/notifications/preferences')
+  }
+
+  async updateNotificationPreferences(preferences: {
+    email_notifications?: boolean
+    weekly_reports?: boolean
+    agent_updates?: boolean
+    billing_alerts?: boolean
+  }): Promise<{
+    email_notifications: boolean
+    weekly_reports: boolean
+    agent_updates: boolean
+    billing_alerts: boolean
+  }> {
+    return this.request('/notifications/preferences', {
+      method: 'PUT',
+      body: JSON.stringify(preferences),
+    })
+  }
+
+  async sendTestNotification(type: string, message: string): Promise<{
+    success: boolean
+    message: string
+  }> {
+    const endpoint = type === 'email' ? '/notifications/test' : '/notifications/weekly-report'
+    return this.request(endpoint, {
+      method: 'POST',
+      body: JSON.stringify({
+        type: type,
+        message: message
+      }),
+    })
   }
 }
 
@@ -784,8 +897,8 @@ export const initializeApiClient = async () => {
       // Get a fresh ID token
       const idToken = await currentUser.getIdToken()
       
-      // Send to Next.js API route to get access token
-      const response = await fetch(`/api/auth/firebase`, {
+      // Send directly to backend to get access token
+      const response = await fetch(`${API_BASE_URL}/api/v1/auth/firebase`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

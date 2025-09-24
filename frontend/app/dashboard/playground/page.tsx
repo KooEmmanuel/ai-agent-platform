@@ -10,11 +10,12 @@ import {
   ClockIcon
 } from '@heroicons/react/24/outline'
 import Link from 'next/link'
+import { apiClient } from '../../../lib/api'
 
 interface Agent {
   id: number
   name: string
-  description: string
+  description?: string
   is_active: boolean
   created_at: string
   last_used?: string
@@ -31,22 +32,10 @@ export default function PlaygroundPage() {
 
   const fetchAgents = async () => {
     try {
-      const token = localStorage.getItem('auth_token')
-      if (!token) {
-        setError('No authentication token found')
-        setLoading(false)
-        return
-      }
-
-      const response = await fetch('/api/agents', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch agents')
-      }
-
-      const agentsData = await response.json()
+      setLoading(true)
+      setError(null)
+      
+      const agentsData = await apiClient.getAgents()
       setAgents(agentsData)
     } catch (error) {
       console.error('Error fetching agents:', error)

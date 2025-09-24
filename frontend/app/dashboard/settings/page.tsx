@@ -11,6 +11,7 @@ import {
   CheckIcon
 } from '@heroicons/react/24/outline'
 import { useToast } from '../../../components/ui/Toast'
+import { apiClient } from '../../../lib/api'
 
 interface User {
   id: number
@@ -22,7 +23,7 @@ interface User {
 }
 
 // Use Next.js API routes instead of direct backend calls
-const API_BASE_URL = '/api'
+
 
 export default function SettingsPage() {
   const [user, setUser] = useState<User | null>(null)
@@ -55,14 +56,8 @@ export default function SettingsPage() {
 
   const fetchUserProfile = async () => {
     try {
-      const response = await makeAuthenticatedRequest(`${API_BASE_URL}/auth/me`)
-      
-      if (response.ok) {
-        const userData = await response.json()
-        setUser(userData)
-      } else {
-        throw new Error('Failed to fetch user profile')
-      }
+      const userData = await apiClient.getCurrentUser()
+      setUser(userData)
     } catch (error) {
       console.error('Error fetching user profile:', error)
       setError('Failed to load user profile')
@@ -73,20 +68,16 @@ export default function SettingsPage() {
 
   const fetchNotificationPreferences = async () => {
     try {
-      const response = await makeAuthenticatedRequest(`${API_BASE_URL}/notifications/preferences`)
-      
-      if (response.ok) {
-        const prefs = await response.json()
-        setNotifications({
-          email_notifications: prefs.email_notifications,
-          push_notifications: prefs.push_notifications,
-          weekly_reports: prefs.weekly_reports,
-          marketing_emails: prefs.marketing_emails,
-          agent_alerts: prefs.agent_alerts,
-          integration_alerts: prefs.integration_alerts,
-          credit_alerts: prefs.credit_alerts
-        })
-      }
+      const prefs = await apiClient.getNotificationPreferences()
+      setNotifications({
+        email_notifications: prefs.email_notifications,
+        push_notifications: prefs.weekly_reports, // Map to available field
+        weekly_reports: prefs.weekly_reports,
+        marketing_emails: prefs.agent_updates, // Map to available field
+        agent_alerts: prefs.agent_updates,
+        integration_alerts: prefs.billing_alerts, // Map to available field
+        credit_alerts: prefs.billing_alerts
+      })
     } catch (error) {
       console.error('Error fetching notification preferences:', error)
     }
@@ -102,27 +93,18 @@ export default function SettingsPage() {
     
     setSaving(true)
     try {
-      const response = await makeAuthenticatedRequest(`${API_BASE_URL}/auth/me`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          name: updatedUser.name,
-          picture: updatedUser.picture
-        })
+      const userData = await apiClient.updateUserProfile({
+        name: updatedUser.name,
+        email: updatedUser.email
       })
-      
-      if (response.ok) {
-        const userData = await response.json()
-        setUser(userData)
+      setUser(userData)
         
-        showToast({
-          type: 'success',
-          title: 'Profile updated!',
-          message: 'Your profile has been updated successfully.',
-          duration: 3000
-        })
-      } else {
-        throw new Error('Failed to update profile')
-      }
+      showToast({
+        type: 'success',
+        title: 'Profile updated!',
+        message: 'Your profile has been updated successfully.',
+        duration: 3000
+      })
     } catch (error) {
       console.error('Error updating profile:', error)
       showToast({
@@ -142,21 +124,14 @@ export default function SettingsPage() {
     
     try {
       // Update on backend
-      const response = await makeAuthenticatedRequest(`${API_BASE_URL}/notifications/preferences`, {
-        method: 'PUT',
-        body: JSON.stringify({ [key]: value })
-      })
+      await apiClient.updateNotificationPreferences({ [key]: value })
       
-      if (response.ok) {
-        showToast({
-          type: 'success',
-          title: 'Notification settings updated!',
-          message: 'Your notification preferences have been saved.',
-          duration: 3000
-        })
-      } else {
-        throw new Error('Failed to update preferences')
-      }
+      showToast({
+        type: 'success',
+        title: 'Notification settings updated!',
+        message: 'Your notification preferences have been saved.',
+        duration: 3000
+      })
     } catch (error) {
       console.error('Error updating notification preferences:', error)
       
@@ -174,35 +149,22 @@ export default function SettingsPage() {
 
   const testNotification = async (type: string) => {
     try {
-      let endpoint = ''
       let message = ''
       
       if (type === 'email') {
-        endpoint = '/notifications/test'
         message = 'Test email notification sent! Check your inbox.'
       } else if (type === 'weekly_report') {
-        endpoint = '/notifications/weekly-report'
         message = 'Test weekly report sent! Check your email.'
       }
       
-      const response = await makeAuthenticatedRequest(`${API_BASE_URL}${endpoint}`, {
-        method: 'POST',
-        body: JSON.stringify({
-          type: type,
-          message: 'This is a test notification from your KooAgent dashboard.'
-        })
-      })
+      await apiClient.sendTestNotification(type, 'This is a test notification from your KooAgent dashboard.')
       
-      if (response.ok) {
-        showToast({
-          type: 'success',
-          title: 'Test notification sent!',
-          message: message,
-          duration: 4000
-        })
-      } else {
-        throw new Error('Failed to send test notification')
-      }
+      showToast({
+        type: 'success',
+        title: 'Test notification sent!',
+        message: message,
+        duration: 4000
+      })
     } catch (error) {
       console.error('Error sending test notification:', error)
       showToast({
