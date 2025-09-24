@@ -57,8 +57,8 @@ class RedditTool(BaseTool):
         
         # Initialize Reddit instance
         self.reddit = None
-        if self.client_id and self.client_secret:
-            self._initialize_reddit()
+        # Note: Reddit initialization will be done lazily in execute() method
+        # since we can't call async methods in __init__
     
     def get_config_schema(self) -> Dict[str, Any]:
         """Get the configuration schema for this tool"""
@@ -255,7 +255,7 @@ class RedditTool(BaseTool):
             ]
         }
     
-    def _initialize_reddit(self):
+    async def _initialize_reddit(self):
         """Initialize Reddit API client."""
         try:
             # For script apps, we only need client_id and client_secret
@@ -276,9 +276,9 @@ class RedditTool(BaseTool):
             
             # Test connection - for script apps, we can't call user.me() without username/password
             # Instead, let's try to access a public subreddit to test the connection
-            test_subreddit = self.reddit.subreddit('test')
+            test_subreddit = await self.reddit.subreddit('test')
             # This will raise an exception if the credentials are invalid
-            _ = test_subreddit.display_name
+            _ = await test_subreddit.display_name
             
             logger.info("Reddit API initialized successfully")
         except Exception as e:
@@ -305,6 +305,13 @@ class RedditTool(BaseTool):
         Returns:
             Dictionary containing discovered content and metadata
         """
+        # Initialize Reddit if not already done
+        if not self.reddit:
+            if self.client_id and self.client_secret:
+                await self._initialize_reddit()
+            else:
+                return self._format_error("Reddit API credentials not provided. Please configure client_id and client_secret.")
+        
         if not self.reddit:
             return self._format_error("Reddit API not initialized. Please check your credentials.")
         
@@ -504,19 +511,19 @@ class RedditTool(BaseTool):
     async def _get_subreddit_posts(self, subreddit_name: str, sort_by: str, limit: int, time_filter: str) -> List[Submission]:
         """Get posts from a subreddit."""
         try:
-            subreddit = self.reddit.subreddit(subreddit_name)
+            subreddit = await self.reddit.subreddit(subreddit_name)
             logger.info(f"🔍 Accessing subreddit: r/{subreddit_name}")
             
             if sort_by == 'hot':
-                posts = list(subreddit.hot(limit=limit))
+                posts = [post async for post in subreddit.hot(limit=limit)]
             elif sort_by == 'new':
-                posts = list(subreddit.new(limit=limit))
+                posts = [post async for post in subreddit.new(limit=limit)]
             elif sort_by == 'top':
-                posts = list(subreddit.top(limit=limit, time_filter=time_filter))
+                posts = [post async for post in subreddit.top(limit=limit, time_filter=time_filter)]
             elif sort_by == 'rising':
-                posts = list(subreddit.rising(limit=limit))
+                posts = [post async for post in subreddit.rising(limit=limit)]
             else:
-                posts = list(subreddit.hot(limit=limit))
+                posts = [post async for post in subreddit.hot(limit=limit)]
             
             logger.info(f"📊 Retrieved {len(posts)} posts from r/{subreddit_name} using {sort_by} sort")
             if posts:
