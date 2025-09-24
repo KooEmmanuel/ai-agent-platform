@@ -19,6 +19,7 @@ from app.services.credit_service import CreditService
 from app.services.tool_registry import tool_registry
 from app.services.tool_usage_tracker import tool_usage_tracker
 from app.services.json_tool_loader import json_tool_loader
+from app.services.tool_system_prompts import tool_system_prompts_service
 
 class AgentService:
     def __init__(self, db: AsyncSession):
@@ -313,16 +314,18 @@ class AgentService:
                     ""
                 ])
             
-            # Add specific guidance for web search
-            if any('web_search' in tool['function']['name'].lower() for tool in tools):
+            # Add tool-specific system prompts for each tool
+            tool_prompts = tool_system_prompts_service.get_tool_prompts(tool_names)
+            if tool_prompts:
                 system_message_parts.extend([
-                    "**WEB SEARCH GUIDANCE:**",
-                    "- Use web_search when users ask about current events, recent news, or information that might have changed",
-                    "- Use web_search for questions about recent developments, latest updates, or real-time information",
-                    "- Use web_search when you need to verify current facts or get the most up-to-date information",
-                    "- Use web_search for questions about recent technology, products, or services",
+                    "**TOOL-SPECIFIC GUIDANCE:**",
                     ""
                 ])
+                for prompt in tool_prompts:
+                    system_message_parts.extend([
+                        prompt,
+                        ""
+                    ])
             
             system_message_parts.extend([
                 "**TOOL USAGE:** Use these tools when they can help you provide better service to users.",
