@@ -44,7 +44,8 @@ from marketplace_tools import (
     PDFGeneratorTool,
     WebsiteKnowledgeBaseTool,
     RedditTool,
-    RSSFeedTool
+    RSSFeedTool,
+    TelegramTool
 )
 
 logger = logging.getLogger(__name__)
@@ -63,6 +64,7 @@ class ToolRegistry:
             'news_search': NewsSearchTool,
             'reddit_tool': RedditTool,
             'rss_feed_tool': RSSFeedTool,
+            'telegram_tool': TelegramTool,
             
             # Data tools
             'database_query': DatabaseQueryTool,

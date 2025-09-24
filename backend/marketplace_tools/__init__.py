@@ -36,6 +36,7 @@ from .pdf_generator import PDFGeneratorTool
 from .website_knowledge_base import WebsiteKnowledgeBaseTool
 from .reddit_tool import RedditTool
 from .rss_feed_tool import RSSFeedTool
+from .telegram_tool import TelegramTool
 
 __all__ = [
     'WebSearchTool',
@@ -68,5 +69,6 @@ __all__ = [
     'PDFGeneratorTool',
     'WebsiteKnowledgeBaseTool',
     'RedditTool',
-    'RSSFeedTool'
+    'RSSFeedTool',
+    'TelegramTool'
 ] 
