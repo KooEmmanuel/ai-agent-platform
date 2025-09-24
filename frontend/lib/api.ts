@@ -197,10 +197,27 @@ class ApiClient {
         statusText: response.statusText
       })
       
-      const error = await response.json().catch(() => ({ detail: 'Unknown error' }))
-      console.error('❌ Error response:', error)
+      let errorMessage = `HTTP ${response.status}`
       
-      throw new Error(error.detail || `HTTP ${response.status}`)
+      try {
+        const error = await response.json()
+        console.error('❌ Error response:', error)
+        
+        // Try different possible error message fields
+        errorMessage = error.detail || error.message || error.error || `HTTP ${response.status}`
+      } catch (parseError) {
+        console.error('❌ Failed to parse error response:', parseError)
+        // If JSON parsing fails, try to get text response
+        try {
+          const textResponse = await response.text()
+          console.error('❌ Text error response:', textResponse)
+          errorMessage = textResponse || `HTTP ${response.status}`
+        } catch (textError) {
+          console.error('❌ Failed to get text response:', textError)
+        }
+      }
+      
+      throw new Error(errorMessage)
     }
 
     return response.json()

@@ -1,0 +1,41 @@
+[1mdiff --git a/frontend/lib/api.ts b/frontend/lib/api.ts[m
+[1mindex 9f756d4..4d50eaf 100644[m
+[1m--- a/frontend/lib/api.ts[m
+[1m+++ b/frontend/lib/api.ts[m
+[36m@@ -1,4 +1,4 @@[m
+[31m-// API client for Kwickbuild platform[m
+[32m+[m[32m// API client for Drixai platform[m
+ [m
+ // Use Railway URL in production, localhost in development[m
+ const API_BASE_URL = process.env.NODE_ENV === 'production' [m
+[36m@@ -197,10 +197,27 @@[m [mclass ApiClient {[m
+         statusText: response.statusText[m
+       })[m
+       [m
+[31m-      const error = await response.json().catch(() => ({ detail: 'Unknown error' }))[m
+[31m-      console.error('❌ Error response:', error)[m
+[32m+[m[32m      let errorMessage = `HTTP ${response.status}`[m
+       [m
+[31m-      throw new Error(error.detail || `HTTP ${response.status}`)[m
+[32m+[m[32m      try {[m
+[32m+[m[32m        const error = await response.json()[m
+[32m+[m[32m        console.error('❌ Error response:', error)[m
+[32m+[m[41m        [m
+[32m+[m[32m        // Try different possible error message fields[m
+[32m+[m[32m        errorMessage = error.detail || error.message || error.error || `HTTP ${response.status}`[m
+[32m+[m[32m      } catch (parseError) {[m
+[32m+[m[32m        console.error('❌ Failed to parse error response:', parseError)[m
+[32m+[m[32m        // If JSON parsing fails, try to get text response[m
+[32m+[m[32m        try {[m
+[32m+[m[32m          const textResponse = await response.text()[m
+[32m+[m[32m          console.error('❌ Text error response:', textResponse)[m
+[32m+[m[32m          errorMessage = textResponse || `HTTP ${response.status}`[m
+[32m+[m[32m        } catch (textError) {[m
+[32m+[m[32m          console.error('❌ Failed to get text response:', textError)[m
+[32m+[m[32m        }[m
+[32m+[m[32m      }[m
+[32m+[m[41m      [m
+[32m+[m[32m      throw new Error(errorMessage)[m
+     }[m
+ [m
+     return response.json()[m

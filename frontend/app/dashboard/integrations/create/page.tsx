@@ -12,6 +12,7 @@ import { FaWhatsapp, FaTelegramPlane } from 'react-icons/fa'
 import { MdMarkEmailUnread } from 'react-icons/md'
 import Link from 'next/link'
 import { apiClient } from '../../../../lib/api'
+import { useToast } from '../../../../components/ui/Toast'
 
 interface IntegrationForm {
   agent_id: number
@@ -86,6 +87,7 @@ export default function CreateIntegrationPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [agents, setAgents] = useState<Agent[]>([])
   const [loadingAgents, setLoadingAgents] = useState(true)
+  const { showToast } = useToast()
 
   const fetchAgents = async () => {
     try {
@@ -132,12 +134,58 @@ export default function CreateIntegrationPage() {
       
       const result = await apiClient.createIntegration(integrationData)
       console.log('Integration created:', result)
-      // Redirect to integrations page
-      window.location.href = '/dashboard/integrations'
-    } catch (error) {
+      
+      // Show success toast
+      showToast({
+        type: 'success',
+        title: 'Integration created successfully!',
+        message: `Your ${selectedPlatformData?.name} integration has been set up.`,
+        duration: 3000
+      })
+      
+      // Redirect to integrations page after a short delay
+      setTimeout(() => {
+        window.location.href = '/dashboard/integrations'
+      }, 1500)
+    } catch (error: any) {
       console.error('Error creating integration:', error)
-      // Show error to user - you might want to add a proper error state
-      alert('Failed to create integration. Please try again.')
+      console.error('Error message:', error?.message)
+      console.error('Error details:', error)
+      
+      // Check if it's a duplicate integration error
+      if (error?.message?.includes('already exists')) {
+        const platformName = selectedPlatformData?.name || selectedPlatform
+        const agentName = agents.find(a => a.id === selectedAgent)?.name || 'selected agent'
+        
+        showToast({
+          type: 'error',
+          title: 'Integration already exists',
+          message: `A ${platformName} integration already exists for ${agentName}. Please choose a different agent or platform.`,
+          duration: 6000
+        })
+      } else if (error?.message?.includes('Agent not found')) {
+        showToast({
+          type: 'error',
+          title: 'Agent not found',
+          message: 'The selected agent could not be found. Please refresh the page and try again.',
+          duration: 5000
+        })
+      } else if (error?.message?.includes('HTTP 400')) {
+        // Generic 400 error - likely a validation error
+        showToast({
+          type: 'error',
+          title: 'Invalid configuration',
+          message: 'Please check your integration configuration and try again. Make sure all required fields are filled correctly.',
+          duration: 5000
+        })
+      } else {
+        showToast({
+          type: 'error',
+          title: 'Failed to create integration',
+          message: error?.message || 'An unexpected error occurred. Please check your configuration and try again.',
+          duration: 5000
+        })
+      }
     } finally {
       setIsLoading(false)
     }
