@@ -102,7 +102,6 @@ class WebWidgetIntegrationService:
                 print(f"🔍 Looking for existing conversation for customer: {customer_identifier}")
                 
                 # Check for existing conversation
-                from sqlalchemy import select
                 from app.core.database import Conversation
                 
                 existing_conversation = await db.execute(
@@ -230,7 +229,6 @@ class WebWidgetIntegrationService:
                 print(f"🔍 Looking for existing conversation for customer: {customer_identifier}")
                 
                 # Check for existing conversation
-                from sqlalchemy import select
                 from app.core.database import Conversation
                 
                 existing_conversation = await db.execute(
