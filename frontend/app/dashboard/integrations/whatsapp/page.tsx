@@ -16,11 +16,12 @@ import {
   CpuChipIcon
 } from '@heroicons/react/24/outline'
 import Link from 'next/link'
+import { apiClient } from '../../../../lib/api'
 
 interface Agent {
   id: number
   name: string
-  description: string
+  description?: string
   is_active: boolean
 }
 
@@ -58,11 +59,7 @@ export default function WhatsAppIntegrationPage() {
 
   const fetchAgents = async () => {
     try {
-      const token = localStorage.getItem('auth_token')
-      const response = await fetch('/api/agents', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-      const agentsData = await response.json()
+      const agentsData = await apiClient.getAgents()
       setAgents(agentsData.filter((agent: Agent) => agent.is_active))
     } catch (error) {
       console.error('Error fetching agents:', error)
@@ -92,25 +89,13 @@ export default function WhatsAppIntegrationPage() {
 
     setLoading(true)
     try {
-      const token = localStorage.getItem('auth_token')
-      const response = await fetch('/api/integrations', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          agent_id: selectedAgent,
-          platform: 'whatsapp',
-          config: config
-        })
+      await apiClient.createIntegration({
+        agent_id: selectedAgent,
+        platform: 'whatsapp',
+        config: config
       })
-
-      if (response.ok) {
-        router.push('/dashboard/integrations?success=whatsapp')
-      } else {
-        throw new Error('Failed to create integration')
-      }
+      
+      router.push('/dashboard/integrations?success=whatsapp')
     } catch (error) {
       console.error('Error creating integration:', error)
     } finally {

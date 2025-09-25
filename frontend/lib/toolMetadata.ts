@@ -81,6 +81,22 @@ export const TOOL_METADATA: Record<string, ToolMetadata> = {
     category: 'Search',
     toolType: 'API'
   },
+  rss_feed_tool: {
+    displayName: 'RSS Feed Reader',
+    icon: NewspaperIcon,
+    logo: 'https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/rss.svg',
+    description: 'Fetch and process RSS feeds from multiple sources for content discovery',
+    category: 'Search',
+    toolType: 'API'
+  },
+  telegram_tool: {
+    displayName: 'Telegram Content Discovery',
+    icon: ChatBubbleLeftIcon,
+    logo: 'https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/telegram.svg',
+    description: 'Fetch and process content from Telegram channels and groups',
+    category: 'Search',
+    toolType: 'API'
+  },
 
   // Data Tools (11)
   weather_api: {

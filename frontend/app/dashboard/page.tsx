@@ -14,6 +14,7 @@ import {
   PlayIcon
 } from '@heroicons/react/24/outline'
 import Link from 'next/link'
+import { apiClient } from '../../lib/api'
 
 interface DashboardStats {
   activeAgents: number
@@ -35,38 +36,14 @@ export default function DashboardPage() {
 
   const fetchDashboardData = async () => {
     try {
-      const token = localStorage.getItem('auth_token')
-      if (!token) {
-        setError('No authentication token found')
-        setLoading(false)
-        return
-      }
-
-      // Fetch all dashboard data
-      const [agentsResponse, toolsResponse, integrationsResponse, conversationsResponse, creditsResponse] = await Promise.all([
-        fetch('/api/agents', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }),
-        fetch('/api/tools', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }),
-        fetch('/api/integrations', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }),
-        fetch('/api/conversations', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }),
-        fetch('/api/credits/balance', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        })
+      // Fetch all dashboard data using apiClient
+      const [agents, tools, integrations, conversations, credits] = await Promise.all([
+        apiClient.getAgents().catch(() => []),
+        apiClient.getTools().catch(() => []),
+        apiClient.getIntegrations().catch(() => []),
+        apiClient.getConversations().catch(() => []),
+        apiClient.getCreditsBalance().catch(() => ({ available_credits: 0, total_credits: 1000, used_credits: 0 }))
       ])
-
-      // Parse responses
-      const agents = agentsResponse.ok ? await agentsResponse.json() : []
-      const tools = toolsResponse.ok ? await toolsResponse.json() : []
-      const integrations = integrationsResponse.ok ? await integrationsResponse.json() : []
-      const conversations = conversationsResponse.ok ? await conversationsResponse.json() : []
-      const credits = creditsResponse.ok ? await creditsResponse.json() : { available_credits: 0, total_credits: 1000, used_credits: 0 }
 
       // Calculate stats
       const dashboardStats: DashboardStats = {

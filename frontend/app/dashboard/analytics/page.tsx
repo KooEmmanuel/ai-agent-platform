@@ -8,40 +8,22 @@ import {
   CogIcon,
   CheckCircleIcon
 } from '@heroicons/react/24/outline'
+import { apiClient } from '../../../lib/api'
 
 interface AnalyticsData {
-  totalAgents: number
-  activeAgents: number
-  totalTools: number
-  totalConversations: number
-  averageResponseTime: number
-  successRate: number
-  monthlyUsage: {
-    conversations: number
-    toolExecutions: number
-    creditsUsed: number
-  }
-  topAgents: Array<{
-    id: number
-    name: string
-    conversations: number
-    successRate: number
-    avgResponseTime: number
-  }>
-  topTools: Array<{
-    name: string
-    executions: number
-    successRate: number
-  }>
-  usageTrends: Array<{
-    date: string
-    conversations: number
-    toolExecutions: number
+  total_agents: number
+  total_conversations: number
+  total_messages: number
+  active_integrations: number
+  recent_activity: Array<{
+    type: string
+    description: string
+    timestamp: string
   }>
 }
 
 // Use Next.js API routes instead of direct backend calls
-const API_BASE_URL = '/api'
+
 
 export default function AnalyticsPage() {
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null)
@@ -62,14 +44,8 @@ export default function AnalyticsPage() {
 
   const fetchAnalytics = async () => {
     try {
-      const response = await makeAuthenticatedRequest(`${API_BASE_URL}/analytics/overview`)
-      
-      if (response.ok) {
-        const analyticsData = await response.json()
-        setAnalytics(analyticsData)
-      } else {
-        throw new Error('Failed to fetch analytics')
-      }
+      const analyticsData = await apiClient.getAnalyticsOverview()
+      setAnalytics(analyticsData)
     } catch (error) {
       console.error('Error fetching analytics:', error)
       setError('Failed to load analytics data')
@@ -138,7 +114,7 @@ export default function AnalyticsPage() {
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Total Agents</p>
-              <p className="text-2xl font-bold text-gray-900">{analytics.totalAgents}</p>
+              <p className="text-2xl font-bold text-gray-900">{analytics?.total_agents || 0}</p>
             </div>
           </div>
         </motion.div>
@@ -155,7 +131,7 @@ export default function AnalyticsPage() {
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Active Agents</p>
-              <p className="text-2xl font-bold text-gray-900">{analytics.activeAgents}</p>
+              <p className="text-2xl font-bold text-gray-900">{analytics?.active_integrations || 0}</p>
             </div>
           </div>
         </motion.div>
@@ -172,7 +148,7 @@ export default function AnalyticsPage() {
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Total Tools</p>
-              <p className="text-2xl font-bold text-gray-900">{analytics.totalTools}</p>
+              <p className="text-2xl font-bold text-gray-900">{analytics?.total_messages || 0}</p>
             </div>
           </div>
         </motion.div>
@@ -189,7 +165,7 @@ export default function AnalyticsPage() {
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Conversations</p>
-              <p className="text-2xl font-bold text-gray-900">{analytics.totalConversations}</p>
+              <p className="text-2xl font-bold text-gray-900">{analytics?.total_conversations || 0}</p>
             </div>
           </div>
         </motion.div>
@@ -204,20 +180,18 @@ export default function AnalyticsPage() {
           className="bg-white rounded-xl shadow-[0_4px_20px_rgba(59,130,246,0.1)]"
         >
           <div className="p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Monthly Usage</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
             <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">Conversations</span>
-                <span className="font-semibold">{analytics.monthlyUsage.conversations}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">Tool Executions</span>
-                <span className="font-semibold">{analytics.monthlyUsage.toolExecutions}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">Credits Used</span>
-                <span className="font-semibold">{analytics.monthlyUsage.creditsUsed}</span>
-              </div>
+              {!analytics?.recent_activity || analytics.recent_activity.length === 0 ? (
+                <p className="text-gray-500 text-center py-4">No recent activity</p>
+              ) : (
+                analytics.recent_activity.slice(0, 5).map((activity, index) => (
+                  <div key={index} className="flex justify-between items-center">
+                    <span className="text-gray-600">{activity.description}</span>
+                    <span className="text-sm text-gray-400">{new Date(activity.timestamp).toLocaleDateString()}</span>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </motion.div>
@@ -232,12 +206,12 @@ export default function AnalyticsPage() {
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Performance Metrics</h3>
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <span className="text-gray-600">Average Response Time</span>
-                <span className="font-semibold">{analytics.averageResponseTime}s</span>
+                <span className="text-gray-600">Total Messages</span>
+                <span className="font-semibold">{analytics?.total_messages || 0}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-gray-600">Success Rate</span>
-                <span className="font-semibold">{analytics.successRate}%</span>
+                <span className="text-gray-600">Active Integrations</span>
+                <span className="font-semibold">{analytics?.active_integrations || 0}</span>
               </div>
             </div>
           </div>
@@ -254,21 +228,10 @@ export default function AnalyticsPage() {
         >
           <div className="p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Top Performing Agents</h3>
-            {analytics.topAgents.length === 0 ? (
-              <div className="text-center py-8">
-                <UserGroupIcon className="mx-auto h-12 w-12 text-gray-400" />
-                <p className="mt-2 text-sm text-gray-500">No agent data available yet</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {analytics.topAgents.map((agent) => (
-                  <div key={agent.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                    <span className="font-medium">{agent.name}</span>
-                    <span className="text-sm text-gray-600">{agent.conversations} conversations</span>
-                  </div>
-                ))}
-              </div>
-            )}
+            <div className="text-center py-8">
+              <UserGroupIcon className="mx-auto h-12 w-12 text-gray-400" />
+              <p className="mt-2 text-sm text-gray-500">Agent performance data coming soon</p>
+            </div>
           </div>
         </motion.div>
 
@@ -280,21 +243,10 @@ export default function AnalyticsPage() {
         >
           <div className="p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Most Used Tools</h3>
-            {analytics.topTools.length === 0 ? (
-              <div className="text-center py-8">
-                <CogIcon className="mx-auto h-12 w-12 text-gray-400" />
-                <p className="mt-2 text-sm text-gray-500">No tool usage data available yet</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {analytics.topTools.map((tool, index) => (
-                  <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                    <span className="font-medium">{tool.name}</span>
-                    <span className="text-sm text-gray-600">{tool.executions} executions</span>
-                  </div>
-                ))}
-              </div>
-            )}
+            <div className="text-center py-8">
+              <CogIcon className="mx-auto h-12 w-12 text-gray-400" />
+              <p className="mt-2 text-sm text-gray-500">Tool usage data coming soon</p>
+            </div>
           </div>
         </motion.div>
       </div>

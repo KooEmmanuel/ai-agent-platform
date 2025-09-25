@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { CreditCardIcon, ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/24/outline'
+import { apiClient } from '../lib/api'
 
 interface CreditBalance {
   total_credits: number
@@ -13,11 +14,11 @@ interface CreditBalance {
 
 interface CreditTransaction {
   id: number
-  transaction_type: string
+  type: string
   amount: number
   description: string
-  tool_used?: string
-  created_at: string
+  timestamp: string
+  status: string
 }
 
 export default function CreditDisplay() {
@@ -32,51 +33,25 @@ export default function CreditDisplay() {
 
   const fetchCreditData = async () => {
     try {
-      const token = localStorage.getItem('auth_token')
-      if (!token) {
-        setError('No authentication token found')
-        setLoading(false)
-        return
-      }
-
-      // Fetch credit balance
-      const balanceResponse = await fetch('/api/credits/balance', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
+      setLoading(true)
+      setError(null)
       
-      if (balanceResponse.ok) {
-        const balance = await balanceResponse.json()
-        setCreditBalance(balance)
-      } else {
-        console.error('Failed to fetch credit balance:', balanceResponse.status)
-        // Set default values if API fails
-        setCreditBalance({
+      // Fetch credit balance and transactions using apiClient
+      const [balance, transactions] = await Promise.all([
+        apiClient.getCreditsBalance().catch(() => ({
           total_credits: 1000,
           used_credits: 0,
           available_credits: 1000,
           usage_percentage: 0
-        })
-      }
-
-      // Fetch recent transactions
-      const transactionsResponse = await fetch('/api/credits/transactions?limit=5', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
+        })),
+        apiClient.getCreditTransactions(5).catch(() => [])
+      ])
       
-      if (transactionsResponse.ok) {
-        const transactionsData = await transactionsResponse.json()
-        setTransactions(transactionsData)
-      } else {
-        console.error('Failed to fetch transactions:', transactionsResponse.status)
-        // Set empty array if API fails
-        setTransactions([])
-      }
+      setCreditBalance(balance)
+      setTransactions(transactions)
     } catch (error) {
       console.error('Error fetching credit data:', error)
+      setError('Failed to load credit information')
       // Set default values on error
       setCreditBalance({
         total_credits: 1000,
@@ -195,20 +170,17 @@ export default function CreditDisplay() {
             {transactions.map((transaction) => (
               <div key={transaction.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-b-0">
                 <div className="flex items-center space-x-3">
-                  {getTransactionIcon(transaction.transaction_type)}
+                  {getTransactionIcon(transaction.type)}
                   <div>
                     <p className="text-sm font-medium text-gray-900">{transaction.description}</p>
-                    {transaction.tool_used && (
-                      <p className="text-xs text-gray-500">Tool: {transaction.tool_used}</p>
-                    )}
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className={`text-sm font-medium ${getTransactionColor(transaction.transaction_type)}`}>
+                  <p className={`text-sm font-medium ${getTransactionColor(transaction.type)}`}>
                     {transaction.amount > 0 ? '+' : ''}{transaction.amount.toFixed(1)} credits
                   </p>
                   <p className="text-xs text-gray-500">
-                    {new Date(transaction.created_at).toLocaleDateString()}
+                    {new Date(transaction.timestamp).toLocaleDateString()}
                   </p>
                 </div>
               </div>

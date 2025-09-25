@@ -27,7 +27,6 @@ class Settings(BaseSettings):
         "https://kwickbuild.vercel.app",  # Production frontend
         "https://kwickbuild.up.railway.app",  # Backend itself
         "https://ai-agent-platform-production.up.railway.app",  # Alternative backend URL
-        "*",  # Allow all origins for development (remove in production)
     ]
     
     # External APIs
@@ -51,6 +50,9 @@ class Settings(BaseSettings):
     # File Storage
     UPLOAD_DIR: str = "./uploads"
     MAX_FILE_SIZE: int = 10 * 1024 * 1024  # 10MB
+    
+    # Vercel Blob Storage
+    BLOB_READ_WRITE_TOKEN: Optional[str] = None
     
     # Agent Settings
     MAX_AGENTS_PER_USER: int = 10

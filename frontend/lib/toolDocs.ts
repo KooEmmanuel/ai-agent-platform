@@ -100,6 +100,111 @@ export const TOOL_DOCS: Record<string, ToolDoc> = {
     ]
   },
 
+  rss_feed_tool: {
+    name: 'RSS Feed Reader',
+    description: 'Fetch and process RSS feeds from multiple sources for content discovery',
+    category: 'Search',
+    toolType: 'API',
+    icon: '📡',
+    overview: 'The RSS Feed Reader tool aggregates content from multiple RSS feeds including BBC News, TechCrunch, Hacker News, and Reddit feeds. It provides content filtering, date-based filtering, and social media formatting capabilities.',
+    features: [
+      'Multiple RSS feed source support',
+      'Content filtering by date and keywords',
+      'Social media formatting for Twitter, Instagram, TikTok',
+      'Image extraction from RSS entries',
+      'HTML cleaning and content processing',
+      'Configurable feed URLs and filtering options',
+      'No authentication required (public RSS feeds)',
+      'Default feeds included (BBC, TechCrunch, Hacker News, Reddit)'
+    ],
+    useCases: [
+      'Content discovery and news aggregation',
+      'Social media content creation',
+      'Trend monitoring and analysis',
+      'Multi-source news tracking',
+      'Content curation for marketing',
+      'Research and information gathering'
+    ],
+    configuration: [
+      { field: 'Feed URLs', description: 'JSON array of feed objects with name, url, and category', required: false, type: 'Textarea' },
+      { field: 'Max Items Per Feed', description: 'Maximum items to fetch per feed', required: false, type: 'Number' },
+      { field: 'Max Total Items', description: 'Maximum total items to return', required: false, type: 'Number' },
+      { field: 'Min Age (Hours)', description: 'Minimum age of items in hours (0 = no minimum)', required: false, type: 'Number' },
+      { field: 'Max Age (Hours)', description: 'Maximum age of items in hours', required: false, type: 'Number' },
+      { field: 'Include Keywords', description: 'Comma-separated keywords to include', required: false, type: 'Text' },
+      { field: 'Exclude Keywords', description: 'Comma-separated keywords to exclude', required: false, type: 'Text' },
+      { field: 'Include Full Content', description: 'Whether to include full content (usually False for RSS)', required: false, type: 'Checkbox' },
+      { field: 'Max Description Length', description: 'Maximum description length', required: false, type: 'Number' },
+      { field: 'Include Images', description: 'Whether to include image URLs', required: false, type: 'Checkbox' }
+    ],
+    setupSteps: [
+      'Configure feed URLs (or use defaults)',
+      'Set appropriate item limits for performance',
+      'Configure date filtering based on your needs',
+      'Set up keyword filtering for relevant content',
+      'Choose content processing options',
+      'Test with sample queries',
+      'Verify social media formatting output'
+    ]
+  },
+
+  telegram_tool: {
+    name: 'Telegram Content Discovery',
+    description: 'Fetch and process content from Telegram channels and groups',
+    category: 'Search',
+    toolType: 'API',
+    icon: '📱',
+    overview: 'The Telegram Content Discovery tool fetches content from Telegram channels and groups including Durov, Telegram, TechCrunch, BBC, and more. It provides message filtering, media extraction, and social media formatting capabilities.',
+    features: [
+      'Multiple Telegram channel/group support',
+      'Message filtering by date, keywords, and content type',
+      'Social media formatting for Twitter, Instagram, TikTok',
+      'Media extraction (photos, videos, documents, audio)',
+      'Link, hashtag, and mention extraction',
+      'View count, forward count, and reply count tracking',
+      'Configurable message limits and filtering options',
+      'Default channels included (Durov, Telegram, TechCrunch, BBC, etc.)'
+    ],
+    useCases: [
+      'Telegram channel monitoring',
+      'Content discovery from messaging platforms',
+      'Social media content creation',
+      'Trend analysis from Telegram communities',
+      'News aggregation from Telegram channels',
+      'Community engagement tracking'
+    ],
+    configuration: [
+      { field: 'API ID', description: 'Telegram API ID from my.telegram.org', required: true, type: 'API Key' },
+      { field: 'API Hash', description: 'Telegram API Hash from my.telegram.org', required: true, type: 'API Key' },
+      { field: 'Phone Number', description: 'Your phone number with country code (e.g., +1234567890)', required: true, type: 'Text' },
+      { field: 'Session Name', description: 'Name for the Telegram session', required: false, type: 'Text' },
+      { field: 'Channel Usernames', description: 'Comma-separated list of channel usernames (without @)', required: false, type: 'Textarea' },
+      { field: 'Group Usernames', description: 'Comma-separated list of group usernames (without @)', required: false, type: 'Textarea' },
+      { field: 'Max Messages Per Channel', description: 'Maximum messages to fetch per channel/group', required: false, type: 'Number' },
+      { field: 'Max Total Messages', description: 'Maximum total messages to return', required: false, type: 'Number' },
+      { field: 'Min Age (Hours)', description: 'Minimum age of messages in hours (0 = no minimum)', required: false, type: 'Number' },
+      { field: 'Max Age (Hours)', description: 'Maximum age of messages in hours', required: false, type: 'Number' },
+      { field: 'Include Keywords', description: 'Comma-separated keywords to include', required: false, type: 'Text' },
+      { field: 'Exclude Keywords', description: 'Comma-separated keywords to exclude', required: false, type: 'Text' },
+      { field: 'Include Media', description: 'Whether to include media information', required: false, type: 'Checkbox' },
+      { field: 'Include Links', description: 'Whether to include link information', required: false, type: 'Checkbox' },
+      { field: 'Max Message Length', description: 'Maximum message length to process', required: false, type: 'Number' },
+      { field: 'Include Forwarded', description: 'Whether to include forwarded messages', required: false, type: 'Checkbox' },
+      { field: 'Include Replies', description: 'Whether to include reply messages', required: false, type: 'Checkbox' }
+    ],
+    setupSteps: [
+      'Get Telegram API credentials from https://my.telegram.org/apps',
+      'Configure API ID and API Hash',
+      'Set your phone number with country code',
+      'Configure channel/group usernames (or use defaults)',
+      'Set appropriate message limits for performance',
+      'Configure date and keyword filtering',
+      'Choose content processing options',
+      'Test with sample queries',
+      'Verify social media formatting output'
+    ]
+  },
+
   // Data Tools (9)
   weather_api: {
     name: 'Weather API',

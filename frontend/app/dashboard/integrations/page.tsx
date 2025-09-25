@@ -15,23 +15,19 @@ import {
   InformationCircleIcon,
   EllipsisVerticalIcon
 } from '@heroicons/react/24/outline'
+import { useToast } from '../../../components/ui/Toast'
+import { apiClient } from '../../../lib/api'
 
-// Use Next.js API routes instead of direct backend calls
-const API_BASE_URL = '/api'
 
 interface Integration {
   id: number
   agent_id: number
-  agent_name: string
   platform: string
-  platform_name: string
-  platform_icon: string
-  is_active: boolean
-  webhook_url?: string
   config: Record<string, any>
+  webhook_url?: string
+  is_active: boolean
   created_at: string
-  last_used?: string
-  message_count: number
+  updated_at?: string
 }
 
 const platforms = [
@@ -117,15 +113,7 @@ export default function IntegrationsPage() {
         return
       }
 
-      const response = await fetch(`${API_BASE_URL}/integrations`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch integrations')
-      }
-
-      const integrationsData = await response.json()
+      const integrationsData = await apiClient.getIntegrations()
       setIntegrations(integrationsData)
     } catch (error) {
       console.error('Error fetching integrations:', error)
@@ -137,19 +125,8 @@ export default function IntegrationsPage() {
 
   const handleDeleteIntegration = async (integrationId: string) => {
     try {
-      const token = localStorage.getItem('auth_token')
-      if (!token) return
-
-      const response = await fetch(`${API_BASE_URL}/integrations/${integrationId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-
-      if (response.ok) {
-        setIntegrations(integrations.filter(integration => integration.id !== parseInt(integrationId)))
-      } else {
-        throw new Error('Failed to delete integration')
-      }
+      await apiClient.deleteIntegration(parseInt(integrationId))
+      setIntegrations(integrations.filter(integration => integration.id !== parseInt(integrationId)))
     } catch (error) {
       console.error('Error deleting integration:', error)
       setError('Failed to delete integration')
@@ -158,32 +135,18 @@ export default function IntegrationsPage() {
 
   const handleToggleIntegration = async (integrationId: string) => {
     try {
-      const token = localStorage.getItem('auth_token')
-      if (!token) return
-
       const integration = integrations.find(i => i.id === parseInt(integrationId))
       if (!integration) return
 
-      const response = await fetch(`${API_BASE_URL}/integrations/${integrationId}`, {
-        method: 'PUT',
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          is_active: !integration.is_active
-        })
+      const updatedIntegration = await apiClient.updateIntegration(parseInt(integrationId), {
+        is_active: !integration.is_active
       })
 
-      if (response.ok) {
-        setIntegrations(integrations.map(i => 
-          i.id === parseInt(integrationId) 
-            ? { ...i, is_active: !i.is_active }
-            : i
-        ))
-      } else {
-        throw new Error('Failed to toggle integration')
-      }
+      setIntegrations(integrations.map(i => 
+        i.id === parseInt(integrationId) 
+          ? updatedIntegration
+          : i
+      ))
     } catch (error) {
       console.error('Error toggling integration:', error)
       setError('Failed to toggle integration')
@@ -383,7 +346,7 @@ export default function IntegrationsPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center space-x-2 mb-1">
                       <h4 className="text-sm lg:text-lg font-medium text-gray-900 truncate">
-                        {integration.platform_name} {integration.agent_name}
+                        {integration.platform} Integration
                       </h4>
                       <span className={`inline-flex items-center px-2 py-0.5 lg:px-2.5 lg:py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${
                         integration.is_active 
@@ -397,13 +360,13 @@ export default function IntegrationsPage() {
                       {getPlatformInfo(integration.platform).description}
                     </p>
                     <div className="flex flex-col lg:flex-row lg:items-center lg:space-x-4 space-y-1 lg:space-y-0 text-xs lg:text-sm text-gray-500">
-                      <span>{integration.message_count} messages</span>
+                      <span>Agent ID: {integration.agent_id}</span>
                       <span className="hidden lg:inline">•</span>
                       <span>Created: {formatDate(integration.created_at)}</span>
-                      {integration.last_used && (
+                      {integration.updated_at && (
                         <>
                           <span className="hidden lg:inline">•</span>
-                          <span>Last used: {formatDate(integration.last_used)}</span>
+                          <span>Updated: {formatDate(integration.updated_at)}</span>
                         </>
                       )}
                     </div>

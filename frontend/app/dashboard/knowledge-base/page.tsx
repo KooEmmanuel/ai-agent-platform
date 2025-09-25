@@ -11,13 +11,26 @@ import {
   BookOpenIcon,
   CloudArrowUpIcon,
   MagnifyingGlassIcon,
-  ChartBarIcon
+  ChartBarIcon,
+  FolderIcon,
+  DocumentIcon,
+  PhotoIcon,
+  FilmIcon,
+  MusicalNoteIcon,
+  ArchiveBoxIcon,
+  ShareIcon,
+  EllipsisVerticalIcon,
+  Squares2X2Icon,
+  ListBulletIcon,
+  ArrowUpTrayIcon
 } from '@heroicons/react/24/outline'
 import { motion, AnimatePresence } from 'framer-motion'
 import CreateCollectionModal from './components/CreateCollectionModal'
 import AddWebsiteModal from './components/AddWebsiteModal'
 import UploadFileModal from './components/UploadFileModal'
+import FileUploadModal from './components/FileUploadModal'
 import CollectionCard from './components/CollectionCard'
+import FileLibrary from './components/FileLibrary'
 import { apiClient } from '../../../lib/api'
 
 interface Collection {
@@ -38,9 +51,14 @@ export default function KnowledgeBasePage() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showAddWebsiteModal, setShowAddWebsiteModal] = useState(false)
   const [showUploadModal, setShowUploadModal] = useState(false)
+  const [showFileUploadModal, setShowFileUploadModal] = useState(false)
   const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
+  
+  // New state for Library/Vector Base toggle
+  const [activeTab, setActiveTab] = useState<'library' | 'vectorbase'>('library')
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
 
   useEffect(() => {
     loadCollections()
@@ -148,96 +166,240 @@ export default function KnowledgeBasePage() {
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
         >
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="bg-white p-6 rounded-2xl shadow-[0_4px_20px_rgba(59,130,246,0.1)] border border-gray-100"
-            >
-              <div className="flex items-center">
-                <div className="p-3 bg-blue-100 rounded-xl">
-                  <BookOpenIcon className="w-6 h-6 text-blue-600" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Total Collections</p>
-                  <p className="text-2xl font-bold text-gray-900">{collections.length}</p>
-                </div>
-              </div>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="bg-white p-6 rounded-2xl shadow-[0_4px_20px_rgba(59,130,246,0.1)] border border-gray-100"
-            >
-              <div className="flex items-center">
-                <div className="p-3 bg-green-100 rounded-xl">
-                  <DocumentTextIcon className="w-6 h-6 text-green-600" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Total Documents</p>
-                  <p className="text-2xl font-bold text-gray-900">{totalDocuments}</p>
-                </div>
-              </div>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="bg-white p-6 rounded-2xl shadow-[0_4px_20px_rgba(59,130,246,0.1)] border border-gray-100"
-            >
-              <div className="flex items-center">
-                <div className="p-3 bg-purple-100 rounded-xl">
-                  <SparklesIcon className="w-6 h-6 text-purple-600" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Mixed Collections</p>
-                  <p className="text-2xl font-bold text-gray-900">{mixedCollections}</p>
-                </div>
-              </div>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-              className="bg-white p-6 rounded-2xl shadow-[0_4px_20px_rgba(59,130,246,0.1)] border border-gray-100"
-            >
-              <div className="flex items-center">
-                <div className="p-3 bg-orange-100 rounded-xl">
-                  <GlobeAltIcon className="w-6 h-6 text-orange-600" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Website Collections</p>
-                  <p className="text-2xl font-bold text-gray-900">{websiteCollections}</p>
-                </div>
-              </div>
-            </motion.div>
+          {/* Page Title and Toggle */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Knowledge Base</h1>
+              <p className="text-gray-600">Manage your files and AI-powered collections</p>
+            </div>
+            
+            {/* Library/Vector Base Toggle */}
+            <div className="flex items-center bg-white rounded-xl p-1 shadow-sm border border-gray-200 mt-4 sm:mt-0">
+              <button
+                onClick={() => setActiveTab('library')}
+                className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                  activeTab === 'library'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                }`}
+              >
+                <FolderIcon className="w-4 h-4 mr-2" />
+                Library
+              </button>
+              <button
+                onClick={() => setActiveTab('vectorbase')}
+                className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                  activeTab === 'vectorbase'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                }`}
+              >
+                <SparklesIcon className="w-4 h-4 mr-2" />
+                Vector Base
+              </button>
+            </div>
           </div>
 
-          {/* Search and Create */}
+          {/* Stats Cards - Show different stats based on active tab */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            {activeTab === 'library' ? (
+              <>
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className="bg-white p-6 rounded-2xl shadow-[0_4px_20px_rgba(59,130,246,0.1)] border border-gray-100"
+                >
+                  <div className="flex items-center">
+                    <div className="p-3 bg-blue-100 rounded-xl">
+                      <DocumentIcon className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-600">Total Files</p>
+                      <p className="text-2xl font-bold text-gray-900">0</p>
+                    </div>
+                  </div>
+                </motion.div>
+
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="bg-white p-6 rounded-2xl shadow-[0_4px_20px_rgba(59,130,246,0.1)] border border-gray-100"
+                >
+                  <div className="flex items-center">
+                    <div className="p-3 bg-green-100 rounded-xl">
+                      <PhotoIcon className="w-6 h-6 text-green-600" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-600">Images</p>
+                      <p className="text-2xl font-bold text-gray-900">0</p>
+                    </div>
+                  </div>
+                </motion.div>
+
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                  className="bg-white p-6 rounded-2xl shadow-[0_4px_20px_rgba(59,130,246,0.1)] border border-gray-100"
+                >
+                  <div className="flex items-center">
+                    <div className="p-3 bg-purple-100 rounded-xl">
+                      <ArchiveBoxIcon className="w-6 h-6 text-purple-600" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-600">Documents</p>
+                      <p className="text-2xl font-bold text-gray-900">0</p>
+                    </div>
+                  </div>
+                </motion.div>
+
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4 }}
+                  className="bg-white p-6 rounded-2xl shadow-[0_4px_20px_rgba(59,130,246,0.1)] border border-gray-100"
+                >
+                  <div className="flex items-center">
+                    <div className="p-3 bg-orange-100 rounded-xl">
+                      <ShareIcon className="w-6 h-6 text-orange-600" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-600">Shared Files</p>
+                      <p className="text-2xl font-bold text-gray-900">0</p>
+                    </div>
+                  </div>
+                </motion.div>
+              </>
+            ) : (
+              <>
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className="bg-white p-6 rounded-2xl shadow-[0_4px_20px_rgba(59,130,246,0.1)] border border-gray-100"
+                >
+                  <div className="flex items-center">
+                    <div className="p-3 bg-blue-100 rounded-xl">
+                      <BookOpenIcon className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-600">Total Collections</p>
+                      <p className="text-2xl font-bold text-gray-900">{collections.length}</p>
+                    </div>
+                  </div>
+                </motion.div>
+
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="bg-white p-6 rounded-2xl shadow-[0_4px_20px_rgba(59,130,246,0.1)] border border-gray-100"
+                >
+                  <div className="flex items-center">
+                    <div className="p-3 bg-green-100 rounded-xl">
+                      <DocumentTextIcon className="w-6 h-6 text-green-600" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-600">Total Documents</p>
+                      <p className="text-2xl font-bold text-gray-900">{totalDocuments}</p>
+                    </div>
+                  </div>
+                </motion.div>
+
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                  className="bg-white p-6 rounded-2xl shadow-[0_4px_20px_rgba(59,130,246,0.1)] border border-gray-100"
+                >
+                  <div className="flex items-center">
+                    <div className="p-3 bg-purple-100 rounded-xl">
+                      <SparklesIcon className="w-6 h-6 text-purple-600" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-600">Mixed Collections</p>
+                      <p className="text-2xl font-bold text-gray-900">{mixedCollections}</p>
+                    </div>
+                  </div>
+                </motion.div>
+
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4 }}
+                  className="bg-white p-6 rounded-2xl shadow-[0_4px_20px_rgba(59,130,246,0.1)] border border-gray-100"
+                >
+                  <div className="flex items-center">
+                    <div className="p-3 bg-orange-100 rounded-xl">
+                      <GlobeAltIcon className="w-6 h-6 text-orange-600" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-600">Website Collections</p>
+                      <p className="text-2xl font-bold text-gray-900">{websiteCollections}</p>
+                    </div>
+                  </div>
+                </motion.div>
+              </>
+            )}
+          </div>
+
+          {/* Search and Actions */}
           <div className="flex flex-col sm:flex-row gap-4 items-center justify-between mb-8">
             <div className="relative flex-1 max-w-md">
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search collections..."
+                placeholder={activeTab === 'library' ? "Search files..." : "Search collections..."}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white shadow-sm"
               />
             </div>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-semibold rounded-xl text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-lg hover:shadow-xl"
-            >
-              <PlusIcon className="w-5 h-5 mr-2" />
-              Create Collection
-            </button>
+            
+            <div className="flex items-center gap-3">
+              {/* View Mode Toggle - Only show for Library */}
+              {activeTab === 'library' && (
+                <div className="flex items-center bg-white rounded-lg p-1 shadow-sm border border-gray-200">
+                  <button
+                    onClick={() => setViewMode('grid')}
+                    className={`p-2 rounded-md transition-colors ${
+                      viewMode === 'grid' ? 'bg-blue-100 text-blue-600' : 'text-gray-400 hover:text-gray-600'
+                    }`}
+                  >
+                    <Squares2X2Icon className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setViewMode('list')}
+                    className={`p-2 rounded-md transition-colors ${
+                      viewMode === 'list' ? 'bg-blue-100 text-blue-600' : 'text-gray-400 hover:text-gray-600'
+                    }`}
+                  >
+                    <ListBulletIcon className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+              
+              {/* Action Button */}
+              {activeTab === 'library' ? (
+                <button
+                  onClick={() => setShowFileUploadModal(true)}
+                  className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-semibold rounded-xl text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-lg hover:shadow-xl"
+                >
+                  <ArrowUpTrayIcon className="w-5 h-5 mr-2" />
+                  Upload Files
+                </button>
+              ) : (
+                <button
+                  onClick={() => setShowCreateModal(true)}
+                  className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-semibold rounded-xl text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-lg hover:shadow-xl"
+                >
+                  <PlusIcon className="w-5 h-5 mr-2" />
+                  Create Collection
+                </button>
+              )}
+            </div>
           </div>
         </motion.div>
 
@@ -275,64 +437,91 @@ export default function KnowledgeBasePage() {
           )}
         </AnimatePresence>
 
-        {/* Collections Grid */}
-        {filteredCollections.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center py-16"
-          >
-            <div className="mx-auto h-24 w-24 text-gray-300 mb-6">
-              <BookOpenIcon className="h-full w-full" />
-            </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              {searchTerm ? 'No collections found' : 'No collections yet'}
-            </h3>
-            <p className="text-gray-600 mb-8 max-w-md mx-auto">
-              {searchTerm 
-                ? 'Try adjusting your search terms or create a new collection.'
-                : 'Get started by creating your first knowledge base collection to power your AI agents.'
-              }
-            </p>
-            {!searchTerm && (
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-semibold rounded-xl text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-lg hover:shadow-xl"
-              >
-                <PlusIcon className="w-5 h-5 mr-2" />
-                Create Your First Collection
-              </button>
-            )}
-          </motion.div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
-            <AnimatePresence>
-              {filteredCollections.map((collection, index) => (
+        {/* Content Area - Library or Vector Base */}
+        <AnimatePresence mode="wait">
+          {activeTab === 'library' ? (
+            <motion.div
+              key="library"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <FileLibrary 
+                viewMode={viewMode}
+                searchTerm={searchTerm}
+                onUpload={() => setShowFileUploadModal(true)}
+              />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="vectorbase"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              {/* Vector Base Collections */}
+              {filteredCollections.length === 0 ? (
                 <motion.div
-                  key={collection.id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.3, delay: index * 0.1 }}
-                  className="h-full"
+                  className="text-center py-16"
                 >
-                  <CollectionCard
-                    collection={collection} 
-                    onAddWebsite={() => {
-                      setSelectedCollection(collection)
-                      setShowAddWebsiteModal(true)
-                    }}
-                    onUploadFile={() => {
-                      setSelectedCollection(collection)
-                      setShowUploadModal(true)
-                    }}
-                    onDelete={() => handleDeleteCollection(collection.id)}
-                  />
+                  <div className="mx-auto h-24 w-24 text-gray-300 mb-6">
+                    <BookOpenIcon className="h-full w-full" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                    {searchTerm ? 'No collections found' : 'No collections yet'}
+                  </h3>
+                  <p className="text-gray-600 mb-8 max-w-md mx-auto">
+                    {searchTerm 
+                      ? 'Try adjusting your search terms or create a new collection.'
+                      : 'Get started by creating your first knowledge base collection to power your AI agents.'
+                    }
+                  </p>
+                  {!searchTerm && (
+                    <button
+                      onClick={() => setShowCreateModal(true)}
+                      className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-semibold rounded-xl text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-lg hover:shadow-xl"
+                    >
+                      <PlusIcon className="w-5 h-5 mr-2" />
+                      Create Your First Collection
+                    </button>
+                  )}
                 </motion.div>
-              ))}
-            </AnimatePresence>
-          </div>
-        )}
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
+                  <AnimatePresence>
+                    {filteredCollections.map((collection, index) => (
+                      <motion.div
+                        key={collection.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.3, delay: index * 0.1 }}
+                        className="h-full"
+                      >
+                        <CollectionCard
+                          collection={collection} 
+                          onAddWebsite={() => {
+                            setSelectedCollection(collection)
+                            setShowAddWebsiteModal(true)
+                          }}
+                          onUploadFile={() => {
+                            setSelectedCollection(collection)
+                            setShowUploadModal(true)
+                          }}
+                          onDelete={() => handleDeleteCollection(collection.id)}
+                        />
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Modals */}
@@ -354,6 +543,15 @@ export default function KnowledgeBasePage() {
         onClose={() => setShowUploadModal(false)}
         onUpload={handleUploadFile}
         collection={selectedCollection}
+      />
+
+      <FileUploadModal
+        isOpen={showFileUploadModal}
+        onClose={() => setShowFileUploadModal(false)}
+        onUploadSuccess={() => {
+          // Refresh file library if needed
+          console.log('Files uploaded successfully')
+        }}
       />
     </div>
   )

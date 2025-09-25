@@ -25,6 +25,9 @@ const getToolTechnicalName = (displayName: string): string => {
     // Search Tools
     'Web Search': 'web_search',
     'News Search': 'news_search',
+    'Reddit Content Discovery': 'reddit_tool',
+    'RSS Feed Reader': 'rss_feed_tool',
+    'Telegram Content Discovery': 'telegram_tool',
     
     // Data Tools  
     'Weather API': 'weather_api',

@@ -48,6 +48,9 @@ const getToolTechnicalName = (displayName: string): string => {
     // Search Tools
     'Web Search': 'web_search',
     'News Search': 'news_search',
+    'Reddit Content Discovery': 'reddit_tool',
+    'RSS Feed Reader': 'rss_feed_tool',
+    'Telegram Content Discovery': 'telegram_tool',
     
     // Data Tools  
     'Weather API': 'weather_api',
@@ -99,7 +102,7 @@ const getToolTechnicalName = (displayName: string): string => {
   // Handle cases where database stores technical names but they get displayed differently
   // Convert back to technical name if it's a known technical name
   const technicalNames = [
-    'web_search', 'news_search', 'weather_api', 'csv_processor', 'database_query',
+    'web_search', 'news_search', 'reddit_tool', 'rss_feed_tool', 'telegram_tool', 'weather_api', 'csv_processor', 'database_query',
     'data_scraper', 'file_processor', 'image_processor', 'pdf_processor', 
     'text_analyzer', 'translation_service', 'data_visualization', 'statistical_analysis',
     'calendar_manager', 'reminder_tool', 'date_calculator', 'email_sender',

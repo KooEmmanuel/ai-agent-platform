@@ -10,8 +10,8 @@ import json
 import logging
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Union
-import praw
-from praw.models import Submission, Comment
+import asyncpraw
+from asyncpraw.models import Submission, Comment
 import re
 
 from .base import BaseTool
@@ -57,10 +57,205 @@ class RedditTool(BaseTool):
         
         # Initialize Reddit instance
         self.reddit = None
-        if self.client_id and self.client_secret:
-            self._initialize_reddit()
+        # Note: Reddit initialization will be done lazily in execute() method
+        # since we can't call async methods in __init__
     
-    def _initialize_reddit(self):
+    def get_config_schema(self) -> Dict[str, Any]:
+        """Get the configuration schema for this tool"""
+        return {
+            "name": "Reddit Content Discovery Tool",
+            "description": "Discover trending content from Reddit for social media creation",
+            "parameters": {
+                "client_id": {
+                    "type": "string",
+                    "description": "Reddit API client ID",
+                    "required": True,
+                    "sensitive": True
+                },
+                "client_secret": {
+                    "type": "string", 
+                    "description": "Reddit API client secret",
+                    "required": True,
+                    "sensitive": True
+                },
+                "user_agent": {
+                    "type": "string",
+                    "description": "User agent string for Reddit API requests",
+                    "default": "RedditContentTool/1.0"
+                },
+                "username": {
+                    "type": "string",
+                    "description": "Reddit username (optional, for user-specific actions)",
+                    "required": False,
+                    "sensitive": True
+                },
+                "password": {
+                    "type": "string",
+                    "description": "Reddit password (optional, for user-specific actions)",
+                    "required": False,
+                    "sensitive": True
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Default number of posts to retrieve",
+                    "default": 15,
+                    "min": 1,
+                    "max": 100
+                },
+                "sort_by": {
+                    "type": "string",
+                    "description": "Default sort method for posts",
+                    "enum": ["hot", "new", "top", "rising"],
+                    "default": "hot"
+                },
+                "time_filter": {
+                    "type": "string",
+                    "description": "Time filter for top posts",
+                    "enum": ["hour", "day", "week", "month", "year", "all"],
+                    "default": "day"
+                },
+                "min_upvotes": {
+                    "type": "integer",
+                    "description": "Minimum upvotes filter",
+                    "default": 0,
+                    "min": 0
+                },
+                "max_upvotes": {
+                    "type": "integer",
+                    "description": "Maximum upvotes filter",
+                    "default": 100000,
+                    "min": 1
+                },
+                "min_comments": {
+                    "type": "integer",
+                    "description": "Minimum comments filter",
+                    "default": 0,
+                    "min": 0
+                },
+                "max_age_hours": {
+                    "type": "integer",
+                    "description": "Maximum age of posts in hours",
+                    "default": 8760,
+                    "min": 1
+                }
+            },
+            "capabilities": [
+                "subreddit_monitoring",
+                "content_discovery",
+                "engagement_analysis",
+                "social_media_formatting",
+                "hashtag_generation",
+                "content_filtering"
+            ],
+            "config_fields": [
+                {
+                    "name": "client_id",
+                    "type": "text",
+                    "label": "Reddit Client ID",
+                    "description": "Your Reddit API client ID from reddit.com/prefs/apps",
+                    "required": True,
+                    "sensitive": True
+                },
+                {
+                    "name": "client_secret",
+                    "type": "text",
+                    "label": "Reddit Client Secret",
+                    "description": "Your Reddit API client secret from reddit.com/prefs/apps",
+                    "required": True,
+                    "sensitive": True
+                },
+                {
+                    "name": "user_agent",
+                    "type": "text",
+                    "label": "User Agent",
+                    "description": "User agent string for API requests",
+                    "default": "RedditContentTool/1.0",
+                    "required": False
+                },
+                {
+                    "name": "username",
+                    "type": "text",
+                    "label": "Reddit Username",
+                    "description": "Your Reddit username (optional, for user-specific actions)",
+                    "required": False,
+                    "sensitive": True
+                },
+                {
+                    "name": "password",
+                    "type": "password",
+                    "label": "Reddit Password",
+                    "description": "Your Reddit password (optional, for user-specific actions)",
+                    "required": False,
+                    "sensitive": True
+                },
+                {
+                    "name": "limit",
+                    "type": "number",
+                    "label": "Default Post Limit",
+                    "description": "Default number of posts to retrieve",
+                    "default": 15,
+                    "min": 1,
+                    "max": 100,
+                    "required": False
+                },
+                {
+                    "name": "sort_by",
+                    "type": "select",
+                    "label": "Default Sort Method",
+                    "description": "Default sort method for posts",
+                    "options": ["hot", "new", "top", "rising"],
+                    "default": "hot",
+                    "required": False
+                },
+                {
+                    "name": "time_filter",
+                    "type": "select",
+                    "label": "Default Time Filter",
+                    "description": "Time filter for top posts",
+                    "options": ["hour", "day", "week", "month", "year", "all"],
+                    "default": "day",
+                    "required": False
+                },
+                {
+                    "name": "min_upvotes",
+                    "type": "number",
+                    "label": "Minimum Upvotes",
+                    "description": "Minimum upvotes filter",
+                    "default": 0,
+                    "min": 0,
+                    "required": False
+                },
+                {
+                    "name": "max_upvotes",
+                    "type": "number",
+                    "label": "Maximum Upvotes",
+                    "description": "Maximum upvotes filter",
+                    "default": 100000,
+                    "min": 1,
+                    "required": False
+                },
+                {
+                    "name": "min_comments",
+                    "type": "number",
+                    "label": "Minimum Comments",
+                    "description": "Minimum comments filter",
+                    "default": 0,
+                    "min": 0,
+                    "required": False
+                },
+                {
+                    "name": "max_age_hours",
+                    "type": "number",
+                    "label": "Maximum Age (Hours)",
+                    "description": "Maximum age of posts in hours",
+                    "default": 8760,
+                    "min": 1,
+                    "required": False
+                }
+            ]
+        }
+    
+    async def _initialize_reddit(self):
         """Initialize Reddit API client."""
         try:
             # For script apps, we only need client_id and client_secret
@@ -77,13 +272,13 @@ class RedditTool(BaseTool):
                 reddit_config['username'] = self.username
                 reddit_config['password'] = self.password
             
-            self.reddit = praw.Reddit(**reddit_config)
+            self.reddit = asyncpraw.Reddit(**reddit_config)
             
             # Test connection - for script apps, we can't call user.me() without username/password
             # Instead, let's try to access a public subreddit to test the connection
-            test_subreddit = self.reddit.subreddit('test')
+            test_subreddit = await self.reddit.subreddit('test')
             # This will raise an exception if the credentials are invalid
-            _ = test_subreddit.display_name
+            _ = await test_subreddit.display_name
             
             logger.info("Reddit API initialized successfully")
         except Exception as e:
@@ -110,6 +305,13 @@ class RedditTool(BaseTool):
         Returns:
             Dictionary containing discovered content and metadata
         """
+        # Initialize Reddit if not already done
+        if not self.reddit:
+            if self.client_id and self.client_secret:
+                await self._initialize_reddit()
+            else:
+                return self._format_error("Reddit API credentials not provided. Please configure client_id and client_secret.")
+        
         if not self.reddit:
             return self._format_error("Reddit API not initialized. Please check your credentials.")
         
@@ -309,19 +511,19 @@ class RedditTool(BaseTool):
     async def _get_subreddit_posts(self, subreddit_name: str, sort_by: str, limit: int, time_filter: str) -> List[Submission]:
         """Get posts from a subreddit."""
         try:
-            subreddit = self.reddit.subreddit(subreddit_name)
+            subreddit = await self.reddit.subreddit(subreddit_name)
             logger.info(f"🔍 Accessing subreddit: r/{subreddit_name}")
             
             if sort_by == 'hot':
-                posts = list(subreddit.hot(limit=limit))
+                posts = [post async for post in subreddit.hot(limit=limit)]
             elif sort_by == 'new':
-                posts = list(subreddit.new(limit=limit))
+                posts = [post async for post in subreddit.new(limit=limit)]
             elif sort_by == 'top':
-                posts = list(subreddit.top(limit=limit, time_filter=time_filter))
+                posts = [post async for post in subreddit.top(limit=limit, time_filter=time_filter)]
             elif sort_by == 'rising':
-                posts = list(subreddit.rising(limit=limit))
+                posts = [post async for post in subreddit.rising(limit=limit)]
             else:
-                posts = list(subreddit.hot(limit=limit))
+                posts = [post async for post in subreddit.hot(limit=limit)]
             
             logger.info(f"📊 Retrieved {len(posts)} posts from r/{subreddit_name} using {sort_by} sort")
             if posts:
@@ -402,11 +604,19 @@ class RedditTool(BaseTool):
             # Get top comments for context
             top_comments = self._get_top_comments(post, 3)
             
+            # Clean and validate the URL
+            permalink = post.permalink
+            if not permalink.startswith('/'):
+                permalink = '/' + permalink
+            reddit_url = f"https://www.reddit.com{permalink}"
+            
+            logger.info(f"🔗 Generated Reddit URL: {reddit_url}")
+            
             result = {
                 'id': post.id,
                 'title': post.title,
                 'content': post.selftext[:500] if post.selftext else '',
-                'url': f"https://reddit.com{post.permalink}",
+                'url': reddit_url,
                 'subreddit': str(post.subreddit),
                 'author': str(post.author) if post.author else '[deleted]',
                 'score': post.score,
@@ -678,7 +888,7 @@ class RedditTool(BaseTool):
         base_content = {
             'title': post.title,
             'summary': self._create_summary(post),
-            'url': f"https://reddit.com{post.permalink}"
+            'url': f"https://www.reddit.com{post.permalink}"
         }
         
         if platform == 'twitter':

@@ -19,10 +19,8 @@ import {
   EllipsisVerticalIcon,
   ArrowPathIcon
 } from '@heroicons/react/24/outline'
-import { useToast } from '../../../../components/ui/Toast'  
-
-// Use Next.js API routes instead of direct backend calls
-const API_BASE_URL = '/api'
+import { useToast } from '../../../../components/ui/Toast'
+import { apiClient } from '../../../../lib/api'
 
 interface Integration {
   id: number
@@ -84,33 +82,19 @@ export default function IntegrationDetailPage() {
   const [showEmbedCode, setShowEmbedCode] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
 
-  const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}) => {
-    const token = localStorage.getItem('auth_token')
-    return fetch(url, {
-      ...options,
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        ...options.headers
-      }
-    })
-  }
+  // No need for makeAuthenticatedRequest - apiClient handles auth automatically
 
   const fetchIntegration = async () => {
     try {
-      const response = await makeAuthenticatedRequest(`${API_BASE_URL}/v1/integrations/${integrationId}`)
+      const data = await apiClient.getIntegrations()
+      const integration = data.find(int => int.id === parseInt(integrationId))
       
-      if (!response.ok) {
-        if (response.status === 404) {
-          setError('Integration not found')
-        } else {
-          throw new Error('Failed to fetch integration')
-        }
+      if (!integration) {
+        setError('Integration not found')
         return
       }
-
-      const integrationData = await response.json()
-      setIntegration(integrationData)
+      
+      setIntegration(integration)
     } catch (error) {
       console.error('Error fetching integration:', error)
       setError('Failed to load integration')
@@ -141,19 +125,11 @@ export default function IntegrationDetailPage() {
     
     setLoadingEmbedCode(true)
     try {
-      // Add timestamp to force fresh fetch and avoid caching
-      const timestamp = Date.now()
-      const response = await makeAuthenticatedRequest(`${API_BASE_URL}/web-widget/script/${integrationId}?t=${timestamp}`)
-      
-      if (response.ok) {
-        const data = await response.json()
-        console.log('🔍 Embed code data:', data)
-        console.log('📄 Script type:', typeof data.script)
-        console.log('📄 Script preview (first 100 chars):', data.script ? data.script.substring(0, 100) : 'No script')
-        setEmbedCode(data.script || '')
-      } else {
-        console.error('Failed to fetch embed code')
-      }
+      const data = await apiClient.getWebWidgetScript(parseInt(integrationId))
+      console.log('🔍 Embed code data:', data)
+      console.log('📄 Script type:', typeof data.script)
+      console.log('📄 Script preview (first 100 chars):', data.script ? data.script.substring(0, 100) : 'No script')
+      setEmbedCode(data.script || '')
     } catch (error) {
       console.error('Error fetching embed code:', error)
     } finally {
@@ -202,18 +178,11 @@ export default function IntegrationDetailPage() {
     
     setIsToggling(true)
     try {
-      const response = await makeAuthenticatedRequest(`${API_BASE_URL}/api/v1/integrations/${integrationId}`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          is_active: !integration.is_active
-        })
+      const updatedIntegration = await apiClient.updateIntegration(parseInt(integrationId), {
+        is_active: !integration.is_active
       })
-
-      if (response.ok) {
-        setIntegration({ ...integration, is_active: !integration.is_active })
-      } else {
-        throw new Error('Failed to toggle integration')
-      }
+      
+      setIntegration(updatedIntegration)
     } catch (error) {
       console.error('Error toggling integration:', error)
       setError('Failed to toggle integration')
@@ -230,15 +199,8 @@ export default function IntegrationDetailPage() {
     }
 
     try {
-      const response = await makeAuthenticatedRequest(`${API_BASE_URL}/api/v1/integrations/${integrationId}`, {
-        method: 'DELETE'
-      })
-
-      if (response.ok) {
-        router.push('/dashboard/integrations')
-      } else {
-        throw new Error('Failed to delete integration')
-      }
+      await apiClient.deleteIntegration(parseInt(integrationId))
+      router.push('/dashboard/integrations')
     } catch (error) {
       console.error('Error deleting integration:', error)
       setError('Failed to delete integration')
@@ -599,7 +561,7 @@ export default function IntegrationDetailPage() {
                   Copy
                 </button>
                 <a
-                  href={`${API_BASE_URL}/api/v1/web-widget/test/${integrationId}`}
+                  href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/web-widget/test/${integrationId}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-lg text-green-700 bg-green-50 hover:bg-green-100 transition-all"
