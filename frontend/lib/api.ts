@@ -32,6 +32,7 @@ export interface Agent {
 export interface Tool {
   id: number
   name: string
+  display_name?: string
   description?: string
   category: string
   tool_type: string

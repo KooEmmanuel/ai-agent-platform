@@ -41,11 +41,12 @@ import {
 import { apiClient, type Tool, type Agent } from '../../../../../lib/api'
 import ToolConfigForm from '../../../../../components/ToolConfigForm'
 import { useToast } from '../../../../../components/ui/Toast'
-import { getToolDisplayName, getToolLogo } from '../../../../../lib/toolMetadata'
+import { getToolDisplayName, getToolLogo, getToolIcon, getStyledToolIcon } from '../../../../../lib/toolMetadata'
 
 interface AgentTool {
   id: number
   name: string
+  display_name?: string
   description?: string
   category: string
   tool_type: string
@@ -165,37 +166,9 @@ export default function AgentToolsPage() {
   const [loadingSchema, setLoadingSchema] = useState(false)
   const [isToolConfigured, setIsToolConfigured] = useState(false)
 
-  // Simple icon mapping function that returns JSX
+  // Simple icon mapping function that returns JSX using centralized metadata with brand colors
   const getToolIconJSX = (toolName: string, className: string) => {
-    const iconMap: Record<string, any> = {
-      'web_search': MagnifyingGlassIcon,
-      'news_search': NewspaperIcon,
-      'weather_api': CloudIcon,
-      'csv_processor': TableCellsIcon,
-      'database_query': CircleStackIcon,
-      'data_scraper': GlobeAltIcon,
-      'file_processor': DocumentIcon,
-      'image_processor': PhotoIcon,
-      'pdf_processor': DocumentMagnifyingGlassIcon,
-      'text_analyzer': LanguageIcon,
-      'translation_service': LanguageIcon,
-      'data_visualization': ChartBarIcon,
-      'statistical_analysis': ChartPieIcon,
-      'calendar_manager': CalendarIcon,
-      'reminder_tool': BellIcon,
-      'date_calculator': CalendarIcon,
-      'email_sender': EnvelopeIcon,
-      'slack_integration': ChatBubbleLeftRightIcon,
-      'notification_service': BellIcon,
-      'social_media': ShareIcon,
-      'google_sheets_integration': TableCellsIcon,
-      'payment_processor': CreditCardIcon,
-      'webhook_handler': BoltIcon,
-      'zapier_webhook': BoltIcon,
-      'reddit_tool': UserGroupIcon,
-    }
-    const IconComponent = iconMap[toolName] || WrenchScrewdriverIcon
-    return <IconComponent className={className} />
+    return getStyledToolIcon(toolName, className)
   }
 
   const categories = [
@@ -609,7 +582,7 @@ export default function AgentToolsPage() {
                           {getToolIconJSX(tool.name, "w-5 h-5 text-blue-600")}
                         </div>
                         <div>
-                          <h3 className="font-medium text-gray-900">{tool.display_name || getToolDisplayName(tool.name)}</h3>
+                          <h3 className="font-medium text-gray-900">{tool.display_name || getToolDisplayName(tool.name)}</h3> 
                           <p className="text-sm text-gray-600">{tool.description}</p>
                           <div className="flex items-center space-x-2 mt-1">
                             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">

@@ -22,6 +22,7 @@ import {
   MinusIcon
 } from '@heroicons/react/24/outline'
 import { apiClient, type Tool } from '../../../lib/api'
+import { getToolIcon, getStyledToolIcon } from '../../../lib/toolMetadata'
 import { useToast } from '../../../components/ui/Toast'
 import { LoadingButton } from '../../../components/ui/LoadingButton'
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog'
@@ -171,7 +172,7 @@ export default function ToolsPage() {
       showToast({
         type: 'success',
         title: 'Tool Added',
-        message: `${tool.name} has been added to your collection`,
+        message: `${tool.display_name || tool.name} has been added to your collection`,
         duration: 3000
       })
       
@@ -250,7 +251,7 @@ export default function ToolsPage() {
       showToast({
         type: 'success',
         title: 'Tool Removed',
-        message: `${tool.name} has been removed from your collection`,
+        message: `${tool.display_name || tool.name} has been removed from your collection`,
         duration: 3000
       })
       
@@ -311,7 +312,7 @@ export default function ToolsPage() {
   const filteredTools = getCurrentTools().filter(tool => {
     const matchesCategory = selectedCategory === 'All' || tool.category === selectedCategory
     const matchesType = selectedType === 'All' || tool.tool_type === selectedType
-    const matchesSearch = tool.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const matchesSearch = (tool.display_name || tool.name).toLowerCase().includes(searchTerm.toLowerCase()) ||
                          tool.description?.toLowerCase().includes(searchTerm.toLowerCase())
     
     return matchesCategory && matchesType && matchesSearch
@@ -325,7 +326,7 @@ export default function ToolsPage() {
     })
   }
 
-  const getToolIcon = (toolType: string) => {
+  const getToolTypeIcon = (toolType: string) => {
     switch (toolType) {
       case 'API':
         return GlobeAltIcon
@@ -564,7 +565,7 @@ export default function ToolsPage() {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {filteredTools.map((tool, index) => {
-                      const ToolIcon = getToolIcon(tool.tool_type)
+                      const ToolIcon = getStyledToolIcon(tool.name, "w-5 h-5")
                       return (
                         <motion.tr
                           key={tool.id}
@@ -576,10 +577,10 @@ export default function ToolsPage() {
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
                               <div className="p-2 rounded-lg mr-3 bg-blue-100">
-                                <ToolIcon className="w-5 h-5 text-blue-600" />
+                                {ToolIcon}
                               </div>
                               <div>
-                                <div className="text-sm font-medium text-gray-900">{tool.name}</div>
+                                <div className="text-sm font-medium text-gray-900">{tool.display_name || tool.name}</div>
                                 <div className="text-sm text-gray-500 truncate max-w-xs">
                                   {tool.description || 'No description'}
                                 </div>
@@ -694,7 +695,7 @@ export default function ToolsPage() {
               <div className="lg:hidden">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 lg:p-6">
                   {filteredTools.map((tool, index) => {
-                    const ToolIcon = getToolIcon(tool.tool_type)
+                    const ToolIcon = getStyledToolIcon(tool.name, "w-5 h-5")
                     return (
                       <motion.div
                         key={tool.id}
@@ -707,7 +708,7 @@ export default function ToolsPage() {
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex items-center space-x-3">
                             <div className="p-2 rounded-lg bg-blue-100">
-                              <ToolIcon className="w-5 h-5 text-blue-600" />
+                              {ToolIcon}
                             </div>
                             <div className="flex-1 min-w-0">
                               <h3 className="text-sm font-semibold text-gray-900 truncate">{tool.display_name || tool.name}</h3>
