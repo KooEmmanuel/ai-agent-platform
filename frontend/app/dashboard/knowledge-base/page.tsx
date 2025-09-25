@@ -20,7 +20,7 @@ import {
   ArchiveBoxIcon,
   ShareIcon,
   EllipsisVerticalIcon,
-  GridIcon,
+  Squares2X2Icon,
   ListBulletIcon,
   ArrowUpTrayIcon
 } from '@heroicons/react/24/outline'
@@ -368,7 +368,7 @@ export default function KnowledgeBasePage() {
                       viewMode === 'grid' ? 'bg-blue-100 text-blue-600' : 'text-gray-400 hover:text-gray-600'
                     }`}
                   >
-                    <GridIcon className="w-4 h-4" />
+                    <Squares2X2Icon className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => setViewMode('list')}
