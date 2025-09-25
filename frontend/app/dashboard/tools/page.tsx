@@ -710,7 +710,7 @@ export default function ToolsPage() {
                               <ToolIcon className="w-5 h-5 text-blue-600" />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <h3 className="text-sm font-semibold text-gray-900 truncate">{tool.name}</h3>
+                              <h3 className="text-sm font-semibold text-gray-900 truncate">{tool.display_name || tool.name}</h3>
                               <p className="text-xs text-gray-500 mt-1 line-clamp-2">
                                 {tool.description || 'No description'}
                               </p>

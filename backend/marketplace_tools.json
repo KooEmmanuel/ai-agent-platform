@@ -1,10 +1,11 @@
 {
-  "exported_at": "2025-01-24T00:00:00.000000",
-  "total_tools": 33,
+  "exported_at": "2025-08-10T08:26:15.640269",
+  "total_tools": 31,
   "tools": [
     {
       "id": 1,
       "name": "web_search",
+      "display_name": "Web Search",
       "description": "Search the web for current information using OpenAI's reliable web search. Use this when you need to find recent or real-time information about topics, news, current events, or any information that might have changed recently.",
       "category": "Search",
       "tool_type": "API",
@@ -100,7 +101,8 @@
       "created_at": "2025-08-09T00:37:09.616652",
       "updated_at": "2025-08-09T00:37:09.616653",
       "user_id": 1,
-      "cost": 10
+      "cost": 10,
+      "display_name": "News Search"
     },
     {
       "id": 3,
@@ -146,7 +148,8 @@
       "created_at": "2025-08-09T00:37:09.616688",
       "updated_at": "2025-08-09T00:37:09.616688",
       "user_id": 1,
-      "cost": 10
+      "cost": 10,
+      "display_name": "Weather API"
     },
     {
       "id": 4,
@@ -196,7 +199,8 @@
       "created_at": "2025-08-09T00:37:09.616783",
       "updated_at": "2025-08-09T00:37:09.616784",
       "user_id": 1,
-      "cost": 10
+      "cost": 10,
+      "display_name": "CSV Processor"
     },
     {
       "id": 5,
@@ -240,11 +244,13 @@
       "created_at": "2025-08-09T00:37:09.616894",
       "updated_at": "2025-08-09T00:37:09.616897",
       "user_id": 1,
-      "cost": 10
+      "cost": 10,
+      "display_name": "Database Query"
     },
     {
       "id": 6,
       "name": "data_scraper",
+      "display_name": "Data Scraper",
       "description": "Scrape data from websites using various methods including CSS selectors",
       "category": "Data",
       "tool_type": "Function",
@@ -338,7 +344,8 @@
       "created_at": "2025-08-09T00:37:09.617012",
       "updated_at": "2025-08-09T00:37:09.617012",
       "user_id": 1,
-      "cost": 10
+      "cost": 10,
+      "display_name": "File Processor"
     },
     {
       "id": 8,
@@ -399,7 +406,8 @@
       "created_at": "2025-08-09T00:37:09.617032",
       "updated_at": "2025-08-09T00:37:09.617032",
       "user_id": 1,
-      "cost": 10
+      "cost": 10,
+      "display_name": "Image Processor"
     },
     {
       "id": 9,
@@ -443,7 +451,8 @@
       "created_at": "2025-08-09T00:37:09.617081",
       "updated_at": "2025-08-09T00:37:09.617081",
       "user_id": 1,
-      "cost": 10
+      "cost": 10,
+      "display_name": "PDF Processor"
     },
     {
       "id": 10,
@@ -488,7 +497,8 @@
       "created_at": "2025-08-09T00:37:09.617111",
       "updated_at": "2025-08-09T00:37:09.617112",
       "user_id": 1,
-      "cost": 10
+      "cost": 10,
+      "display_name": "Text Analyzer"
     },
     {
       "id": 11,
@@ -528,7 +538,8 @@
       "created_at": "2025-08-09T00:37:09.617169",
       "updated_at": "2025-08-09T00:37:09.617170",
       "user_id": 1,
-      "cost": 10
+      "cost": 10,
+      "display_name": "Translation Service"
     },
     {
       "id": 12,
@@ -586,7 +597,8 @@
       "created_at": "2025-08-09T00:37:09.617340",
       "updated_at": "2025-08-09T00:37:09.617341",
       "user_id": 1,
-      "cost": 10
+      "cost": 10,
+      "display_name": "Data Visualization"
     },
     {
       "id": 13,
@@ -633,7 +645,8 @@
       "created_at": "2025-08-09T00:37:09.617397",
       "updated_at": "2025-08-09T00:37:09.617398",
       "user_id": 1,
-      "cost": 10
+      "cost": 10,
+      "display_name": "Statistical Analysis"
     },
     {
       "id": 14,
@@ -700,7 +713,8 @@
       "created_at": "2025-08-09T00:37:09.617450",
       "updated_at": "2025-08-09T00:37:09.617451",
       "user_id": 1,
-      "cost": 10
+      "cost": 10,
+      "display_name": "Calendar Manager"
     },
     {
       "id": 15,
@@ -758,7 +772,8 @@
       "created_at": "2025-08-09T00:37:09.617501",
       "updated_at": "2025-08-09T00:37:09.617502",
       "user_id": 1,
-      "cost": 10
+      "cost": 10,
+      "display_name": "Reminder Tool"
     },
     {
       "id": 16,
@@ -811,11 +826,13 @@
       "created_at": "2025-08-09T00:37:09.617553",
       "updated_at": "2025-08-09T00:37:09.617554",
       "user_id": 1,
-      "cost": 10
+      "cost": 10,
+      "display_name": "Date Calculator"
     },
     {
       "id": 17,
       "name": "email_sender",
+      "display_name": "Email Sender",
       "description": "Send emails and notifications to users. Use this tool when users need to send emails, receive confirmations, or get notifications about appointments, meetings, or other important information.",
       "category": "Communication",
       "tool_type": "Function",
@@ -909,7 +926,8 @@
       "created_at": "2025-08-09T00:37:09.617670",
       "updated_at": "2025-08-09T00:37:09.617671",
       "user_id": 1,
-      "cost": 10
+      "cost": 10,
+      "display_name": "Slack Integration"
     },
     {
       "id": 19,
@@ -962,7 +980,8 @@
       "created_at": "2025-08-09T00:37:09.617742",
       "updated_at": "2025-08-09T00:37:09.617742",
       "user_id": 1,
-      "cost": 10
+      "cost": 10,
+      "display_name": "Notification Service"
     },
     {
       "id": 20,
@@ -1017,7 +1036,8 @@
       "created_at": "2025-08-09T00:37:09.617774",
       "updated_at": "2025-08-09T00:37:09.617774",
       "user_id": 1,
-      "cost": 10
+      "cost": 10,
+      "display_name": "Social Media Manager"
     },
     {
       "id": 21,
@@ -1067,7 +1087,8 @@
       "created_at": "2025-08-09T00:37:09.617796",
       "updated_at": "2025-08-09T00:37:09.617796",
       "user_id": 1,
-      "cost": 10
+      "cost": 10,
+      "display_name": "Google Sheets Integration"
     },
     {
       "id": 22,
@@ -1119,7 +1140,8 @@
       "created_at": "2025-08-09T00:37:09.617819",
       "updated_at": "2025-08-09T00:37:09.617819",
       "user_id": 1,
-      "cost": 10
+      "cost": 10,
+      "display_name": "Payment Processor"
     },
     {
       "id": 23,
@@ -1164,7 +1186,8 @@
       "created_at": "2025-08-09T00:37:09.617841",
       "updated_at": "2025-08-09T00:37:09.617842",
       "user_id": 1,
-      "cost": 10
+      "cost": 10,
+      "display_name": "Webhook Handler"
     },
     {
       "id": 24,
@@ -1197,7 +1220,8 @@
       "created_at": "2025-08-09T00:37:09.617869",
       "updated_at": "2025-08-09T00:37:09.617869",
       "user_id": 1,
-      "cost": 10
+      "cost": 10,
+      "display_name": "Zapier Webhook"
     },
     {
       "id": 25,
@@ -1258,7 +1282,8 @@
       "created_at": "2025-08-10T08:26:15.640269",
       "updated_at": "2025-08-10T08:26:15.640269",
       "user_id": 1,
-      "cost": 15
+      "cost": 15,
+      "display_name": "Multi-Link Scraper"
     },
     {
       "id": 26,
@@ -1306,7 +1331,8 @@
       "created_at": "2025-08-10T08:26:15.640269",
       "updated_at": "2025-08-10T08:26:15.640269",
       "user_id": 1,
-      "cost": 20
+      "cost": 20,
+      "display_name": "ChromaDB Vector Store"
     },
     {
       "id": 27,
@@ -1354,7 +1380,8 @@
       "created_at": "2025-08-10T08:26:15.640269",
       "updated_at": "2025-08-10T08:26:15.640269",
       "user_id": 1,
-      "cost": 25
+      "cost": 25,
+      "display_name": "MongoDB Advanced"
     },
     {
       "id": 28,
@@ -1369,13 +1396,23 @@
             "page_size": {
               "type": "string",
               "description": "Page size for the PDF",
-              "enum": ["letter", "A4", "legal"],
+              "enum": [
+                "letter",
+                "A4",
+                "legal"
+              ],
               "default": "A4"
             },
             "template": {
               "type": "string",
               "description": "Document template to use",
-              "enum": ["professional", "resume", "report", "letter", "minimal"],
+              "enum": [
+                "professional",
+                "resume",
+                "report",
+                "letter",
+                "minimal"
+              ],
               "default": "professional"
             },
             "font_size": {
@@ -1391,12 +1428,29 @@
             "margins": {
               "type": "object",
               "properties": {
-                "top": {"type": "number", "default": 1.0},
-                "bottom": {"type": "number", "default": 1.0},
-                "left": {"type": "number", "default": 1.0},
-                "right": {"type": "number", "default": 1.0}
+                "top": {
+                  "type": "number",
+                  "default": 1.0
+                },
+                "bottom": {
+                  "type": "number",
+                  "default": 1.0
+                },
+                "left": {
+                  "type": "number",
+                  "default": 1.0
+                },
+                "right": {
+                  "type": "number",
+                  "default": 1.0
+                }
               },
-              "default": {"top": 1.0, "bottom": 1.0, "left": 1.0, "right": 1.0}
+              "default": {
+                "top": 1.0,
+                "bottom": 1.0,
+                "left": 1.0,
+                "right": 1.0
+              }
             },
             "include_header": {
               "type": "boolean",
@@ -1412,9 +1466,18 @@
               "type": "object",
               "description": "Custom styling options",
               "properties": {
-                "primary_color": {"type": "string", "default": "#2563eb"},
-                "secondary_color": {"type": "string", "default": "#64748b"},
-                "font_family": {"type": "string", "default": "Helvetica"}
+                "primary_color": {
+                  "type": "string",
+                  "default": "#2563eb"
+                },
+                "secondary_color": {
+                  "type": "string",
+                  "default": "#64748b"
+                },
+                "font_family": {
+                  "type": "string",
+                  "default": "Helvetica"
+                }
               }
             }
           },
@@ -1426,7 +1489,8 @@
       "created_at": "2025-08-10T08:26:15.640269",
       "updated_at": "2025-08-10T08:26:15.640269",
       "user_id": 1,
-      "cost": 30
+      "cost": 30,
+      "display_name": "PDF Generator"
     },
     {
       "id": 29,
@@ -1439,10 +1503,21 @@
           {
             "name": "example_website",
             "base_url": "https://example.com",
-            "allowed_domains": ["example.com", "www.example.com"],
+            "allowed_domains": [
+              "example.com",
+              "www.example.com"
+            ],
             "max_pages": 100,
-            "exclude_patterns": ["/admin/*", "/private/*", "/api/*"],
-            "include_patterns": ["/services/*", "/about/*", "/contact/*"],
+            "exclude_patterns": [
+              "/admin/*",
+              "/private/*",
+              "/api/*"
+            ],
+            "include_patterns": [
+              "/services/*",
+              "/about/*",
+              "/contact/*"
+            ],
             "chroma_collection_name": "example_website_kb"
           }
         ],
@@ -1457,7 +1532,12 @@
           "chunk_size": 1000,
           "chunk_overlap": 200,
           "embedding_model": "text-embedding-3-small",
-          "metadata_fields": ["url", "title", "section", "last_updated"]
+          "metadata_fields": [
+            "url",
+            "title",
+            "section",
+            "last_updated"
+          ]
         },
         "retrieval": {
           "top_k": 5,
@@ -1472,7 +1552,7 @@
               "description": "Type of operation to perform",
               "enum": [
                 "build_knowledge_base",
-                "query_knowledge_base", 
+                "query_knowledge_base",
                 "update_knowledge_base",
                 "list_collections",
                 "get_collection_stats",
@@ -1502,12 +1582,14 @@
               "default": 100
             },
             "max_depth": {
-              "type": "integer", 
+              "type": "integer",
               "description": "Maximum depth for crawling links",
               "default": 3
             }
           },
-          "required": ["query"]
+          "required": [
+            "query"
+          ]
         }
       },
       "is_public": true,
@@ -1515,7 +1597,8 @@
       "created_at": "2025-08-12T00:00:00.000000",
       "updated_at": "2025-08-12T00:00:00.000000",
       "user_id": 1,
-      "cost": 50
+      "cost": 50,
+      "display_name": "Website Knowledge Base"
     },
     {
       "id": 30,
@@ -1551,7 +1634,6 @@
               ],
               "default": "search_contacts"
             },
-
             "search_criteria": {
               "type": "object",
               "description": "Search criteria for finding records"
@@ -1561,7 +1643,7 @@
               "description": "Contact ID for update operations"
             },
             "company_id": {
-              "type": "string", 
+              "type": "string",
               "description": "Company ID for update operations"
             },
             "deal_id": {
@@ -1584,27 +1666,57 @@
             "object_types": {
               "type": "array",
               "description": "Object types to search in smart search",
-              "items": {"type": "string"},
-              "default": ["contacts", "companies", "deals"]
+              "items": {
+                "type": "string"
+              },
+              "default": [
+                "contacts",
+                "companies",
+                "deals"
+              ]
             },
             "email_data": {
               "type": "object",
               "description": "Email data for sending emails",
               "properties": {
-                "to": {"type": "string", "description": "Recipient email"},
-                "subject": {"type": "string", "description": "Email subject"},
-                "content": {"type": "string", "description": "Email content"},
-                "html": {"type": "string", "description": "HTML email content"},
-                "text": {"type": "string", "description": "Plain text email content"}
+                "to": {
+                  "type": "string",
+                  "description": "Recipient email"
+                },
+                "subject": {
+                  "type": "string",
+                  "description": "Email subject"
+                },
+                "content": {
+                  "type": "string",
+                  "description": "Email content"
+                },
+                "html": {
+                  "type": "string",
+                  "description": "HTML email content"
+                },
+                "text": {
+                  "type": "string",
+                  "description": "Plain text email content"
+                }
               }
             },
             "workflow_data": {
               "type": "object",
               "description": "Workflow data for creating automations",
               "properties": {
-                "name": {"type": "string", "description": "Workflow name"},
-                "type": {"type": "string", "description": "Workflow type"},
-                "enabled": {"type": "boolean", "description": "Whether workflow is enabled"}
+                "name": {
+                  "type": "string",
+                  "description": "Workflow name"
+                },
+                "type": {
+                  "type": "string",
+                  "description": "Workflow type"
+                },
+                "enabled": {
+                  "type": "boolean",
+                  "description": "Whether workflow is enabled"
+                }
               }
             },
             "analytics_type": {
@@ -1615,23 +1727,36 @@
             "date_range": {
               "type": "string",
               "description": "Date range for analytics",
-              "enum": ["last_7_days", "last_30_days", "last_90_days", "last_12_months"],
+              "enum": [
+                "last_7_days",
+                "last_30_days",
+                "last_90_days",
+                "last_12_months"
+              ],
               "default": "last_30_days"
             },
             "operation_type": {
               "type": "string",
               "description": "Type of bulk operation",
-              "enum": ["create_contacts", "update_contacts"]
+              "enum": [
+                "create_contacts",
+                "update_contacts"
+              ]
             },
             "records": {
               "type": "array",
               "description": "Records for bulk operations",
-              "items": {"type": "object"}
+              "items": {
+                "type": "object"
+              }
             },
             "data_type": {
               "type": "string",
               "description": "Data type for enrichment",
-              "enum": ["contact", "company"],
+              "enum": [
+                "contact",
+                "company"
+              ],
               "default": "contact"
             },
             "data": {
@@ -1644,7 +1769,9 @@
               "default": "contacts"
             }
           },
-          "required": ["action"]
+          "required": [
+            "action"
+          ]
         }
       },
       "is_public": true,
@@ -1652,11 +1779,13 @@
       "created_at": "2025-08-12T00:00:00.000000",
       "updated_at": "2025-08-12T00:00:00.000000",
       "user_id": 1,
-      "cost": 40
+      "cost": 40,
+      "display_name": "HubSpot CRM"
     },
     {
       "id": 31,
       "name": "reddit_tool",
+      "display_name": "Reddit Content Discovery",
       "description": "Discover trending content from Reddit for social media creation. Find viral posts, analyze engagement, and format content for Twitter, Instagram, and TikTok.",
       "category": "Search",
       "tool_type": "Function",
@@ -1679,12 +1808,22 @@
             "subreddit": {
               "type": "string",
               "description": "Subreddit name to search (e.g., 'technology', 'AskReddit')",
-              "examples": ["technology", "AskReddit", "todayilearned", "mildlyinteresting"]
+              "examples": [
+                "technology",
+                "AskReddit",
+                "todayilearned",
+                "mildlyinteresting"
+              ]
             },
             "sort_by": {
               "type": "string",
               "description": "Sort method for posts",
-              "enum": ["hot", "new", "top", "rising"],
+              "enum": [
+                "hot",
+                "new",
+                "top",
+                "rising"
+              ],
               "default": "hot"
             },
             "limit": {
@@ -1697,13 +1836,26 @@
             "time_filter": {
               "type": "string",
               "description": "Time filter for top posts",
-              "enum": ["hour", "day", "week", "month", "year", "all"],
+              "enum": [
+                "hour",
+                "day",
+                "week",
+                "month",
+                "year",
+                "all"
+              ],
               "default": "day"
             },
             "content_type": {
               "type": "string",
               "description": "Type of content to find",
-              "enum": ["all", "questions", "stories", "facts", "discussions"],
+              "enum": [
+                "all",
+                "questions",
+                "stories",
+                "facts",
+                "discussions"
+              ],
               "default": "all"
             },
             "min_upvotes": {
@@ -1733,7 +1885,11 @@
             "format_for": {
               "type": "string",
               "description": "Platform to format content for",
-              "enum": ["twitter", "instagram", "tiktok"],
+              "enum": [
+                "twitter",
+                "instagram",
+                "tiktok"
+              ],
               "default": "twitter"
             },
             "include_hashtags": {
@@ -1742,7 +1898,9 @@
               "default": true
             }
           },
-          "required": ["subreddit"]
+          "required": [
+            "subreddit"
+          ]
         }
       },
       "is_public": true,
@@ -1751,123 +1909,6 @@
       "updated_at": "2025-08-12T00:00:00.000000",
       "user_id": 1,
       "cost": 15
-    },
-    {
-      "id": 32,
-      "name": "rss_feed_tool",
-      "description": "Fetch and process RSS feeds from multiple sources for content discovery. Aggregates content from BBC News, TechCrunch, Hacker News, Reddit feeds, and more with content filtering and social media formatting.",
-      "category": "Search",
-      "tool_type": "API",
-      "config": {
-        "feed_urls": [],
-        "max_items_per_feed": 20,
-        "max_total_items": 50,
-        "min_date_hours": 0,
-        "max_date_hours": 168,
-        "keywords_filter": [],
-        "exclude_keywords": [],
-        "include_content": false,
-        "max_description_length": 500,
-        "include_images": true,
-        "parameters": {
-          "type": "object",
-          "properties": {
-            "category": {
-              "type": "string",
-              "description": "Category to filter by (optional)"
-            },
-            "keywords": {
-              "type": "string",
-              "description": "Keywords to search for (optional)"
-            },
-            "max_items": {
-              "type": "integer",
-              "description": "Maximum items to return (optional)",
-              "default": 50
-            },
-            "hours_back": {
-              "type": "integer",
-              "description": "How many hours back to look (optional)",
-              "default": 168
-            },
-            "format_for": {
-              "type": "string",
-              "description": "Platform to format for (twitter, instagram, tiktok) (optional)",
-              "enum": ["twitter", "instagram", "tiktok"],
-              "default": "twitter"
-            }
-          },
-          "required": []
-        }
-      },
-      "is_public": true,
-      "is_active": true,
-      "created_at": "2025-01-24T00:00:00.000000",
-      "updated_at": "2025-01-24T00:00:00.000000",
-      "user_id": 1,
-      "cost": 10
-    },
-    {
-      "id": 33,
-      "name": "telegram_tool",
-      "description": "Fetch and process content from Telegram channels and groups. Access content from Durov, Telegram, TechCrunch, BBC, and more with message filtering, media extraction, and social media formatting.",
-      "category": "Search",
-      "tool_type": "API",
-      "config": {
-        "api_id": "YOUR_TELEGRAM_API_ID",
-        "api_hash": "YOUR_TELEGRAM_API_HASH",
-        "phone_number": "YOUR_PHONE_NUMBER",
-        "session_name": "telegram_session",
-        "channel_usernames": [],
-        "group_usernames": [],
-        "max_messages_per_channel": 50,
-        "max_total_messages": 100,
-        "min_date_hours": 0,
-        "max_date_hours": 168,
-        "keywords_filter": [],
-        "exclude_keywords": [],
-        "include_media": true,
-        "include_links": true,
-        "max_message_length": 1000,
-        "include_forwarded": true,
-        "include_replies": false,
-        "parameters": {
-          "type": "object",
-          "properties": {
-            "channel": {
-              "type": "string",
-              "description": "Specific channel to search (optional)"
-            },
-            "keywords": {
-              "type": "string",
-              "description": "Keywords to search for (optional)"
-            },
-            "max_messages": {
-              "type": "integer",
-              "description": "Maximum messages to return (optional)",
-              "default": 100
-            },
-            "hours_back": {
-              "type": "integer",
-              "description": "How many hours back to look (optional)",
-              "default": 168
-            },
-            "format_for": {
-              "type": "string",
-              "description": "Platform to format for (twitter, instagram, tiktok) (optional)",
-              "enum": ["twitter", "instagram", "tiktok"],
-              "default": "twitter"
-            }
-          },
-          "required": []
-        }
-      },
-      "is_public": true,
-      "is_active": true,
-      "created_at": "2025-01-24T00:00:00.000000",
-      "updated_at": "2025-01-24T00:00:00.000000",
-      "user_id": 1,
-      "cost": 20
     }
   ]
 }

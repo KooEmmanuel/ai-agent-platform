@@ -17,11 +17,31 @@ import {
   PencilIcon,
   CheckIcon,
   XMarkIcon,
-  BookOpenIcon
+  BookOpenIcon,
+  NewspaperIcon,
+  CloudIcon,
+  TableCellsIcon,
+  CircleStackIcon,
+  GlobeAltIcon,
+  DocumentIcon,
+  PhotoIcon,
+  DocumentMagnifyingGlassIcon,
+  LanguageIcon,
+  ChartBarIcon,
+  ChartPieIcon,
+  CalendarIcon,
+  BellIcon,
+  EnvelopeIcon,
+  ChatBubbleLeftRightIcon,
+  ShareIcon,
+  CreditCardIcon,
+  BoltIcon,
+  UserGroupIcon
 } from '@heroicons/react/24/outline'
 import { apiClient, type Tool, type Agent } from '../../../../../lib/api'
 import ToolConfigForm from '../../../../../components/ToolConfigForm'
 import { useToast } from '../../../../../components/ui/Toast'
+import { getToolDisplayName, getToolLogo } from '../../../../../lib/toolMetadata'
 
 interface AgentTool {
   id: number
@@ -48,9 +68,6 @@ const getToolTechnicalName = (displayName: string): string => {
     // Search Tools
     'Web Search': 'web_search',
     'News Search': 'news_search',
-    'Reddit Content Discovery': 'reddit_tool',
-    'RSS Feed Reader': 'rss_feed_tool',
-    'Telegram Content Discovery': 'telegram_tool',
     
     // Data Tools  
     'Weather API': 'weather_api',
@@ -102,7 +119,7 @@ const getToolTechnicalName = (displayName: string): string => {
   // Handle cases where database stores technical names but they get displayed differently
   // Convert back to technical name if it's a known technical name
   const technicalNames = [
-    'web_search', 'news_search', 'reddit_tool', 'rss_feed_tool', 'telegram_tool', 'weather_api', 'csv_processor', 'database_query',
+    'web_search', 'news_search', 'weather_api', 'csv_processor', 'database_query',
     'data_scraper', 'file_processor', 'image_processor', 'pdf_processor', 
     'text_analyzer', 'translation_service', 'data_visualization', 'statistical_analysis',
     'calendar_manager', 'reminder_tool', 'date_calculator', 'email_sender',
@@ -147,6 +164,39 @@ export default function AgentToolsPage() {
   const [configSchema, setConfigSchema] = useState<any>(null)
   const [loadingSchema, setLoadingSchema] = useState(false)
   const [isToolConfigured, setIsToolConfigured] = useState(false)
+
+  // Simple icon mapping function that returns JSX
+  const getToolIconJSX = (toolName: string, className: string) => {
+    const iconMap: Record<string, any> = {
+      'web_search': MagnifyingGlassIcon,
+      'news_search': NewspaperIcon,
+      'weather_api': CloudIcon,
+      'csv_processor': TableCellsIcon,
+      'database_query': CircleStackIcon,
+      'data_scraper': GlobeAltIcon,
+      'file_processor': DocumentIcon,
+      'image_processor': PhotoIcon,
+      'pdf_processor': DocumentMagnifyingGlassIcon,
+      'text_analyzer': LanguageIcon,
+      'translation_service': LanguageIcon,
+      'data_visualization': ChartBarIcon,
+      'statistical_analysis': ChartPieIcon,
+      'calendar_manager': CalendarIcon,
+      'reminder_tool': BellIcon,
+      'date_calculator': CalendarIcon,
+      'email_sender': EnvelopeIcon,
+      'slack_integration': ChatBubbleLeftRightIcon,
+      'notification_service': BellIcon,
+      'social_media': ShareIcon,
+      'google_sheets_integration': TableCellsIcon,
+      'payment_processor': CreditCardIcon,
+      'webhook_handler': BoltIcon,
+      'zapier_webhook': BoltIcon,
+      'reddit_tool': UserGroupIcon,
+    }
+    const IconComponent = iconMap[toolName] || WrenchScrewdriverIcon
+    return <IconComponent className={className} />
+  }
 
   const categories = [
     'All',
@@ -556,10 +606,10 @@ export default function AgentToolsPage() {
                     >
                       <div className="flex items-center space-x-4">
                         <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                          {getToolIcon(tool.tool_type)}
+                          {getToolIconJSX(tool.name, "w-5 h-5 text-blue-600")}
                         </div>
                         <div>
-                          <h3 className="font-medium text-gray-900">{tool.name}</h3>
+                          <h3 className="font-medium text-gray-900">{tool.display_name || getToolDisplayName(tool.name)}</h3>
                           <p className="text-sm text-gray-600">{tool.description}</p>
                           <div className="flex items-center space-x-2 mt-1">
                             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
@@ -672,10 +722,10 @@ export default function AgentToolsPage() {
                   >
                     <div className="flex items-center space-x-3">
                       <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                        {getToolIcon(tool.tool_type)}
+                        {getToolIconJSX(tool.name, "w-4 h-4 text-blue-600")}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-medium text-gray-900 truncate">{tool.name}</h4>
+                            <h4 className="text-sm font-medium text-gray-900 truncate">{tool.display_name || getToolDisplayName(tool.name)}</h4>
                         <p className="text-xs text-gray-600 truncate">{tool.description}</p>
                       </div>
                       <PlusIcon className="w-4 h-4 text-gray-400" />
@@ -708,10 +758,10 @@ export default function AgentToolsPage() {
               <div className="space-y-4">
                 <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
                   <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                    {getToolIcon(selectedTool.tool_type)}
+                    {getToolIconJSX(selectedTool.name, "w-5 h-5 text-blue-600")}
                   </div>
                   <div>
-                    <h4 className="font-medium text-gray-900">{selectedTool.name}</h4>
+                            <h4 className="font-medium text-gray-900">{selectedTool.display_name || getToolDisplayName(selectedTool.name)}</h4>
                     <p className="text-sm text-gray-600">{selectedTool.description}</p>
                   </div>
                 </div>
@@ -751,11 +801,11 @@ export default function AgentToolsPage() {
                       onClick={() => setSelectedTool(tool)}
                     >
                       <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                          {getToolIcon(tool.tool_type)}
-                        </div>
+                      <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                        {getToolIconJSX(tool.name, "w-4 h-4 text-blue-600")}
+                      </div>
                         <div>
-                          <h4 className="text-sm font-medium text-gray-900">{tool.name}</h4>
+                            <h4 className="text-sm font-medium text-gray-900">{tool.display_name || getToolDisplayName(tool.name)}</h4>
                           <p className="text-xs text-gray-600">{tool.description}</p>
                         </div>
                       </div>
@@ -788,7 +838,7 @@ export default function AgentToolsPage() {
             <div className="p-6 border-b border-gray-200 flex-shrink-0">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-gray-900">
-                  {isToolConfigured ? 'Update Configuration' : 'Configure'} {configuringTool.name}
+                  {isToolConfigured ? 'Update Configuration' : 'Configure'} {configuringTool.display_name || getToolDisplayName(configuringTool.name)}
                 </h3>
                 <Link
                   href={`/dashboard/tools/learn/${getToolTechnicalName(configuringTool.name)}`}
@@ -804,10 +854,10 @@ export default function AgentToolsPage() {
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
               <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                  {getToolIcon(configuringTool.tool_type)}
+                  {getToolIconJSX(configuringTool.name, "w-5 h-5 text-blue-600")}
                 </div>
                 <div>
-                  <h4 className="font-medium text-gray-900">{configuringTool.name}</h4>
+                            <h4 className="font-medium text-gray-900">{configuringTool.display_name || getToolDisplayName(configuringTool.name)}</h4>
                   <p className="text-sm text-gray-600">{configuringTool.description}</p>
                 </div>
               </div>
