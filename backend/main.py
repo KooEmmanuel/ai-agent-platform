@@ -76,7 +76,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 # CORS middleware - Use settings for configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS + ["*"],  # Add wildcard for development
+    allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,  # Allow credentials for authentication
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
