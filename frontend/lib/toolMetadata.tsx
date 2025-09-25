@@ -2,7 +2,7 @@
 // This file provides display names, icons, and logos for all tools
 
 import React from 'react'
-import { FaTelegram } from "react-icons/fa"
+import { FaTelegram, FaHubspot } from "react-icons/fa"
 import { FaSquareRss } from "react-icons/fa6"
 import { SiMongodb } from "react-icons/si"
 import {
@@ -382,7 +382,7 @@ export const TOOL_METADATA: Record<string, ToolMetadata> = {
   // CRM & Business Tools (2)
   hubspot: {
     displayName: 'HubSpot CRM',
-    icon: HubSpotIcon,
+    icon: FaHubspot,
     logo: 'https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/hubspot.svg',
     description: 'Integrate with HubSpot CRM and marketing tools',
     category: 'Integration',

@@ -1,39 +1,53 @@
+#!/usr/bin/env python3
 """
-PDF Generator Tool
-Generates professional PDF files from markdown content with various templates and styling options.
+PDF Generator Tool - Generate professional PDF documents from markdown content
 """
 
-import io
+import asyncio
 import base64
-from typing import Dict, List, Any, Optional, Union
-from datetime import datetime
 import json
+import markdown
+import os
+from datetime import datetime
+from typing import Dict, List, Any, Optional, Union
+from bs4 import BeautifulSoup
+
+# ReportLab imports for PDF generation
 from reportlab.lib.pagesizes import letter, A4, legal
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT, TA_JUSTIFY
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
 from reportlab.pdfgen import canvas
-from reportlab.lib.colors import HexColor
-import markdown
-from markdown.extensions import codehilite, tables, toc
-import re
-import os
+from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
+
 
 class PDFGeneratorTool:
-    def __init__(self):
+    def __init__(self, config: Dict[str, Any] = None):
         self.name = "pdf_generator"
         self.description = "Generate professional PDF files from markdown content with various templates and styling"
         self.category = "Document Generation"
         self.tool_type = "pdf_generator"
+        self.config = config or {}
         
-    def get_config_schema(self) -> Dict[str, Any]:
-        """Get the configuration schema for this tool"""
-        return {
-            "name": "PDF Generator",
-            "description": "Generate professional PDF files from markdown content",
-            "parameters": {
+        self.schema = {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "string",
+                    "description": "The markdown content to convert to PDF"
+                },
+                "document_type": {
+                    "type": "string",
+                    "description": "Type of document being generated",
+                    "enum": ["report", "invoice", "letter", "resume", "presentation", "manual", "other"],
+                    "default": "report"
+                },
+                "filename": {
+                    "type": "string",
+                    "description": "Output filename for the PDF",
+                    "default": "document.pdf"
+                },
                 "page_size": {
                     "type": "string",
                     "description": "Page size for the PDF",
@@ -48,7 +62,7 @@ class PDFGeneratorTool:
                 },
                 "font_size": {
                     "type": "integer",
-                    "description": "Base font size",
+                    "description": "Base font size in points",
                     "default": 12
                 },
                 "line_spacing": {
@@ -58,17 +72,17 @@ class PDFGeneratorTool:
                 },
                 "margins": {
                     "type": "object",
+                    "description": "Page margins in inches",
                     "properties": {
                         "top": {"type": "number", "default": 1.0},
                         "bottom": {"type": "number", "default": 1.0},
                         "left": {"type": "number", "default": 1.0},
                         "right": {"type": "number", "default": 1.0}
-                    },
-                    "default": {"top": 1.0, "bottom": 1.0, "left": 1.0, "right": 1.0}
+                    }
                 },
                 "include_header": {
                     "type": "boolean",
-                    "description": "Include header with title and date",
+                    "description": "Include header with generation date",
                     "default": True
                 },
                 "include_footer": {
@@ -89,8 +103,64 @@ class PDFGeneratorTool:
             "required": []
         }
 
+    def _get_template_config(self, template: str) -> Dict[str, Any]:
+        """Get configuration for specific templates"""
+        templates = {
+            "professional": {
+                "margins": {"top": 1.0, "bottom": 1.0, "left": 1.0, "right": 1.0},
+                "font_size": 12,
+                "line_spacing": 1.2,
+                "custom_styles": {
+                    "primary_color": "#2563eb",
+                    "secondary_color": "#64748b",
+                    "font_family": "Helvetica"
+                }
+            },
+            "resume": {
+                "margins": {"top": 0.5, "bottom": 0.5, "left": 0.5, "right": 0.5},
+                "font_size": 10,
+                "line_spacing": 1.1,
+                "custom_styles": {
+                    "primary_color": "#1f2937",
+                    "secondary_color": "#6b7280",
+                    "font_family": "Helvetica"
+                }
+            },
+            "report": {
+                "margins": {"top": 1.0, "bottom": 1.0, "left": 1.0, "right": 1.0},
+                "font_size": 11,
+                "line_spacing": 1.3,
+                "custom_styles": {
+                    "primary_color": "#dc2626",
+                    "secondary_color": "#6b7280",
+                    "font_family": "Times-Roman"
+                }
+            },
+            "letter": {
+                "margins": {"top": 1.0, "bottom": 1.0, "left": 1.0, "right": 1.0},
+                "font_size": 12,
+                "line_spacing": 1.2,
+                "custom_styles": {
+                    "primary_color": "#1f2937",
+                    "secondary_color": "#6b7280",
+                    "font_family": "Times-Roman"
+                }
+            },
+            "minimal": {
+                "margins": {"top": 0.5, "bottom": 0.5, "left": 0.5, "right": 0.5},
+                "font_size": 10,
+                "line_spacing": 1.0,
+                "custom_styles": {
+                    "primary_color": "#000000",
+                    "secondary_color": "#666666",
+                    "font_family": "Helvetica"
+                }
+            }
+        }
+        return templates.get(template, templates["professional"])
+
     def _get_page_size(self, size_name: str):
-        """Get page size dimensions"""
+        """Get ReportLab page size object"""
         sizes = {
             "letter": letter,
             "A4": A4,
@@ -114,7 +184,8 @@ class PDFGeneratorTool:
             fontSize=base_font_size,
             leading=base_font_size * line_spacing,
             spaceAfter=6,
-            textColor=colors.black
+            textColor=colors.black,
+            alignment=TA_LEFT
         )
         
         styles = {
@@ -122,34 +193,34 @@ class PDFGeneratorTool:
             "Heading1": ParagraphStyle(
                 "Heading1",
                 parent=normal_style,
-                fontName=font_family + "-Bold",
+                fontName=font_family,
                 fontSize=base_font_size + 8,
                 leading=(base_font_size + 8) * line_spacing,
+                textColor=colors.HexColor(primary_color),
                 spaceAfter=12,
-                spaceBefore=12,
-                textColor=HexColor(primary_color),
+                spaceBefore=20,
                 alignment=TA_LEFT
             ),
             "Heading2": ParagraphStyle(
                 "Heading2",
                 parent=normal_style,
-                fontName=font_family + "-Bold",
+                fontName=font_family,
                 fontSize=base_font_size + 4,
                 leading=(base_font_size + 4) * line_spacing,
-                spaceAfter=10,
-                spaceBefore=10,
-                textColor=HexColor(primary_color),
+                textColor=colors.HexColor(primary_color),
+                spaceAfter=8,
+                spaceBefore=15,
                 alignment=TA_LEFT
             ),
             "Heading3": ParagraphStyle(
                 "Heading3",
                 parent=normal_style,
-                fontName=font_family + "-Bold",
+                fontName=font_family,
                 fontSize=base_font_size + 2,
                 leading=(base_font_size + 2) * line_spacing,
-                spaceAfter=8,
-                spaceBefore=8,
-                textColor=HexColor(secondary_color),
+                textColor=colors.HexColor(secondary_color),
+                spaceAfter=6,
+                spaceBefore=10,
                 alignment=TA_LEFT
             ),
             "Code": ParagraphStyle(
@@ -157,21 +228,25 @@ class PDFGeneratorTool:
                 parent=normal_style,
                 fontName="Courier",
                 fontSize=base_font_size - 1,
-                leading=(base_font_size - 1) * line_spacing,
+                leading=base_font_size * line_spacing,
+                textColor=colors.black,
+                backColor=colors.lightgrey,
+                leftIndent=10,
+                rightIndent=10,
                 spaceAfter=6,
-                spaceBefore=6,
-                leftIndent=20,
-                backColor=colors.lightgrey
+                spaceBefore=6
             ),
             "Quote": ParagraphStyle(
                 "Quote",
                 parent=normal_style,
+                fontName=font_family,
+                fontSize=base_font_size,
+                leading=base_font_size * line_spacing,
+                textColor=colors.HexColor(secondary_color),
                 leftIndent=20,
                 rightIndent=20,
-                spaceAfter=6,
-                spaceBefore=6,
-                fontStyle="italic",
-                textColor=HexColor(secondary_color)
+                spaceAfter=8,
+                spaceBefore=8
             )
         }
         
@@ -181,358 +256,215 @@ class PDFGeneratorTool:
         """Parse markdown content into ReportLab elements"""
         elements = []
         
-        # Convert markdown to HTML
-        md = markdown.Markdown(extensions=['codehilite', 'tables', 'toc'])
-        html_content = md.convert(markdown_content)
+        # Convert markdown to HTML first
+        html_content = markdown.markdown(markdown_content, extensions=['codehilite', 'fenced_code'])
         
-        # Split into lines for processing
-        lines = html_content.split('\n')
+        # Parse HTML and convert to ReportLab elements
+        soup = BeautifulSoup(html_content, 'html.parser')
         
-        for line in lines:
-            line = line.strip()
-            if not line:
-                elements.append(Spacer(1, 6))
-                continue
-                
-            # Handle different HTML tags
-            if line.startswith('<h1>'):
-                text = re.sub(r'<h1>(.*?)</h1>', r'\1', line)
-                elements.append(Paragraph(text, styles["Heading1"]))
-            elif line.startswith('<h2>'):
-                text = re.sub(r'<h2>(.*?)</h2>', r'\1', line)
-                elements.append(Paragraph(text, styles["Heading2"]))
-            elif line.startswith('<h3>'):
-                text = re.sub(r'<h3>(.*?)</h3>', r'\1', line)
-                elements.append(Paragraph(text, styles["Heading3"]))
-            elif line.startswith('<p><code>') or line.startswith('<pre>'):
-                # Handle code blocks
-                text = re.sub(r'<p><code>(.*?)</code></p>', r'\1', line)
-                text = re.sub(r'<pre><code>(.*?)</code></pre>', r'\1', line, flags=re.DOTALL)
-                elements.append(Paragraph(text, styles["Code"]))
-            elif line.startswith('<blockquote>'):
-                text = re.sub(r'<blockquote><p>(.*?)</p></blockquote>', r'\1', line)
-                elements.append(Paragraph(text, styles["Quote"]))
-            elif line.startswith('<ul>') or line.startswith('<ol>'):
-                # Handle lists
-                list_items = re.findall(r'<li>(.*?)</li>', line)
-                for item in list_items:
-                    elements.append(Paragraph(f"• {item}", styles["Normal"]))
-            elif line.startswith('<table>'):
-                # Handle tables (simplified)
-                elements.append(Paragraph("Table content", styles["Normal"]))
-            else:
-                # Regular paragraph
-                text = re.sub(r'<p>(.*?)</p>', r'\1', line)
+        for element in soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'ul', 'ol', 'li', 'blockquote', 'pre', 'code']):
+            if element.name in ['h1', 'h2', 'h3']:
+                style_name = f"Heading{element.name[1]}"
+                text = element.get_text().strip()
+                if text:
+                    elements.append(Paragraph(text, styles[style_name]))
+                    elements.append(Spacer(1, 6))
+            elif element.name == 'p':
+                text = element.get_text().strip()
                 if text:
                     elements.append(Paragraph(text, styles["Normal"]))
+                    elements.append(Spacer(1, 6))
+            elif element.name in ['ul', 'ol']:
+                for li in element.find_all('li'):
+                    text = li.get_text().strip()
+                    if text:
+                        bullet = "• " if element.name == 'ul' else "1. "
+                        elements.append(Paragraph(bullet + text, styles["Normal"]))
+                elements.append(Spacer(1, 6))
+            elif element.name == 'blockquote':
+                text = element.get_text().strip()
+                if text:
+                    elements.append(Paragraph(text, styles["Quote"]))
+                    elements.append(Spacer(1, 6))
+            elif element.name in ['pre', 'code']:
+                text = element.get_text().strip()
+                if text:
+                    elements.append(Paragraph(text, styles["Code"]))
+                    elements.append(Spacer(1, 6))
+        
+        # Add a test element to ensure something is in the PDF
+        elements.append(Paragraph("TEST: PDF Generation Working", styles["Normal"]))
+        elements.append(Spacer(1, 12))
         
         return elements
 
-    def _create_header_footer(self, canvas_obj, doc, config: Dict[str, Any], title: str = ""):
-        """Create header and footer for the PDF"""
-        page_width, page_height = doc.pagesize
+    def _create_header_footer(self, canvas_obj, doc):
+        """Create header and footer for the document"""
+        canvas_obj.saveState()
         
         # Header
-        if config.get("include_header", True):
-            canvas_obj.setFont("Helvetica-Bold", 12)
-            canvas_obj.setFillColor(HexColor(config.get("custom_styles", {}).get("primary_color", "#2563eb")))
-            canvas_obj.drawString(doc.leftMargin, page_height - doc.topMargin + 20, title)
-            
-            canvas_obj.setFont("Helvetica", 10)
-            canvas_obj.setFillColor(colors.grey)
-            canvas_obj.drawString(doc.leftMargin, page_height - doc.topMargin + 5, 
-                                datetime.now().strftime("%B %d, %Y"))
+        canvas_obj.setFont("Helvetica", 10)
+        canvas_obj.setFillColor(colors.grey)
+        canvas_obj.drawRightString(doc.width + doc.leftMargin, doc.height + doc.topMargin - 20, 
+                                 f"Generated on {datetime.now().strftime('%Y-%m-%d %H:%M')}")
         
         # Footer
-        if config.get("include_footer", True):
-            canvas_obj.setFont("Helvetica", 8)
-            canvas_obj.setFillColor(colors.grey)
-            canvas_obj.drawCentredString(page_width / 2, doc.bottomMargin - 20, 
-                                       f"Page {doc.page}")
+        canvas_obj.setFont("Helvetica", 8)
+        canvas_obj.setFillColor(colors.grey)
+        canvas_obj.drawCentredString(doc.width/2, 20, f"Page {doc.page}")
+        
+        canvas_obj.restoreState()
 
-    def _apply_template_styling(self, config: Dict[str, Any], template: str) -> Dict[str, Any]:
-        """Apply template-specific styling"""
-        template_configs = {
-            "resume": {
-                "font_size": 10,
-                "line_spacing": 1.1,
-                "margins": {"top": 0.5, "bottom": 0.5, "left": 0.75, "right": 0.75},
-                "custom_styles": {
-                    "primary_color": "#1e40af",
-                    "secondary_color": "#374151",
-                    "font_family": "Helvetica"
-                }
-            },
-            "report": {
-                "font_size": 11,
-                "line_spacing": 1.3,
-                "margins": {"top": 1.0, "bottom": 1.0, "left": 1.0, "right": 1.0},
-                "custom_styles": {
-                    "primary_color": "#059669",
-                    "secondary_color": "#6b7280",
-                    "font_family": "Times-Roman"
-                }
-            },
-            "letter": {
-                "font_size": 12,
-                "line_spacing": 1.2,
-                "margins": {"top": 1.5, "bottom": 1.0, "left": 1.0, "right": 1.0},
-                "custom_styles": {
-                    "primary_color": "#7c3aed",
-                    "secondary_color": "#4b5563",
-                    "font_family": "Times-Roman"
-                }
-            },
-            "minimal": {
-                "font_size": 11,
-                "line_spacing": 1.4,
-                "margins": {"top": 1.5, "bottom": 1.5, "left": 1.5, "right": 1.5},
-                "custom_styles": {
-                    "primary_color": "#000000",
-                    "secondary_color": "#666666",
-                    "font_family": "Helvetica"
-                }
-            }
-        }
-        
-        # Ensure we have a default template if none specified
-        if "professional" not in template_configs:
-            template_configs["professional"] = {
-                "font_size": 12,
-                "line_spacing": 1.2,
-                "margins": {"top": 1.0, "bottom": 1.0, "left": 1.0, "right": 1.0},
-                "custom_styles": {
-                    "primary_color": "#2563eb",
-                    "secondary_color": "#64748b",
-                    "font_family": "Helvetica"
-                }
-            }
-        
-        # Apply template config
-        template_config = template_configs.get(template, template_configs["professional"])
-        for key, value in template_config.items():
-            if key not in config:
-                config[key] = value
-        
-        return config
-
-    async def generate_pdf(self, config: Dict[str, Any], markdown_content: str, filename: str = "document.pdf") -> Dict[str, Any]:
-        """Generate PDF from markdown content"""
+    def generate_pdf(self, content: str, config: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate PDF from markdown content using ReportLab"""
         try:
-            # Apply template styling
+            if not content or not content.strip():
+                content = "This document was generated but no content was provided."
+            
+            # Get template configuration
             template = config.get("template", "professional")
-            config = self._apply_template_styling(config, template)
+            template_config = self._get_template_config(template)
+            
+            # Merge template config with provided config
+            final_config = {**template_config, **config}
             
             # Get page size
-            page_size = self._get_page_size(config.get("page_size", "A4"))
+            page_size = config.get("page_size", "A4")
+            pagesize = self._get_page_size(page_size)
             
-            # Get margins
-            margins = config.get("margins", {"top": 1.0, "bottom": 1.0, "left": 1.0, "right": 1.0})
-            
-            # Create PDF buffer
-            buffer = io.BytesIO()
-            
-            # Create PDF document
-            doc = SimpleDocTemplate(
-                buffer,
-                pagesize=page_size,
-                topMargin=margins["top"] * inch,
-                bottomMargin=margins["bottom"] * inch,
-                leftMargin=margins["left"] * inch,
-                rightMargin=margins["right"] * inch
-            )
-            
-            # Create custom styles
-            styles = self._create_custom_styles(config)
+            # Create styles
+            styles = self._create_custom_styles(final_config)
             
             # Parse markdown content
-            elements = self._parse_markdown_to_elements(markdown_content, styles)
+            elements = self._parse_markdown_to_elements(content, styles)
+            
+            if not elements:
+                elements = [Paragraph("No content to display", styles["Normal"])]
+            
+            # Create PDF document in memory
+            from io import BytesIO
+            buffer = BytesIO()
+            
+            margins = final_config.get("margins", {"top": 1.0, "bottom": 1.0, "left": 1.0, "right": 1.0})
+            
+            doc = SimpleDocTemplate(
+                buffer,
+                pagesize=pagesize,
+                rightMargin=margins["right"] * inch,
+                leftMargin=margins["left"] * inch,
+                topMargin=margins["top"] * inch,
+                bottomMargin=margins["bottom"] * inch
+            )
             
             # Build PDF
-            doc.build(elements, onFirstPage=lambda canvas, doc: self._create_header_footer(
-                canvas, doc, config, filename.replace('.pdf', '')
-            ), onLaterPages=lambda canvas, doc: self._create_header_footer(
-                canvas, doc, config, filename.replace('.pdf', '')
-            ))
+            doc.build(elements, onFirstPage=self._create_header_footer, onLaterPages=self._create_header_footer)
             
             # Get PDF content
             pdf_content = buffer.getvalue()
             buffer.close()
             
-            # Encode to base64 for download
+            if len(pdf_content) < 1000:  # PDF should be at least 1KB
+                return {
+                    "success": False,
+                    "error": "Generated PDF appears to be empty or corrupted",
+                    "method": "reportlab"
+                }
+            
+            # Encode to base64
             pdf_base64 = base64.b64encode(pdf_content).decode('utf-8')
             
             return {
                 "success": True,
-                "filename": filename,
-                "pdf_base64": pdf_base64,
+                "method": "reportlab",
+                "pdf_content": pdf_base64,
                 "file_size": len(pdf_content),
-                "pages": len(elements) // 20 + 1,  # Rough estimate
+                "page_size": page_size,
                 "template": template,
-                "download_url": f"data:application/pdf;base64,{pdf_base64}"
+                "elements_count": len(elements)
             }
             
         except Exception as e:
             return {
                 "success": False,
-                "error": f"Error generating PDF: {str(e)}"
+                "error": f"Failed to generate PDF: {str(e)}",
+                "method": "reportlab"
             }
 
-    async def generate_resume_pdf(self, config: Dict[str, Any], resume_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate a professional resume PDF"""
-        try:
-            # Create resume markdown content
-            markdown_content = self._create_resume_markdown(resume_data)
-            
-            # Set resume template
-            config["template"] = "resume"
-            
-            # Generate PDF
-            return await self.generate_pdf(config, markdown_content, "resume.pdf")
-            
-        except Exception as e:
-            return {
-                "success": False,
-                "error": f"Error generating resume PDF: {str(e)}"
-            }
+    def _format_success(self, data: Dict[str, Any], metadata: Dict[str, Any] = None) -> Dict[str, Any]:
+        """Format successful response"""
+        response = {
+            "success": True,
+            "data": data,
+            "metadata": metadata or {}
+        }
+        
+        # Add download URL if we have content
+        if "pdf_content" in data:
+            response["download_url"] = f"data:application/pdf;base64,{data['pdf_content']}"
+        elif "html_content" in data:
+            response["download_url"] = f"data:text/html;base64,{data['html_content']}"
+        
+        return response
 
-    def _create_resume_markdown(self, resume_data: Dict[str, Any]) -> str:
-        """Create markdown content for resume"""
-        markdown_content = []
-        
-        # Header
-        name = resume_data.get("name", "Your Name")
-        title = resume_data.get("title", "Professional Title")
-        email = resume_data.get("email", "email@example.com")
-        phone = resume_data.get("phone", "+1 (555) 123-4567")
-        location = resume_data.get("location", "City, State")
-        
-        markdown_content.append(f"# {name}")
-        markdown_content.append(f"## {title}")
-        markdown_content.append(f"📧 {email} | 📱 {phone} | 📍 {location}")
-        markdown_content.append("")
-        
-        # Summary
-        if resume_data.get("summary"):
-            markdown_content.append("## Professional Summary")
-            markdown_content.append(resume_data["summary"])
-            markdown_content.append("")
-        
-        # Experience
-        if resume_data.get("experience"):
-            markdown_content.append("## Professional Experience")
-            for exp in resume_data["experience"]:
-                markdown_content.append(f"### {exp.get('title', 'Job Title')}")
-                markdown_content.append(f"**{exp.get('company', 'Company')}** | {exp.get('duration', 'Duration')}")
-                markdown_content.append("")
-                for achievement in exp.get("achievements", []):
-                    markdown_content.append(f"• {achievement}")
-                markdown_content.append("")
-        
-        # Education
-        if resume_data.get("education"):
-            markdown_content.append("## Education")
-            for edu in resume_data["education"]:
-                markdown_content.append(f"### {edu.get('degree', 'Degree')}")
-                markdown_content.append(f"**{edu.get('institution', 'Institution')}** | {edu.get('year', 'Year')}")
-                markdown_content.append("")
-        
-        # Skills
-        if resume_data.get("skills"):
-            markdown_content.append("## Skills")
-            skills_text = ", ".join(resume_data["skills"])
-            markdown_content.append(skills_text)
-            markdown_content.append("")
-        
-        return "\n".join(markdown_content)
+    def _format_error(self, error_message: str) -> Dict[str, Any]:
+        """Format error response"""
+        return {
+            "success": False,
+            "error": error_message,
+            "data": None
+        }
 
-    async def generate_report_pdf(self, config: Dict[str, Any], report_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate a professional report PDF"""
-        try:
-            # Create report markdown content
-            markdown_content = self._create_report_markdown(report_data)
-            
-            # Set report template
-            config["template"] = "report"
-            
-            # Generate PDF
-            return await self.generate_pdf(config, markdown_content, "report.pdf")
-            
-        except Exception as e:
-            return {
-                "success": False,
-                "error": f"Error generating report PDF: {str(e)}"
-            }
-
-    def _create_report_markdown(self, report_data: Dict[str, Any]) -> str:
-        """Create markdown content for report"""
-        markdown_content = []
-        
-        # Title
-        title = report_data.get("title", "Report Title")
-        author = report_data.get("author", "Author Name")
-        date = report_data.get("date", datetime.now().strftime("%B %d, %Y"))
-        
-        markdown_content.append(f"# {title}")
-        markdown_content.append(f"**Author:** {author}  ")
-        markdown_content.append(f"**Date:** {date}")
-        markdown_content.append("")
-        
-        # Executive Summary
-        if report_data.get("executive_summary"):
-            markdown_content.append("## Executive Summary")
-            markdown_content.append(report_data["executive_summary"])
-            markdown_content.append("")
-        
-        # Table of Contents (placeholder)
-        markdown_content.append("## Table of Contents")
-        markdown_content.append("1. Introduction")
-        markdown_content.append("2. Methodology")
-        markdown_content.append("3. Findings")
-        markdown_content.append("4. Conclusions")
-        markdown_content.append("5. Recommendations")
-        markdown_content.append("")
-        
-        # Sections
-        for section in report_data.get("sections", []):
-            markdown_content.append(f"## {section.get('title', 'Section Title')}")
-            markdown_content.append(section.get("content", ""))
-            markdown_content.append("")
-        
-        return "\n".join(markdown_content)
-
-    async def execute(self, config: Dict[str, Any], content: str, document_type: str = "general", filename: str = "document.pdf") -> Dict[str, Any]:
+    async def execute(self, **kwargs) -> Dict[str, Any]:
         """Execute the PDF generator tool"""
         try:
-            if document_type == "resume":
-                # Parse resume data from content
-                try:
-                    resume_data = json.loads(content)
-                    return await self.generate_resume_pdf(config, resume_data)
-                except:
-                    # If not JSON, treat as markdown
-                    config["template"] = "resume"
-                    return await self.generate_pdf(config, content, filename)
+            content = kwargs.get('content', '')
+            document_type = kwargs.get('document_type', 'general')
+            filename = kwargs.get('filename', 'document.pdf')
             
-            elif document_type == "report":
-                # Parse report data from content
-                try:
-                    report_data = json.loads(content)
-                    return await self.generate_report_pdf(config, report_data)
-                except:
-                    # If not JSON, treat as markdown
-                    config["template"] = "report"
-                    return await self.generate_pdf(config, content, filename)
+            config = self.config.copy()
+            config.update({
+                'page_size': kwargs.get('page_size', 'A4'),
+                'template': kwargs.get('template', 'professional'),
+                'font_size': kwargs.get('font_size', 12),
+                'line_spacing': kwargs.get('line_spacing', 1.2),
+                'margins': kwargs.get('margins', {'top': 1.0, 'bottom': 1.0, 'left': 1.0, 'right': 1.0}),
+                'include_header': kwargs.get('include_header', True),
+                'include_footer': kwargs.get('include_footer', True),
+                'custom_styles': kwargs.get('custom_styles', {
+                    'primary_color': '#2563eb',
+                    'secondary_color': '#64748b',
+                    'font_family': 'Helvetica'
+                })
+            })
             
+            if not content:
+                return self._format_error("No content provided for PDF generation")
+            
+            # Generate PDF
+            result = self.generate_pdf(content, config)
+            
+            if result["success"]:
+                # Add filename to result
+                result["filename"] = filename
+                return self._format_success(result)
             else:
-                # General document
-                return await self.generate_pdf(config, content, filename)
+                return self._format_error(result.get("error", "PDF generation failed"))
                 
         except Exception as e:
-            return {
-                "success": False,
-                "error": f"Error executing PDF generator: {str(e)}"
-            }
+            return self._format_error(f"PDF generation failed: {str(e)}")
 
-# Create tool instance
-pdf_generator = PDFGeneratorTool() 
+    def get_schema(self) -> Dict[str, Any]:
+        """Get the tool schema"""
+        return self.schema
+
+    def get_description(self) -> str:
+        """Get tool description"""
+        return self.description
+
+    def get_name(self) -> str:
+        """Get tool name"""
+        return self.name
+
+    def get_category(self) -> str:
+        """Get tool category"""
+        return self.category

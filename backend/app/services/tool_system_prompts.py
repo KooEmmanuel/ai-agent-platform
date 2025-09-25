@@ -74,12 +74,26 @@ class ToolSystemPromptsService:
             
             'pdf_generator': """
 **PDF GENERATOR TOOL GUIDANCE:**
-- Use pdf_generator to create PDF documents from various sources
+- Use pdf_generator to create PDF documents from markdown content
+- ALWAYS include the 'content' parameter with the text/markdown to convert
 - Perfect for generating reports, invoices, or formatted documents
-- Support different input formats (HTML, text, images)
+- Support different input formats (markdown, text, HTML)
 - Handle page layouts, headers, footers, and styling appropriately
 - Include proper metadata and document properties
 - Optimize file size and quality for different use cases
+
+**REQUIRED PARAMETERS:**
+- content: The markdown/text content to convert to PDF (REQUIRED)
+- template: Document template (professional, resume, report, letter, minimal)
+- page_size: Page size (letter, A4, legal)
+- filename: Output filename (optional, defaults to document.pdf)
+
+**EXAMPLE USAGE:**
+When user asks for a PDF, call pdf_generator with:
+- content: "The actual text/markdown content to convert"
+- template: "professional" (or appropriate template)
+- page_size: "A4"
+- filename: "output.pdf"
 """,
             
             'google_sheets_integration': """
