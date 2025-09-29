@@ -179,6 +179,13 @@ class ApiClient {
       }
     }
 
+    console.log('📊 API Response:', {
+      url,
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok
+    })
+
     if (!response.ok) {
       console.error('❌ API Request Failed:', {
         url,
@@ -209,7 +216,9 @@ class ApiClient {
       throw new Error(errorMessage)
     }
 
-    return response.json()
+    const data = await response.json()
+    console.log('📦 API Response Data:', data)
+    return data
   }
 
   // Authentication
@@ -810,6 +819,24 @@ class ApiClient {
     return this.request(endpoint)
   }
 
+  async estimateCreditCost(request: {
+    operation_type: string
+    tool_name?: string
+    expected_tokens?: number
+    is_custom_tool?: boolean
+  }): Promise<{
+    estimated_cost: number
+    base_cost: number
+    tool_cost: number
+    operation: string
+    has_sufficient_credits: boolean
+  }> {
+    return this.request('/credits/estimate', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    })
+  }
+
   async getBillingPlans(): Promise<Array<{
     id: number
     name: string
@@ -846,46 +873,7 @@ class ApiClient {
     return this.request('/billing/subscription')
   }
 
-  // Notifications
-  async getNotificationPreferences(): Promise<{
-    email_notifications: boolean
-    weekly_reports: boolean
-    agent_updates: boolean
-    billing_alerts: boolean
-  }> {
-    return this.request('/notifications/preferences')
-  }
 
-  async updateNotificationPreferences(preferences: {
-    email_notifications?: boolean
-    weekly_reports?: boolean
-    agent_updates?: boolean
-    billing_alerts?: boolean
-  }): Promise<{
-    email_notifications: boolean
-    weekly_reports: boolean
-    agent_updates: boolean
-    billing_alerts: boolean
-  }> {
-    return this.request('/notifications/preferences', {
-      method: 'PUT',
-      body: JSON.stringify(preferences),
-    })
-  }
-
-  async sendTestNotification(type: string, message: string): Promise<{
-    success: boolean
-    message: string
-  }> {
-    const endpoint = type === 'email' ? '/notifications/test' : '/notifications/weekly-report'
-    return this.request(endpoint, {
-      method: 'POST',
-      body: JSON.stringify({
-        type: type,
-        message: message
-      }),
-    })
-  }
 
   // File Management Methods
   async uploadFile(file: File, agentId?: number, folderPath?: string): Promise<{

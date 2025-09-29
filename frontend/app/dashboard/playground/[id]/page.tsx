@@ -6,8 +6,10 @@ import { motion } from 'framer-motion'
 import { ArrowLeftIcon, PaperAirplaneIcon, XMarkIcon, Bars3Icon, EyeSlashIcon, ClipboardIcon, PencilIcon, CheckIcon } from '@heroicons/react/24/outline'
 import Link from 'next/link'
 import { apiClient, type Agent } from '../../../../lib/api'
+import { getUser, type User } from '../../../../lib/auth'
 import MarkdownRenderer from '../../../../components/ui/MarkdownRenderer'
 import DownloadableContent from '../../../../components/ui/DownloadableContent'
+import AudioInput from '../../../../components/AudioInput'
 
 type ChatMessage = {
   id: string
@@ -19,6 +21,7 @@ type ChatMessage = {
     fileType: string
     fileSize?: number
     showPreview?: boolean
+    downloadUrl?: string
   }
 }
 
@@ -51,7 +54,7 @@ export default function AgentPlaygroundPage() {
   const [isNewConversation, setIsNewConversation] = useState(false)
   const [currentConversationId, setCurrentConversationId] = useState<number | null>(null)
   const [loadingConversation, setLoadingConversation] = useState(false)
-  const endRef = useRef<HTMLDivElement>(null)
+  const [user, setUser] = useState<User | null>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
 
   // Load conversations for this agent
@@ -173,10 +176,7 @@ export default function AgentPlaygroundPage() {
     
     if (!agent) return
     
-    if (!confirm('Are you sure you want to delete this conversation? This action cannot be undone.')) {
-      return
-    }
-    
+ 
     try {
       console.log('🗑️ Deleting conversation:', conversationId)
       await apiClient.deleteConversation(agent.id, parseInt(conversationId))
@@ -214,8 +214,16 @@ export default function AgentPlaygroundPage() {
 
 
 
+  // Load user data
   useEffect(() => {
-    // Scroll to bottom when messages change, but only within the messages container
+    const userData = getUser()
+    if (userData) {
+      setUser(userData)
+    }
+  }, [])
+
+  useEffect(() => {
+    // Scroll to bottom when messages change
     if (messages.length > 0 && messagesContainerRef.current) {
       // Use setTimeout to ensure DOM has updated
       setTimeout(() => {
@@ -227,7 +235,7 @@ export default function AgentPlaygroundPage() {
         }
       }, 100)
     }
-  }, [messages])
+  }, [messages, sending])
 
   useEffect(() => {
     if (!Number.isFinite(agentId)) {
@@ -375,14 +383,19 @@ export default function AgentPlaygroundPage() {
             
             try {
               const responseData = JSON.parse(data.content)
-              if (responseData.success && responseData.pdf_base64) {
+              if (responseData.success && responseData.download_url) {
+                // Use the download URL as-is (backend now provides full URL)
+                const downloadUrl = responseData.download_url
+                
                 downloadable = {
-                  filename: responseData.filename || 'document.pdf',
+                  filename: responseData.data?.filename || 'document.pdf',
                   fileType: 'application/pdf',
-                  fileSize: responseData.file_size,
-                  showPreview: true
+                  fileSize: responseData.data?.file_size,
+                  showPreview: true,
+                  downloadUrl: downloadUrl
                 }
-                content = responseData.pdf_base64
+                // Keep the original content, don't replace with download_url
+                content = data.content
               }
             } catch (e) {
               // Not JSON, treat as regular text response
@@ -428,14 +441,19 @@ export default function AgentPlaygroundPage() {
         
         try {
           const responseData = JSON.parse(resp.response)
-          if (responseData.success && responseData.pdf_base64) {
+          if (responseData.success && responseData.download_url) {
+            // Use the download URL as-is (backend now provides full URL)
+            const downloadUrl = responseData.download_url
+            
             downloadable = {
-              filename: responseData.filename || 'document.pdf',
+              filename: responseData.data?.filename || 'document.pdf',
               fileType: 'application/pdf',
-              fileSize: responseData.file_size,
-              showPreview: true
+              fileSize: responseData.data?.file_size,
+              showPreview: true,
+              downloadUrl: downloadUrl
             }
-            content = responseData.pdf_base64
+            // Keep the original content, don't replace with download_url
+            content = resp.response
           }
         } catch (e) {
           // Not JSON, treat as regular text response
@@ -568,7 +586,7 @@ export default function AgentPlaygroundPage() {
   }
 
   return (
-    <div className="h-screen bg-gradient-to-b from-white to-slate-50 flex overflow-hidden">
+    <div className="h-screen  flex overflow-hidden">
       
       {/* Left Column - Controls */}
       {sidebarVisible && (
@@ -579,7 +597,7 @@ export default function AgentPlaygroundPage() {
           transition={{ duration: 0.3 }}
           className="w-80 p-4 lg:p-6 hidden lg:block flex-shrink-0"
         >
-          <div className="rounded-2xl p-4 h-full bg-white" style={{ boxShadow: '0 10px 30px rgba(99, 179, 237, 0.08)' }}>
+          <div className="rounded-2xl p-6 h-full bg-white border border-gray-100" style={{ boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)' }}>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <Link 
@@ -704,10 +722,15 @@ export default function AgentPlaygroundPage() {
                   }
                 }}
                 disabled={creatingConversation}
-                className="w-full rounded-xl py-2 px-3 text-sm lg:text-base font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed" 
-                style={{ background: 'linear-gradient(90deg,#E6F6FF,#F6FBFF)' }}
+                className="w-full rounded-xl py-3 px-4 text-sm font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:shadow-md" 
+                style={{ 
+                  background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+                  boxShadow: '0 4px 12px rgba(59, 130, 246, 0.2)'
+                }}
               >
-                {creatingConversation ? 'Creating...' : '+ New Conversation'}
+                <span className="text-white">
+                  {creatingConversation ? 'Creating...' : '+ New Conversation'}
+                </span>
               </button>
 
               {/* Conversation History */}
@@ -777,37 +800,39 @@ export default function AgentPlaygroundPage() {
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-w-0">
-        <div className="flex flex-col flex-1 rounded-2xl lg:rounded-3xl overflow-hidden bg-white" style={{ boxShadow: '0 20px 60px rgba(99, 179, 237, 0.08)' }}>
+        <div className="flex flex-col flex-1 bg-white" style={{ boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)' }}>
 
           {/* Header */}
-          <div className="flex items-center justify-between px-4 lg:px-6 py-3 lg:py-4 bg-white/60 backdrop-blur-sm">
-            <div className="flex items-center gap-2 lg:gap-3">
+          <div className="flex items-center justify-between px-4 lg:px-6 py-4 lg:py-5 bg-white border-b border-gray-100">
+            <div className="flex items-center gap-3 lg:gap-4">
               {!sidebarVisible && (
                 <button
                   onClick={() => setSidebarVisible(true)}
-                  className="p-1.5 lg:p-2 rounded-lg hover:bg-gray-100 transition-colors mr-2"
+                  className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
                   title="Show sidebar"
                 >
-                  <Bars3Icon className="w-4 h-4 lg:w-5 lg:h-5 text-gray-600" />
+                  <Bars3Icon className="w-5 h-5 text-gray-600" />
                 </button>
               )}
-              <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-lg flex items-center justify-center font-bold text-sky-700 bg-white text-sm lg:text-base" 
-                   style={{ boxShadow: '0 6px 20px rgba(99, 179, 237, 0.08)' }}>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white bg-gradient-to-br from-blue-500 to-blue-600 text-lg" 
+                   style={{ boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)' }}>
                 {agent.name.charAt(0).toUpperCase()}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="text-sm lg:text-base font-semibold truncate">{agent.name}</div>
-                <div className="text-xs text-slate-400 line-clamp-1">
+                <div className="text-lg font-semibold text-gray-900 truncate">{agent.name}</div>
+                <div className="text-sm text-gray-500 line-clamp-1">
                   {agent.description || 'AI Assistant'}
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2 lg:gap-3 flex-shrink-0">
-              <div className="text-xs text-slate-500 hidden sm:block">Model: {selectedModel}</div>
+            <div className="flex items-center gap-3 flex-shrink-0">
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-lg">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <span className="text-sm text-gray-600">{selectedModel}</span>
+              </div>
               <button 
                 onClick={() => setShowSettings(true)}
-                className="px-2 lg:px-3 py-1 lg:py-1.5 rounded-lg text-xs lg:text-sm" 
-                style={{ background: 'rgba(230,246,255,0.9)' }}
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 hover:bg-gray-200 transition-colors" 
               >
                 Settings
               </button>
@@ -817,13 +842,17 @@ export default function AgentPlaygroundPage() {
           {/* Messages */}
           <div 
             ref={messagesContainerRef}
-            className="flex-1 overflow-y-auto overflow-x-hidden px-4 lg:px-6 py-4 lg:py-6 bg-gradient-to-b from-white to-slate-50 min-h-0" 
+            className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50" 
             aria-live="polite"
+            style={{ maxHeight: 'calc(100vh - 200px)' }}
           >
             {messages.length === 0 && (
-              <div className="text-center text-gray-500 mt-8 lg:mt-10">
-                <div className="text-base lg:text-lg font-medium mb-2">Welcome to {agent.name}!</div>
-                <div className="text-xs lg:text-sm">Start a conversation to see how I can help you.</div>
+              <div className="text-center text-gray-500 mt-16 lg:mt-20">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-full bg-blue-500"></div>
+                </div>
+                <div className="text-xl lg:text-2xl font-semibold mb-2 text-gray-700">Welcome to {agent.name}!</div>
+                <div className="text-sm lg:text-base text-gray-500 max-w-md mx-auto">I'm here to help you. Start a conversation to see how I can assist you with your tasks.</div>
               </div>
             )}
             
@@ -832,76 +861,102 @@ export default function AgentPlaygroundPage() {
                 key={m.id} 
                 initial={{ opacity: 0, y: 6 }} 
                 animate={{ opacity: 1, y: 0 }} 
-                className={`group max-w-[85%] lg:max-w-[78%] mb-4 ${m.role === 'user' ? 'ml-auto text-right' : 'mr-auto text-left'}`}
+                className={`group ${m.role === 'user' ? 'bg-white' : 'bg-gray-50'}`}
               >
-                <div 
-                  className={`inline-block rounded-2xl px-3 lg:px-4 py-2 lg:py-3 leading-relaxed text-sm lg:text-base`} 
-                  style={{ 
-                    background: m.role === 'user' ? 'linear-gradient(180deg,#E6F6FF,#F6FBFF)' : 'white', 
-                    boxShadow: '0 8px 28px rgba(99, 179, 237, 0.06)' 
-                  }}
-                >
-                  {editingMessageId === m.id ? (
-                    <div>
-                      <textarea
-                        value={editInput}
-                        onChange={(e) => setEditInput(e.target.value)}
-                        className="w-full rounded-lg p-2 border text-sm"
-                      />
-                      <div className="flex gap-2 mt-2">
-                        <button
-                          onClick={regenerateFromEdit}
-                          className="px-2 lg:px-3 py-1 lg:py-1.5 bg-blue-600 text-white rounded-lg text-xs"
-                        >
-                          Regenerate
-                        </button>
-                        <button
-                          onClick={() => {
-                            setEditingMessageId(null)
-                            setEditInput('')
-                          }}
-                          className="px-2 lg:px-3 py-1 lg:py-1.5 border rounded-lg text-xs"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div>
-                      {m.downloadable ? (
-                        <DownloadableContent
-                          content={m.content}
-                          filename={m.downloadable.filename}
-                          fileType={m.downloadable.fileType}
-                          fileSize={m.downloadable.fileSize}
-                          showPreview={m.downloadable.showPreview}
-                        />
+                <div className="max-w-4xl mx-auto px-4 lg:px-6 py-6 lg:py-8">
+                  <div className="flex gap-4">
+                    {/* Avatar */}
+                    <div className="flex-shrink-0">
+                      {m.role === 'user' ? (
+                        user?.avatar_url ? (
+                          <img 
+                            src={user.avatar_url} 
+                            alt={user.name || 'User'} 
+                            className="w-8 h-8 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-semibold">
+                            {(user?.name || 'U').charAt(0).toUpperCase()}
+                          </div>
+                        )
                       ) : (
-                        <MarkdownRenderer content={m.content} />
+                        <div className="w-8 h-8 rounded-full bg-gray-200 text-gray-700 flex items-center justify-center text-sm font-semibold">
+                          {agent.name.charAt(0).toUpperCase()}
+                        </div>
                       )}
-                      <div className="flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={() => copyToClipboard(m.content, m.id)}
-                          className="p-1 rounded hover:bg-gray-100 transition-colors"
-                          title="Copy message"
-                        >
-                          <ClipboardIcon className="w-3 h-3 lg:w-4 lg:h-4 text-gray-500" />
-                        </button>
-                        {m.role === 'user' && (
-                          <button
-                            onClick={() => {
-                              setEditingMessageId(m.id)
-                              setEditInput(m.content)
-                            }}
-                            className="p-1 rounded hover:bg-gray-100 transition-colors"
-                            title="Edit message"
-                          >
-                            <PencilIcon className="w-3 h-3 lg:w-4 lg:h-4 text-gray-500" />
-                          </button>
+                    </div>
+                    
+                    {/* Message content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-gray-500 mb-2">
+                        {m.role === 'user' ? (user?.name || 'You') : agent.name}
+                      </div>
+                                            <div className="prose prose-sm lg:prose-base max-w-none">
+                        {editingMessageId === m.id ? (
+                          <div>
+                            <textarea
+                              value={editInput}
+                              onChange={(e) => setEditInput(e.target.value)}
+                              className="w-full rounded-lg p-2 border text-sm"
+                            />
+                            <div className="flex gap-2 mt-2">
+                              <button
+                                onClick={regenerateFromEdit}
+                                className="px-2 lg:px-3 py-1 lg:py-1.5 bg-blue-600 text-white rounded-lg text-xs"
+                              >
+                                Regenerate
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setEditingMessageId(null)
+                                  setEditInput('')
+                                }}
+                                className="px-2 lg:px-3 py-1 lg:py-1.5 border rounded-lg text-xs"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div>
+                            {m.downloadable ? (
+                              <DownloadableContent
+                                content={m.content}
+                                downloadUrl={m.downloadable.downloadUrl}
+                                filename={m.downloadable.filename}
+                                fileType={m.downloadable.fileType}
+                                fileSize={m.downloadable.fileSize}
+                                showPreview={m.downloadable.showPreview}
+                              />
+                            ) : (
+                              <MarkdownRenderer content={m.content} />
+                            )}
+                            <div className="flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                onClick={() => copyToClipboard(m.content, m.id)}
+                                className="p-1 rounded hover:bg-gray-100 transition-colors"
+                                title="Copy message"
+                              >
+                                <ClipboardIcon className="w-3 h-3 lg:w-4 lg:h-4 text-gray-500" />
+                              </button>
+                              {m.role === 'user' && (
+                                <button
+                                  onClick={() => {
+                                    setEditingMessageId(m.id)
+                                    setEditInput(m.content)
+                                  }}
+                                  className="p-1 rounded hover:bg-gray-100 transition-colors"
+                                  title="Edit message"
+                                >
+                                  <PencilIcon className="w-3 h-3 lg:w-4 lg:h-4 text-gray-500" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
                         )}
                       </div>
                     </div>
-                  )}
+                  </div>
                 </div>
               </motion.div>
             ))}
@@ -910,17 +965,33 @@ export default function AgentPlaygroundPage() {
               <motion.div 
                 initial={{ opacity: 0, y: 6 }} 
                 animate={{ opacity: 1, y: 0 }} 
-                className="mr-auto text-left max-w-[85%] lg:max-w-[78%] mb-4"
+                className="bg-gray-50"
               >
-                <div 
-                  className="inline-block rounded-2xl px-3 lg:px-4 py-2 lg:py-3 bg-white" 
-                  style={{ boxShadow: '0 8px 28px rgba(99, 179, 237, 0.06)' }}
-                >
-                  <div className="flex items-center gap-2">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                    <span className="text-sm lg:text-base text-gray-600">
-                      {streamingMode && streamingStatus ? streamingStatus : 'Thinking...'}
-                    </span>
+                <div className="max-w-4xl mx-auto px-4 lg:px-6 py-6 lg:py-8">
+                  <div className="flex gap-4">
+                    {/* Avatar */}
+                    <div className="flex-shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-gray-200 text-gray-700 flex items-center justify-center text-sm font-semibold">
+                        {agent.name.charAt(0).toUpperCase()}
+                      </div>
+                    </div>
+                    
+                    {/* Loading content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-gray-500 mb-2">
+                        {agent.name}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="flex space-x-1">
+                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                        </div>
+                        <span className="text-sm text-gray-600">
+                          {streamingMode && streamingStatus ? streamingStatus : 'Thinking...'}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </motion.div>
@@ -928,46 +999,47 @@ export default function AgentPlaygroundPage() {
           </div>
 
           {/* Input Area */}
-          <div className="p-4 lg:p-6 bg-white/60 backdrop-blur-sm">
-            <div className="flex gap-3">
-              <div className="flex-1">
+          <div className="p-4 lg:p-6 bg-white/80 backdrop-blur-sm border-t border-gray-100">
+            <div className="max-w-4xl mx-auto">
+              <div className="relative">
                 <textarea
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={onKeyDown}
-                  placeholder="Type your message here. Press Enter to send, Shift+Enter for new line."
-                  className="w-full resize-none min-h-[48px] lg:min-h-[56px] max-h-32 lg:max-h-36 rounded-xl p-3 lg:p-4 text-sm focus:outline-none" 
-                  style={{ boxShadow: 'inset 0 1px 0 rgba(0,0,0,0.02)', background: 'linear-gradient(180deg,#ffffff,#fbfdff)' }}
+                  placeholder="Message..."
+                  className="w-full resize-none min-h-[52px] lg:min-h-[60px] max-h-40 rounded-2xl px-4 lg:px-5 py-3 lg:py-4 text-sm lg:text-base focus:outline-none border border-gray-200 focus:border-blue-400 transition-all duration-200 pr-32" 
+                  style={{ 
+                    background: 'linear-gradient(180deg,#ffffff,#fafbfc)',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06)'
+                  }}
                   disabled={sending}
                 />
+                
+                {/* Send and Audio buttons positioned absolutely */}
+                <div className="absolute right-2 lg:right-3 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
+                  <AudioInput
+                    onTranscript={(text) => setInput(text)}
+                    disabled={sending}
+                    className="p-2 lg:p-2.5 rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-50"
+                  />
+                  <button 
+                    onClick={sendMessage} 
+                    disabled={!input.trim() || sending}
+                    className="rounded-xl p-2 lg:p-2.5 font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center transition-all duration-200" 
+                    style={{ 
+                      background: input.trim() && !sending ? 'linear-gradient(135deg, #3b82f6, #1d4ed8)' : 'linear-gradient(135deg, #e5e7eb, #d1d5db)',
+                      boxShadow: input.trim() && !sending ? '0 4px 12px rgba(59, 130, 246, 0.3)' : '0 2px 4px rgba(0,0,0,0.1)'
+                    }}
+                  >
+                    <PaperAirplaneIcon className="w-4 h-4 lg:w-5 lg:h-5 text-white" />
+                  </button>
+                </div>
               </div>
 
-              <div className="flex flex-col gap-2">
-                <button 
-                  onClick={sendMessage} 
-                  disabled={!input.trim() || sending}
-                  className="rounded-lg p-2 lg:p-3 font-semibold shadow disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center" 
-                  style={{ background: '#E6F6FF' }}
-                >
-                  <PaperAirplaneIcon className="w-4 h-4 lg:w-5 lg:h-5" />
-                </button>
-
-                <button 
-                  onClick={() => setInput('')}
-                  className="rounded-lg px-2 lg:px-3 py-1.5 lg:py-2 text-xs lg:text-sm" 
-                  style={{ background: 'rgba(250,250,255,0.9)' }}
-                  disabled={sending}
-                >
-                  Clear
-                </button>
+              {/* Helper row */}
+              <div className="mt-3 text-xs text-gray-500 flex items-center justify-end px-1">
+                {/* Audio input moved to beside send button */}
               </div>
-            </div>
-
-            {/* Helper row */}
-            <div className="mt-3 text-xs text-slate-400 flex items-center justify-between">
-              <div className="hidden sm:block">Press <span className="font-medium">Enter</span> to send • <span className="font-medium">Shift+Enter</span> for new line</div>
-              <div className="sm:hidden">Press <span className="font-medium">Enter</span> to send</div>
-              <div>Words: <span className="font-semibold">{input.trim().split(/\s+/).filter(Boolean).length}</span></div>
             </div>
           </div>
 
@@ -1033,6 +1105,19 @@ export default function AgentPlaygroundPage() {
                 <p className="mt-1 text-xs text-gray-500">
                   Enable real-time streaming for faster response display
                 </p>
+              </div>
+              
+              <div className="border-t border-gray-200 pt-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-3">Agent Configuration</h4>
+                <Link
+                  href={`/dashboard/agents/${agentId}/tools`}
+                  className="flex items-center justify-between w-full px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                >
+                  <span>Add More Tools</span>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
               </div>
               
               <div className="flex gap-3 pt-4">

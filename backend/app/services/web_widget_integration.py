@@ -102,6 +102,7 @@ class WebWidgetIntegrationService:
                 print(f"🔍 Looking for existing conversation for customer: {customer_identifier}")
                 
                 # Check for existing conversation
+                from sqlalchemy import select
                 from app.core.database import Conversation
                 
                 existing_conversation = await db.execute(
@@ -141,21 +142,33 @@ class WebWidgetIntegrationService:
             response, tools_used, cost = await agent_service.execute_agent(
                 agent=agent,
                 user_message=f"Web chat from {user_id} on {domain}: {message}",
-                session_id=session_id
+                session_id=session_id,
+                user_id=integration.user_id  # Pass integration owner's user_id for file storage
             )
             
-            # Consume credits for web widget AI usage
-            from app.services.billing_service import BillingService, CreditRates
-            billing_service = BillingService(db)
+            # Consume credits for web widget AI usage using unified CreditManager
+            from app.services.credit_manager import CreditManager
+            credit_manager = CreditManager(db)
             
             # Calculate credit consumption
-            credit_amount = CreditRates.INTEGRATION_MESSAGE  # 1 credit for integration message
+            credit_amount = CreditManager.CreditRates.INTEGRATION_MESSAGE  # 1 credit for integration message
             if tools_used:
                 for tool in tools_used:
-                    credit_amount += CreditRates.TOOL_EXECUTION  # 5 credits per tool
+                    credit_amount += CreditManager.CreditRates.TOOL_EXECUTION  # 5 credits per tool
+            
+            # Pre-flight credit check
+            credit_check = await credit_manager.check_credit_balance(integration.user_id, credit_amount)
+            if not credit_check['has_sufficient_credits']:
+                return {
+                    "response": f"Sorry, the service is temporarily unavailable due to insufficient credits. Need {credit_check['required_credits']}, have {credit_check['available_credits']}. Please contact the website owner.",
+                    "session_id": session_id,
+                    "agent_name": agent.name,
+                    "timestamp": message_data.get('timestamp'),
+                    "error": "insufficient_credits"
+                }
             
             # Consume credits for the integration owner
-            credit_result = await billing_service.consume_credits(
+            credit_result = await credit_manager.consume_credits(
                 user_id=integration.user_id,  # Charge the integration owner
                 amount=credit_amount,
                 description=f"Web widget chat on {domain}",
@@ -163,14 +176,14 @@ class WebWidgetIntegrationService:
                 tool_used="web_widget"
             )
             
-            # If credit consumption fails, return error response
+            # If credit consumption failed, return error response
             if not credit_result['success']:
                 return {
-                    "response": "Sorry, the service is temporarily unavailable due to insufficient credits. Please contact the website owner.",
+                    "response": f"Credit consumption failed: {credit_result.get('error', 'Unknown error')}. Please contact the website owner.",
                     "session_id": session_id,
                     "agent_name": agent.name,
                     "timestamp": message_data.get('timestamp'),
-                    "error": "insufficient_credits"
+                    "error": "credit_consumption_failed"
                 }
             
             # Return response for widget
@@ -273,7 +286,8 @@ class WebWidgetIntegrationService:
             async for chunk in agent_service.execute_agent_stream(
                 agent=agent,
                 user_message=f"Web chat from {user_id} on {domain}: {message}",
-                session_id=session_id
+                session_id=session_id,
+                user_id=integration.user_id  # Pass integration owner's user_id for file storage
             ):
                 chunk_type = chunk.get("type")
                 content = chunk.get("content", "")

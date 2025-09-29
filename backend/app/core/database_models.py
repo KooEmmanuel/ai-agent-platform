@@ -3,12 +3,12 @@ Additional database models for file management
 """
 
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, ForeignKey, Enum
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import enum
 
-Base = declarative_base()
+# Import the same Base that User model uses
+from .database import Base
 
 class FilePermission(enum.Enum):
     VIEW = "view"
@@ -21,7 +21,7 @@ class UserFile(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    agent_id = Column(Integer, ForeignKey("agents.id"), nullable=True, index=True)
+    # Removed agent_id foreign key to avoid agents table dependency
     
     # File metadata
     original_name = Column(String(255), nullable=False)
@@ -44,8 +44,8 @@ class UserFile(Base):
     expires_at = Column(DateTime, nullable=True)
     
     # Relationships
-    user = relationship("User", back_populates="files")
-    agent = relationship("Agent", back_populates="files")
+    # Note: Removed user and agent relationships to avoid circular import issues
+    # These can be accessed via foreign key queries if needed
     shares = relationship("FileShare", back_populates="file", cascade="all, delete-orphan")
 
 class FileShare(Base):
@@ -66,8 +66,8 @@ class FileShare(Base):
     
     # Relationships
     file = relationship("UserFile", back_populates="shares")
-    owner = relationship("User", foreign_keys=[owner_user_id])
-    shared_with = relationship("User", foreign_keys=[shared_with_user_id])
+    # Note: Removed User relationships to avoid circular import issues
+    # These can be accessed via foreign key queries if needed
 
 class FileFolder(Base):
     """Model for file organization folders"""
@@ -91,8 +91,8 @@ class FileFolder(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    user = relationship("User")
-    agent = relationship("Agent")
+    # Note: Removed User and Agent relationships to avoid circular import issues
+    # These can be accessed via foreign key queries if needed
     parent_folder = relationship("FileFolder", remote_side=[id])
     subfolders = relationship("FileFolder", back_populates="parent_folder")
-    files = relationship("UserFile", back_populates="folder")
+    # Note: Removed files relationship to avoid circular import issues

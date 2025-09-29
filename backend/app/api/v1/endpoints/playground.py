@@ -147,19 +147,26 @@ async def chat_with_agent_stream(
                 )
                 db.add(assistant_message)
                 
-                # Consume credits for AI usage
-                from app.services.billing_service import BillingService, CreditRates
-                billing_service = BillingService(db)
+                # Consume credits for AI usage using unified CreditManager
+                from app.services.credit_manager import CreditManager
+                credit_manager = CreditManager(db)
                 
-                # Calculate credit consumption based on new rates
-                credit_amount = CreditRates.AGENT_MESSAGE  # 2 credits per AI response
+                # Calculate credit consumption
+                credit_amount = CreditManager.CreditRates.AGENT_MESSAGE  # 2 credits per AI response
                 if tools_used:
                     # Add credits for tool usage
                     for tool in tools_used:
-                        credit_amount += CreditRates.TOOL_EXECUTION  # 5 credits per tool
+                        credit_amount += CreditManager.CreditRates.TOOL_EXECUTION  # 5 credits per tool
+                
+                # Pre-flight credit check
+                credit_check = await credit_manager.check_credit_balance(current_user.id, credit_amount)
+                if not credit_check['has_sufficient_credits']:
+                    error_msg = f"Insufficient credits: Need {credit_check['required_credits']}, have {credit_check['available_credits']}"
+                    yield f"data: {json.dumps({'type': 'error', 'content': error_msg})}\n\n"
+                    return
                 
                 # Consume credits
-                credit_result = await billing_service.consume_credits(
+                credit_result = await credit_manager.consume_credits(
                     user_id=current_user.id,
                     amount=credit_amount,
                     description=f"AI conversation with {agent.name}",
@@ -170,7 +177,7 @@ async def chat_with_agent_stream(
                 
                 # Check if credit consumption failed
                 if not credit_result['success']:
-                    error_msg = f"Insufficient credits: {credit_result.get('error', 'Unknown error')}"
+                    error_msg = f"Credit consumption failed: {credit_result.get('error', 'Unknown error')}"
                     yield f"data: {json.dumps({'type': 'error', 'content': error_msg})}\n\n"
                     return
                 
@@ -278,19 +285,27 @@ async def chat_with_agent(
     )
     db.add(assistant_message)
     
-    # Consume credits for AI usage (using new billing service)
-    from app.services.billing_service import BillingService, CreditRates
-    billing_service = BillingService(db)
+    # Consume credits for AI usage using unified CreditManager
+    from app.services.credit_manager import CreditManager
+    credit_manager = CreditManager(db)
     
-    # Calculate credit consumption based on new rates
-    credit_amount = CreditRates.AGENT_MESSAGE  # 2 credits per AI response
+    # Calculate credit consumption
+    credit_amount = CreditManager.CreditRates.AGENT_MESSAGE  # 2 credits per AI response
     if tools_used:
         # Add credits for tool usage
         for tool in tools_used:
-            credit_amount += CreditRates.TOOL_EXECUTION  # 5 credits per tool
+            credit_amount += CreditManager.CreditRates.TOOL_EXECUTION  # 5 credits per tool
+    
+    # Pre-flight credit check
+    credit_check = await credit_manager.check_credit_balance(current_user.id, credit_amount)
+    if not credit_check['has_sufficient_credits']:
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail=f"Insufficient credits: Need {credit_check['required_credits']}, have {credit_check['available_credits']}"
+        )
     
     # Consume credits
-    credit_result = await billing_service.consume_credits(
+    credit_result = await credit_manager.consume_credits(
         user_id=current_user.id,
         amount=credit_amount,
         description=f"AI conversation with {agent.name}",

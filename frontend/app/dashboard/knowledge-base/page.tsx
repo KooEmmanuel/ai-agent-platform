@@ -59,10 +59,32 @@ export default function KnowledgeBasePage() {
   // New state for Library/Vector Base toggle
   const [activeTab, setActiveTab] = useState<'library' | 'vectorbase'>('library')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  
+  // File library state
+  const [files, setFiles] = useState<any[]>([])
 
   useEffect(() => {
     loadCollections()
   }, [])
+
+  const handleFilesChange = (newFiles: any[]) => {
+    setFiles(newFiles)
+  }
+
+  // Calculate file statistics
+  const getFileStats = () => {
+    const totalFiles = files.length
+    const images = files.filter(file => file.mime_type?.startsWith('image/')).length
+    const documents = files.filter(file => 
+      file.mime_type?.startsWith('application/') || 
+      file.file_extension?.match(/\.(pdf|doc|docx|txt|md)$/i)
+    ).length
+    const sharedFiles = files.filter(file => file.is_public).length
+    
+    return { totalFiles, images, documents, sharedFiles }
+  }
+
+  const stats = getFileStats()
 
   const loadCollections = async () => {
     try {
@@ -96,14 +118,16 @@ export default function KnowledgeBasePage() {
   }
 
   const handleAddWebsite = async (websiteUrl: string) => {
-    if (!selectedCollection) return
+    if (!selectedCollection) return { crawl_id: 0 }
     try {
-      await apiClient.crawlWebsiteToCollection(selectedCollection.id, { website_url: websiteUrl, max_pages: 50, max_depth: 3 })
+      const result = await apiClient.crawlWebsiteToCollection(selectedCollection.id, { website_url: websiteUrl, max_pages: 50, max_depth: 3 })
       await loadCollections() // Reload to get updated document count
       setShowAddWebsiteModal(false)
+      return { crawl_id: result.data?.crawl_id || 0 }
     } catch (err) {
       console.error('Failed to add website:', err)
       setError('Failed to add website')
+      return { crawl_id: 0 }
     }
   }
 
@@ -159,64 +183,64 @@ export default function KnowledgeBasePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50/30">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header Section */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+        {/* Mobile-First Header Section */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
+          className="mb-6 sm:mb-8"
         >
-          {/* Page Title and Toggle */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Knowledge Base</h1>
-              <p className="text-gray-600">Manage your files and AI-powered collections</p>
-            </div>
-            
-            {/* Library/Vector Base Toggle */}
-            <div className="flex items-center bg-white rounded-xl p-1 shadow-sm border border-gray-200 mt-4 sm:mt-0">
-              <button
-                onClick={() => setActiveTab('library')}
-                className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                  activeTab === 'library'
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                <FolderIcon className="w-4 h-4 mr-2" />
-                Library
-              </button>
-              <button
-                onClick={() => setActiveTab('vectorbase')}
-                className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                  activeTab === 'vectorbase'
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                <SparklesIcon className="w-4 h-4 mr-2" />
-                Vector Base
-              </button>
-            </div>
+          {/* Page Title - Mobile Optimized */}
+          <div className="mb-6">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Knowledge Base</h1>
+            <p className="text-sm sm:text-base text-gray-600">Manage your files and AI-powered collections</p>
+          </div>
+          
+          {/* Library/Vector Base Toggle - Mobile Full Width */}
+          <div className="flex items-center bg-white rounded-xl p-1 shadow-sm border border-gray-200 w-full mb-6">
+            <button
+              onClick={() => setActiveTab('library')}
+              className={`flex items-center justify-center flex-1 px-3 sm:px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                activeTab === 'library'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+            >
+              <FolderIcon className="w-4 h-4 mr-2" />
+              <span className="hidden xs:inline">Library</span>
+              <span className="xs:hidden">Files</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('vectorbase')}
+              className={`flex items-center justify-center flex-1 px-3 sm:px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                activeTab === 'vectorbase'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+            >
+              <SparklesIcon className="w-4 h-4 mr-2" />
+              <span className="hidden xs:inline">Vector Base</span>
+              <span className="xs:hidden">AI</span>
+            </button>
           </div>
 
-          {/* Stats Cards - Show different stats based on active tab */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          {/* Stats Cards - Mobile Responsive Grid */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
             {activeTab === 'library' ? (
               <>
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1 }}
-                  className="bg-white p-6 rounded-2xl shadow-[0_4px_20px_rgba(59,130,246,0.1)] border border-gray-100"
+                  className="bg-white p-3 sm:p-6 rounded-xl sm:rounded-2xl shadow-[0_4px_20px_rgba(59,130,246,0.1)] border border-gray-100"
                 >
                   <div className="flex items-center">
-                    <div className="p-3 bg-blue-100 rounded-xl">
-                      <DocumentIcon className="w-6 h-6 text-blue-600" />
+                    <div className="p-2 sm:p-3 bg-blue-100 rounded-lg sm:rounded-xl">
+                      <DocumentIcon className="w-4 h-4 sm:w-6 sm:h-6 text-blue-600" />
                     </div>
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">Total Files</p>
-                      <p className="text-2xl font-bold text-gray-900">0</p>
+                    <div className="ml-3 sm:ml-4">
+                      <p className="text-xs sm:text-sm font-medium text-gray-600">Total Files</p>
+                      <p className="text-lg sm:text-2xl font-bold text-gray-900">{stats.totalFiles}</p>
                     </div>
                   </div>
                 </motion.div>
@@ -225,15 +249,15 @@ export default function KnowledgeBasePage() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.2 }}
-                  className="bg-white p-6 rounded-2xl shadow-[0_4px_20px_rgba(59,130,246,0.1)] border border-gray-100"
+                  className="bg-white p-3 sm:p-6 rounded-xl sm:rounded-2xl shadow-[0_4px_20px_rgba(59,130,246,0.1)] border border-gray-100"
                 >
                   <div className="flex items-center">
-                    <div className="p-3 bg-green-100 rounded-xl">
-                      <PhotoIcon className="w-6 h-6 text-green-600" />
+                    <div className="p-2 sm:p-3 bg-green-100 rounded-lg sm:rounded-xl">
+                      <PhotoIcon className="w-4 h-4 sm:w-6 sm:h-6 text-green-600" />
                     </div>
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">Images</p>
-                      <p className="text-2xl font-bold text-gray-900">0</p>
+                    <div className="ml-3 sm:ml-4">
+                      <p className="text-xs sm:text-sm font-medium text-gray-600">Images</p>
+                      <p className="text-lg sm:text-2xl font-bold text-gray-900">{stats.images}</p>
                     </div>
                   </div>
                 </motion.div>
@@ -242,15 +266,15 @@ export default function KnowledgeBasePage() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.3 }}
-                  className="bg-white p-6 rounded-2xl shadow-[0_4px_20px_rgba(59,130,246,0.1)] border border-gray-100"
+                  className="bg-white p-3 sm:p-6 rounded-xl sm:rounded-2xl shadow-[0_4px_20px_rgba(59,130,246,0.1)] border border-gray-100"
                 >
                   <div className="flex items-center">
-                    <div className="p-3 bg-purple-100 rounded-xl">
-                      <ArchiveBoxIcon className="w-6 h-6 text-purple-600" />
+                    <div className="p-2 sm:p-3 bg-purple-100 rounded-lg sm:rounded-xl">
+                      <ArchiveBoxIcon className="w-4 h-4 sm:w-6 sm:h-6 text-purple-600" />
                     </div>
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">Documents</p>
-                      <p className="text-2xl font-bold text-gray-900">0</p>
+                    <div className="ml-3 sm:ml-4">
+                      <p className="text-xs sm:text-sm font-medium text-gray-600">Documents</p>
+                      <p className="text-lg sm:text-2xl font-bold text-gray-900">{stats.documents}</p>
                     </div>
                   </div>
                 </motion.div>
@@ -259,15 +283,15 @@ export default function KnowledgeBasePage() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.4 }}
-                  className="bg-white p-6 rounded-2xl shadow-[0_4px_20px_rgba(59,130,246,0.1)] border border-gray-100"
+                  className="bg-white p-3 sm:p-6 rounded-xl sm:rounded-2xl shadow-[0_4px_20px_rgba(59,130,246,0.1)] border border-gray-100"
                 >
                   <div className="flex items-center">
-                    <div className="p-3 bg-orange-100 rounded-xl">
-                      <ShareIcon className="w-6 h-6 text-orange-600" />
+                    <div className="p-2 sm:p-3 bg-orange-100 rounded-lg sm:rounded-xl">
+                      <ShareIcon className="w-4 h-4 sm:w-6 sm:h-6 text-orange-600" />
                     </div>
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">Shared Files</p>
-                      <p className="text-2xl font-bold text-gray-900">0</p>
+                    <div className="ml-3 sm:ml-4">
+                      <p className="text-xs sm:text-sm font-medium text-gray-600">Shared Files</p>
+                      <p className="text-lg sm:text-2xl font-bold text-gray-900">{stats.sharedFiles}</p>
                     </div>
                   </div>
                 </motion.div>
@@ -278,15 +302,15 @@ export default function KnowledgeBasePage() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1 }}
-                  className="bg-white p-6 rounded-2xl shadow-[0_4px_20px_rgba(59,130,246,0.1)] border border-gray-100"
+                  className="bg-white p-3 sm:p-4 lg:p-6 rounded-lg sm:rounded-xl lg:rounded-2xl shadow-[0_2px_8px_rgba(59,130,246,0.08)] lg:shadow-[0_4px_20px_rgba(59,130,246,0.1)] border border-gray-100"
                 >
                   <div className="flex items-center">
-                    <div className="p-3 bg-blue-100 rounded-xl">
-                      <BookOpenIcon className="w-6 h-6 text-blue-600" />
+                    <div className="p-1.5 sm:p-2 lg:p-3 bg-blue-100 rounded-lg sm:rounded-xl">
+                      <BookOpenIcon className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-blue-600" />
                     </div>
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">Total Collections</p>
-                      <p className="text-2xl font-bold text-gray-900">{collections.length}</p>
+                    <div className="ml-2 sm:ml-3 lg:ml-4">
+                      <p className="text-xs sm:text-sm font-medium text-gray-600">Total Collections</p>
+                      <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">{collections.length}</p>
                     </div>
                   </div>
                 </motion.div>
@@ -295,15 +319,15 @@ export default function KnowledgeBasePage() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.2 }}
-                  className="bg-white p-6 rounded-2xl shadow-[0_4px_20px_rgba(59,130,246,0.1)] border border-gray-100"
+                  className="bg-white p-3 sm:p-4 lg:p-6 rounded-lg sm:rounded-xl lg:rounded-2xl shadow-[0_2px_8px_rgba(59,130,246,0.08)] lg:shadow-[0_4px_20px_rgba(59,130,246,0.1)] border border-gray-100"
                 >
                   <div className="flex items-center">
-                    <div className="p-3 bg-green-100 rounded-xl">
-                      <DocumentTextIcon className="w-6 h-6 text-green-600" />
+                    <div className="p-1.5 sm:p-2 lg:p-3 bg-green-100 rounded-lg sm:rounded-xl">
+                      <DocumentTextIcon className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-green-600" />
                     </div>
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">Total Documents</p>
-                      <p className="text-2xl font-bold text-gray-900">{totalDocuments}</p>
+                    <div className="ml-2 sm:ml-3 lg:ml-4">
+                      <p className="text-xs sm:text-sm font-medium text-gray-600">Total Documents</p>
+                      <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">{totalDocuments}</p>
                     </div>
                   </div>
                 </motion.div>
@@ -312,15 +336,15 @@ export default function KnowledgeBasePage() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.3 }}
-                  className="bg-white p-6 rounded-2xl shadow-[0_4px_20px_rgba(59,130,246,0.1)] border border-gray-100"
+                  className="bg-white p-3 sm:p-4 lg:p-6 rounded-lg sm:rounded-xl lg:rounded-2xl shadow-[0_2px_8px_rgba(59,130,246,0.08)] lg:shadow-[0_4px_20px_rgba(59,130,246,0.1)] border border-gray-100"
                 >
                   <div className="flex items-center">
-                    <div className="p-3 bg-purple-100 rounded-xl">
-                      <SparklesIcon className="w-6 h-6 text-purple-600" />
+                    <div className="p-1.5 sm:p-2 lg:p-3 bg-purple-100 rounded-lg sm:rounded-xl">
+                      <SparklesIcon className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-purple-600" />
                     </div>
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">Mixed Collections</p>
-                      <p className="text-2xl font-bold text-gray-900">{mixedCollections}</p>
+                    <div className="ml-2 sm:ml-3 lg:ml-4">
+                      <p className="text-xs sm:text-sm font-medium text-gray-600">Mixed Collections</p>
+                      <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">{mixedCollections}</p>
                     </div>
                   </div>
                 </motion.div>
@@ -329,15 +353,15 @@ export default function KnowledgeBasePage() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.4 }}
-                  className="bg-white p-6 rounded-2xl shadow-[0_4px_20px_rgba(59,130,246,0.1)] border border-gray-100"
+                  className="bg-white p-3 sm:p-4 lg:p-6 rounded-lg sm:rounded-xl lg:rounded-2xl shadow-[0_2px_8px_rgba(59,130,246,0.08)] lg:shadow-[0_4px_20px_rgba(59,130,246,0.1)] border border-gray-100"
                 >
                   <div className="flex items-center">
-                    <div className="p-3 bg-orange-100 rounded-xl">
-                      <GlobeAltIcon className="w-6 h-6 text-orange-600" />
+                    <div className="p-1.5 sm:p-2 lg:p-3 bg-orange-100 rounded-lg sm:rounded-xl">
+                      <GlobeAltIcon className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-orange-600" />
                     </div>
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">Website Collections</p>
-                      <p className="text-2xl font-bold text-gray-900">{websiteCollections}</p>
+                    <div className="ml-2 sm:ml-3 lg:ml-4">
+                      <p className="text-xs sm:text-sm font-medium text-gray-600">Website Collections</p>
+                      <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">{websiteCollections}</p>
                     </div>
                   </div>
                 </motion.div>
@@ -345,20 +369,22 @@ export default function KnowledgeBasePage() {
             )}
           </div>
 
-          {/* Search and Actions */}
-          <div className="flex flex-col sm:flex-row gap-4 items-center justify-between mb-8">
-            <div className="relative flex-1 max-w-md">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder={activeTab === 'library' ? "Search files..." : "Search collections..."}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white shadow-sm"
-              />
-            </div>
-            
-            <div className="flex items-center gap-3">
+          {/* Mobile-First Search and Actions */}
+          <div className="space-y-4 mb-6 sm:mb-8">
+            {/* Search Bar with View Toggle and Action Button - Same Line */}
+            <div className="flex gap-3">
+              {/* Search Bar */}
+              <div className="relative flex-1">
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder={activeTab === 'library' ? "Search files..." : "Search collections..."}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-9 sm:pl-10 pr-4 py-2.5 sm:py-3 border border-gray-200 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white shadow-sm text-sm sm:text-base"
+                />
+              </div>
+              
               {/* View Mode Toggle - Only show for Library */}
               {activeTab === 'library' && (
                 <div className="flex items-center bg-white rounded-lg p-1 shadow-sm border border-gray-200">
@@ -367,6 +393,7 @@ export default function KnowledgeBasePage() {
                     className={`p-2 rounded-md transition-colors ${
                       viewMode === 'grid' ? 'bg-blue-100 text-blue-600' : 'text-gray-400 hover:text-gray-600'
                     }`}
+                    title="Grid View"
                   >
                     <Squares2X2Icon className="w-4 h-4" />
                   </button>
@@ -375,28 +402,31 @@ export default function KnowledgeBasePage() {
                     className={`p-2 rounded-md transition-colors ${
                       viewMode === 'list' ? 'bg-blue-100 text-blue-600' : 'text-gray-400 hover:text-gray-600'
                     }`}
+                    title="List View"
                   >
                     <ListBulletIcon className="w-4 h-4" />
                   </button>
                 </div>
               )}
-              
-              {/* Action Button */}
+
+              {/* Action Button - Hidden on Mobile (FAB used instead) */}
               {activeTab === 'library' ? (
                 <button
                   onClick={() => setShowFileUploadModal(true)}
-                  className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-semibold rounded-xl text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-lg hover:shadow-xl"
+                  className="hidden sm:inline-flex items-center justify-center px-4 sm:px-6 py-2.5 sm:py-3 border border-transparent text-sm font-semibold rounded-lg sm:rounded-xl text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-lg hover:shadow-xl"
                 >
-                  <ArrowUpTrayIcon className="w-5 h-5 mr-2" />
-                  Upload Files
+                  <ArrowUpTrayIcon className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                  <span className="hidden xs:inline">Upload Files</span>
+                  <span className="xs:hidden">Upload</span>
                 </button>
               ) : (
                 <button
                   onClick={() => setShowCreateModal(true)}
-                  className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-semibold rounded-xl text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-lg hover:shadow-xl"
+                  className="hidden sm:inline-flex items-center justify-center px-4 sm:px-6 py-2.5 sm:py-3 border border-transparent text-sm font-semibold rounded-lg sm:rounded-xl text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-lg hover:shadow-xl"
                 >
-                  <PlusIcon className="w-5 h-5 mr-2" />
-                  Create Collection
+                  <PlusIcon className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                  <span className="hidden xs:inline">Create Collection</span>
+                  <span className="xs:hidden">Create</span>
                 </button>
               )}
             </div>
@@ -451,6 +481,7 @@ export default function KnowledgeBasePage() {
                 viewMode={viewMode}
                 searchTerm={searchTerm}
                 onUpload={() => setShowFileUploadModal(true)}
+                onFilesChange={handleFilesChange}
               />
             </motion.div>
           ) : (
@@ -534,7 +565,7 @@ export default function KnowledgeBasePage() {
       <AddWebsiteModal
         isOpen={showAddWebsiteModal}
         onClose={() => setShowAddWebsiteModal(false)}
-        onCrawl={handleAddWebsite}
+        onCrawl={handleAddWebsite} 
         collection={selectedCollection}
       />
 
@@ -553,6 +584,32 @@ export default function KnowledgeBasePage() {
           console.log('Files uploaded successfully')
         }}
       />
+
+      {/* Mobile Floating Action Button */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0 }}
+        className="fixed bottom-6 right-6 z-50 sm:hidden"
+      >
+        {activeTab === 'library' ? (
+          <button
+            onClick={() => setShowFileUploadModal(true)}
+            className="w-14 h-14 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center group"
+            title="Upload Files"
+          >
+            <ArrowUpTrayIcon className="w-6 h-6 transition-transform group-hover:scale-110" />
+          </button>
+        ) : (
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="w-14 h-14 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center group"
+            title="Create Collection"
+          >
+            <PlusIcon className="w-6 h-6 transition-transform group-hover:scale-110" />
+          </button>
+        )}
+      </motion.div>
     </div>
   )
 } 

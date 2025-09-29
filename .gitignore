@@ -145,3 +145,13 @@ Thumbs.db
 .local/ credentials/
 backend/debug_hubspot_config.py
 script.sh
+
+# Temporary directories and files
+temp/
+tmp/
+backend/temp/
+backend/temp_pdfs/
+backend/chroma_db/
+demo_chroma_db/
+test_chroma_db/
+chroma_db/

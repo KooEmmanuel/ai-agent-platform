@@ -6,9 +6,11 @@ FastAPI application for managing AI agents, tools, and integrations
 from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import uvicorn
+import os
 from loguru import logger
 
 from app.core.config import settings
@@ -85,6 +87,13 @@ app.add_middleware(
 
 # Include API routes
 app.include_router(api_router, prefix="/api/v1")
+
+# Create temp directory for PDF files
+temp_dir = os.path.join(os.getcwd(), "temp")
+os.makedirs(temp_dir, exist_ok=True)
+
+# Mount static files for temp directory
+app.mount("/temp", StaticFiles(directory=temp_dir), name="temp")
 
 @app.get("/")
 async def root():

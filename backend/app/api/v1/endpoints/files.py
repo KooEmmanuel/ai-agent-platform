@@ -62,7 +62,6 @@ class FileDeleteResponse(BaseModel):
 @router.post("/upload", response_model=FileUploadResponse)
 async def upload_file(
     file: UploadFile = File(...),
-    agent_id: Optional[int] = Form(None),
     folder_path: str = Form(""),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -72,7 +71,6 @@ async def upload_file(
     
     Args:
         file: The file to upload
-        agent_id: Optional agent ID for organization
         folder_path: Optional folder path for organization
         current_user: Current authenticated user
         db: Database session
@@ -89,7 +87,6 @@ async def upload_file(
             file_content=file_content,
             filename=file.filename,
             user_id=current_user.id,
-            agent_id=agent_id,
             folder_path=folder_path,
             db=db
         )
