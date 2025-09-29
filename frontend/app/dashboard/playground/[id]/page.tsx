@@ -85,20 +85,25 @@ export default function AgentPlaygroundPage() {
     
     try {
       console.log('📂 Loading current session messages:', sessionId)
-      console.log('📂 Available conversations:', conversations.map(c => ({ id: c.id })))
       
-      // Find the conversation that matches the current session
-      let currentConversation = null
-      
-      // Try to find by conversation ID (if sessionId is in format "conversation_123")
+      // If sessionId starts with 'conversation_', extract the ID and load that conversation
       if (sessionId.startsWith('conversation_')) {
         const conversationId = sessionId.replace('conversation_', '')
-        currentConversation = conversations.find(conv => conv.id.toString() === conversationId)
+        await loadConversation(conversationId)
+        return
       }
       
-      // If still not found, try to find by currentConversationId
-      if (!currentConversation && currentConversationId) {
+      // For auto-generated sessions, find the conversation by session_id or currentConversationId
+      let currentConversation = null
+      
+      // First try to find by currentConversationId
+      if (currentConversationId) {
         currentConversation = conversations.find(conv => conv.id.toString() === currentConversationId.toString())
+      }
+      
+      // If not found, try to find by session_id
+      if (!currentConversation) {
+        currentConversation = conversations.find(conv => conv.session_id === sessionId)
       }
       
       if (currentConversation) {
@@ -106,21 +111,32 @@ export default function AgentPlaygroundPage() {
         await loadConversation(currentConversation.id.toString())
       } else {
         console.log('📂 No matching conversation found for session:', sessionId)
-        console.log('📂 Clearing session state...')
+        console.log('📂 Clearing session state and refreshing conversations...')
+        
         // Clear messages if no matching conversation
         setMessages([])
         setSessionId(undefined)
         setCurrentConversationId(null)
+        setIsNewConversation(true) // Reset to new conversation state
+        
+        // Clear localStorage
         if (typeof window !== 'undefined') {
           localStorage.removeItem(`playground_session_${agent.id}`)
           localStorage.removeItem(`playground_conversation_${agent.id}`)
         }
+        
+        // Refresh conversations to get latest list
+        await loadConversations()
       }
     } catch (error) {
       console.error('❌ Failed to load current session:', error)
+      
+      // Clear state on error
       setMessages([])
       setSessionId(undefined)
       setCurrentConversationId(null)
+      setIsNewConversation(true)
+      
       if (typeof window !== 'undefined' && agent) {
         localStorage.removeItem(`playground_session_${agent.id}`)
         localStorage.removeItem(`playground_conversation_${agent.id}`)
@@ -262,7 +278,7 @@ export default function AgentPlaygroundPage() {
       setIsNewConversation(false)
     } else {
       console.log('📂 No stored session/conversation found, starting fresh')
-      setIsNewConversation(false) // Don't show "New Conversation" indicator
+      setIsNewConversation(true) // Show "New Conversation" indicator for fresh sessions
     }
 
     ;(async () => {
@@ -310,6 +326,11 @@ export default function AgentPlaygroundPage() {
     setError(null)
     setSending(true)
     setStreamingStatus(null)
+    
+    // Show appropriate status for new conversations
+    if (messages.length === 0 && !sessionId) {
+      setStreamingStatus('Creating new conversation...')
+    }
 
     const userMsg: ChatMessage = {
       id: `${Date.now()}_user`,
@@ -362,18 +383,21 @@ export default function AgentPlaygroundPage() {
             setError(error || 'Streaming error occurred')
             setSending(false)
           },
-          (data) => {
+          async (data) => {
             // Handle completion
             if (data.session_id && typeof window !== 'undefined') {
               localStorage.setItem(`playground_session_${agent.id}`, data.session_id)
               setSessionId(data.session_id)
               setIsNewConversation(false) // No longer a new conversation
               
-              // If this was a new conversation, store the conversation ID
+              // If this was a new conversation, store the conversation ID and refresh list
               if (currentConversationId === null && data.conversation_id) {
                 setCurrentConversationId(data.conversation_id)
                 localStorage.setItem(`playground_conversation_${agent.id}`, data.conversation_id.toString())
                 console.log('💾 Stored new conversation ID:', data.conversation_id)
+                
+                // Refresh the conversation list to show the new conversation
+                await loadConversations()
               }
             }
             
@@ -427,11 +451,14 @@ export default function AgentPlaygroundPage() {
           setSessionId(resp.session_id)
           setIsNewConversation(false) // No longer a new conversation
           
-          // If this was a new conversation, store the conversation ID
+          // If this was a new conversation, store the conversation ID and refresh list
           if (currentConversationId === null && resp.conversation_id) {
             setCurrentConversationId(resp.conversation_id)
             localStorage.setItem(`playground_conversation_${agent.id}`, resp.conversation_id.toString())
             console.log('💾 Stored new conversation ID:', resp.conversation_id)
+            
+            // Refresh the conversation list to show the new conversation
+            await loadConversations()
           }
         }
         
@@ -628,18 +655,21 @@ export default function AgentPlaygroundPage() {
             </div>
             
             <div className="space-y-3">
-              {/* Current Session - Only show if there are messages */}
-              {messages.length > 0 && (
+              {/* Current Session - Show if there are messages OR if it's a new conversation */}
+              {(messages.length > 0 || isNewConversation) && (
                 <div className="p-3 rounded-xl cursor-pointer hover:translate-x-1 transition-transform duration-150 relative group border-2 border-blue-300 bg-blue-50 shadow-sm" 
                      style={{ background: 'linear-gradient(180deg, rgba(239,246,255,0.8), rgba(219,234,254,0.8))', boxShadow: '0 6px 18px rgba(59,130,246,0.1)' }}>
                   {/* Active indicator */}
                   <div className="absolute top-2 left-2 w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
                   
                   <div className="text-sm font-medium pl-6">
-                    Current Session
+                    {isNewConversation ? 'New Conversation' : 'Current Session'}
                   </div>
                   <div className="text-xs text-slate-600 mt-1 pl-6">
-                    {messages.length} messages • {currentConversationId ? `ID: ${currentConversationId}` : 'Active'}
+                    {isNewConversation 
+                      ? 'Start typing to create a conversation' 
+                      : `${messages.length} messages • ${currentConversationId ? `ID: ${currentConversationId}` : 'Active'}`
+                    }
                   </div>
                   
                   {/* Clear session button */}
@@ -649,7 +679,7 @@ export default function AgentPlaygroundPage() {
                         setMessages([])
                         setSessionId(undefined)
                         setCurrentConversationId(null)
-                        setIsNewConversation(false) // Don't show "New Conversation" indicator
+                        setIsNewConversation(true) // Show "New Conversation" indicator
                         if (typeof window !== 'undefined' && agent) {
                           localStorage.removeItem(`playground_session_${agent.id}`)
                           localStorage.removeItem(`playground_conversation_${agent.id}`)
@@ -690,7 +720,7 @@ export default function AgentPlaygroundPage() {
                     setMessages([])
                     setSessionId(undefined)
                     setCurrentConversationId(null)
-                    setIsNewConversation(false) // Don't show "New Conversation" indicator
+                    setIsNewConversation(true) // Show "New Conversation" indicator for fresh start
                     
                     // Clear any stored session and conversation
                     if (typeof window !== 'undefined') {
