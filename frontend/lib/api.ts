@@ -497,7 +497,24 @@ class ApiClient {
       })
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        let errorMessage = `HTTP error! status: ${response.status}`
+        
+        try {
+          const error = await response.json()
+          console.error('❌ Streaming error response:', error)
+          errorMessage = error.detail || error.message || error.error || errorMessage
+        } catch (parseError) {
+          console.error('❌ Failed to parse streaming error response:', parseError)
+          try {
+            const textResponse = await response.text()
+            console.error('❌ Streaming text error response:', textResponse)
+            errorMessage = textResponse || errorMessage
+          } catch (textError) {
+            console.error('❌ Failed to get streaming text response:', textError)
+          }
+        }
+        
+        throw new Error(errorMessage)
       }
 
       const reader = response.body?.getReader()
@@ -581,6 +598,7 @@ class ApiClient {
   async getConversationMessages(agent_id: number, conversation_id: number): Promise<{
     conversation_id: number
     agent_id: number
+    session_id: string
     messages: Array<{
       id: number
       role: 'user' | 'assistant'

@@ -10,7 +10,7 @@ class CreditService:
         self.db = db
 
     async def initialize_user_credits(self, user_id: int) -> UserCredits:
-        """Initialize user with 1000 free credits"""
+        """Initialize user with 5000 free credits"""
         # Check if user already has credits
         existing_credits = await self.db.execute(
             select(UserCredits).where(UserCredits.user_id == user_id)
@@ -23,9 +23,9 @@ class CreditService:
         # Create new credit record
         user_credits = UserCredits(
             user_id=user_id,
-            total_credits=1000.0,
+            total_credits=5000.0,
             used_credits=0.0,
-            available_credits=1000.0
+            available_credits=5000.0
         )
         
         self.db.add(user_credits)
@@ -36,8 +36,8 @@ class CreditService:
         bonus_transaction = CreditTransaction(
             user_id=user_id,
             transaction_type="bonus",
-            amount=1000.0,
-            description="Welcome bonus - 1000 free credits"
+            amount=5000.0,
+            description="Welcome bonus - 5000 free credits"
         )
         
         self.db.add(bonus_transaction)

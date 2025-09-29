@@ -66,6 +66,20 @@ async def chat_with_agent_stream(
             detail="Agent is not active"
         )
     
+    # Check user has sufficient credits BEFORE processing
+    from app.services.credit_manager import CreditManager, CreditRates
+    credit_manager = CreditManager(db)
+    
+    # Calculate required credits (minimum for AI response)
+    required_credits = CreditRates.AGENT_MESSAGE  # 2 credits minimum
+    
+    credit_check = await credit_manager.check_credit_balance(current_user.id, required_credits)
+    if not credit_check['has_sufficient_credits']:
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail=f"Insufficient credits: Need {credit_check['required_credits']}, have {credit_check['available_credits']}. Please purchase more credits to continue."
+        )
+    
     # Get or create conversation
     session_id = message_data.session_id or f"playground_{agent_id}_{current_user.id}"
     
@@ -108,6 +122,8 @@ async def chat_with_agent_stream(
         tools_used = []
         
         try:
+            print(f"🔄 Starting streaming for playground message: {message_data.message[:50]}...")
+            
             # Stream the agent response
             async for chunk in agent_service.execute_agent_stream(
                 agent=agent,
@@ -117,6 +133,8 @@ async def chat_with_agent_stream(
             ):
                 chunk_type = chunk.get("type")
                 content = chunk.get("content", "")
+                
+                print(f"📦 Playground stream chunk: {chunk_type} - {content[:50] if content else 'No content'}...")
                 
                 if chunk_type == "content":
                     full_response += content
@@ -129,43 +147,56 @@ async def chat_with_agent_stream(
                 
                 elif chunk_type == "complete":
                     tools_used = chunk.get("tools_used", [])
-                    # Send completion
-                    yield f"data: {json.dumps({'type': 'complete', 'content': content, 'tools_used': tools_used})}\n\n"
+                    print(f"✅ Playground stream completed with {len(tools_used)} tools used, full_response length: {len(full_response)}")
+                    # Send completion with the full response content
+                    yield f"data: {json.dumps({'type': 'complete', 'content': chunk.get('content', full_response), 'tools_used': tools_used})}\n\n"
                     break
                 
                 elif chunk_type == "error":
+                    print(f"❌ Playground stream error: {content}")
                     # Send error
                     yield f"data: {json.dumps({'type': 'error', 'content': content})}\n\n"
                     break
             
             # Save assistant response to database
+            print(f"💾 Checking if full_response exists: {len(full_response) if full_response else 0} characters")
             if full_response:
+                print(f"💾 Saving assistant message to conversation {conversation.id}")
                 assistant_message = Message(
                     conversation_id=conversation.id,
                     role="assistant",
                     content=full_response
                 )
                 db.add(assistant_message)
+                print(f"💾 Assistant message added to database")
                 
                 # Consume credits for AI usage using unified CreditManager
                 from app.services.credit_manager import CreditManager
                 credit_manager = CreditManager(db)
                 
                 # Calculate credit consumption
-                credit_amount = CreditManager.CreditRates.AGENT_MESSAGE  # 2 credits per AI response
+                from app.services.credit_manager import CreditRates
+                credit_amount = CreditRates.AGENT_MESSAGE  # 2 credits per AI response
                 if tools_used:
                     # Add credits for tool usage
                     for tool in tools_used:
-                        credit_amount += CreditManager.CreditRates.TOOL_EXECUTION  # 5 credits per tool
+                        credit_amount += CreditRates.TOOL_EXECUTION  # 5 credits per tool
+                
+                print(f"💰 Credit calculation: {credit_amount} credits for user {current_user.id}")
                 
                 # Pre-flight credit check
+                print(f"🔍 Checking credit balance for user {current_user.id}...")
                 credit_check = await credit_manager.check_credit_balance(current_user.id, credit_amount)
+                print(f"💰 Credit check result: {credit_check}")
+                
                 if not credit_check['has_sufficient_credits']:
                     error_msg = f"Insufficient credits: Need {credit_check['required_credits']}, have {credit_check['available_credits']}"
+                    print(f"❌ Credit consumption failed: {error_msg}")
                     yield f"data: {json.dumps({'type': 'error', 'content': error_msg})}\n\n"
                     return
                 
                 # Consume credits
+                print(f"💳 Consuming {credit_amount} credits for user {current_user.id}...")
                 credit_result = await credit_manager.consume_credits(
                     user_id=current_user.id,
                     amount=credit_amount,
@@ -174,19 +205,24 @@ async def chat_with_agent_stream(
                     conversation_id=conversation.id,
                     tool_used="ai_conversation"
                 )
+                print(f"💳 Credit consumption result: {credit_result}")
                 
                 # Check if credit consumption failed
                 if not credit_result['success']:
                     error_msg = f"Credit consumption failed: {credit_result.get('error', 'Unknown error')}"
+                    print(f"❌ Credit consumption failed: {error_msg}")
                     yield f"data: {json.dumps({'type': 'error', 'content': error_msg})}\n\n"
                     return
                 
+                print(f"💾 Committing assistant message to database...")
                 await db.commit()
+                print(f"✅ Assistant message committed to database successfully")
                 
                 execution_time = time.time() - start_time
                 yield f"data: {json.dumps({'type': 'metadata', 'execution_time': execution_time, 'session_id': session_id, 'conversation_id': conversation.id})}\n\n"
             
         except Exception as e:
+            print(f"❌ Playground streaming error: {str(e)}")
             yield f"data: {json.dumps({'type': 'error', 'content': f'Streaming error: {str(e)}'})}\n\n"
     
     return StreamingResponse(
@@ -230,6 +266,20 @@ async def chat_with_agent(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Agent is not active"
+        )
+    
+    # Check user has sufficient credits BEFORE processing
+    from app.services.credit_manager import CreditManager, CreditRates
+    credit_manager = CreditManager(db)
+    
+    # Calculate required credits (minimum for AI response)
+    required_credits = CreditRates.AGENT_MESSAGE  # 2 credits minimum
+    
+    credit_check = await credit_manager.check_credit_balance(current_user.id, required_credits)
+    if not credit_check['has_sufficient_credits']:
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail=f"Insufficient credits: Need {credit_check['required_credits']}, have {credit_check['available_credits']}. Please purchase more credits to continue."
         )
     
     # Get or create conversation
@@ -290,11 +340,12 @@ async def chat_with_agent(
     credit_manager = CreditManager(db)
     
     # Calculate credit consumption
-    credit_amount = CreditManager.CreditRates.AGENT_MESSAGE  # 2 credits per AI response
+    from app.services.credit_manager import CreditRates
+    credit_amount = CreditRates.AGENT_MESSAGE  # 2 credits per AI response
     if tools_used:
         # Add credits for tool usage
         for tool in tools_used:
-            credit_amount += CreditManager.CreditRates.TOOL_EXECUTION  # 5 credits per tool
+            credit_amount += CreditRates.TOOL_EXECUTION  # 5 credits per tool
     
     # Pre-flight credit check
     credit_check = await credit_manager.check_credit_balance(current_user.id, credit_amount)
@@ -354,6 +405,18 @@ async def get_playground_conversations(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Agent not found"
+        )
+    
+    # Check user has sufficient credits to access playground
+    from app.services.credit_manager import CreditManager, CreditRates
+    credit_manager = CreditManager(db)
+    
+    required_credits = CreditRates.AGENT_MESSAGE  # 2 credits minimum
+    credit_check = await credit_manager.check_credit_balance(current_user.id, required_credits)
+    if not credit_check['has_sufficient_credits']:
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail=f"Insufficient credits: Need {credit_check['required_credits']}, have {credit_check['available_credits']}. Please purchase more credits to access the playground."
         )
     
     # Get conversations
@@ -436,6 +499,7 @@ async def get_conversation_messages(
     return {
         "conversation_id": conversation_id,
         "agent_id": agent_id,
+        "session_id": conversation.session_id,
         "messages": [
             {
                 "id": msg.id,
