@@ -714,7 +714,7 @@ export default function AgentPlaygroundPage() {
           {/* Messages */}
           <div 
             ref={messagesContainerRef}
-            className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50" 
+            className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50 pb-4" 
             aria-live="polite"
             style={{ maxHeight: 'calc(100vh - 200px)' }}
           >
