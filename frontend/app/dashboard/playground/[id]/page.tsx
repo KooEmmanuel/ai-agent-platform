@@ -4,6 +4,9 @@ import { useEffect, useMemo, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { ArrowLeftIcon, PaperAirplaneIcon, XMarkIcon, Bars3Icon, EyeSlashIcon, ClipboardIcon, PencilIcon, CheckIcon } from '@heroicons/react/24/outline'
+import { PanelRightClose } from 'lucide-react'
+import { PanelLeftClose } from 'lucide-react'
+import { HiOutlinePencilAlt } from "react-icons/hi"
 import Link from 'next/link'
 import { apiClient, type Agent } from '../../../../lib/api'
 import { getUser, type User } from '../../../../lib/auth'
@@ -665,221 +668,11 @@ export default function AgentPlaygroundPage() {
     <div className="h-screen  flex overflow-hidden">
       
       {/* Left Column - Controls */}
-      {sidebarVisible && (
-        <motion.aside 
-          initial={{ x: -300, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          exit={{ x: -300, opacity: 0 }}
-          transition={{ duration: 0.3 }}
-          className="w-80 p-4 lg:p-6 hidden lg:block flex-shrink-0"
-        >
-          <div className="rounded-2xl p-6 h-full bg-white border border-gray-100" style={{ boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)' }}>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <Link 
-                  href="/dashboard/agents" 
-                  className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                >
-                  <ArrowLeftIcon className="w-4 h-4 lg:w-5 lg:h-5 text-gray-600" />
-                </Link>
-                <h3 className="text-base lg:text-lg font-semibold">Conversations</h3>
-              </div>
-              <button
-                onClick={loadConversations}
-                disabled={loadingConversations}
-                className="p-2 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
-                title="Refresh conversations"
-              >
-                <svg className="w-4 h-4 lg:w-5 lg:h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-              </button>
-              <button
-                onClick={() => setSidebarVisible(false)}
-                className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                title="Hide sidebar"
-              >
-                <EyeSlashIcon className="w-4 h-4 lg:w-5 lg:h-5 text-gray-600" />
-              </button>
-            </div>
-            
-            <div className="space-y-3">
-              {/* Current Session - Show if there are messages OR if it's a new conversation */}
-              {(messages.length > 0 || isNewConversation) && (
-                <div className="p-3 rounded-xl cursor-pointer hover:translate-x-1 transition-transform duration-150 relative group border-2 border-blue-300 bg-blue-50 shadow-sm" 
-                     style={{ background: 'linear-gradient(180deg, rgba(239,246,255,0.8), rgba(219,234,254,0.8))', boxShadow: '0 6px 18px rgba(59,130,246,0.1)' }}>
-                  {/* Active indicator */}
-                  <div className="absolute top-2 left-2 w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
-                  
-                  <div className="text-sm font-medium pl-6">
-                    {isNewConversation ? 'New Conversation' : 'Current Session'}
-                  </div>
-                  <div className="text-xs text-slate-600 mt-1 pl-6">
-                    {isNewConversation 
-                      ? 'Start typing to create a conversation' 
-                      : `${messages.length} messages • ${currentConversationId ? `ID: ${currentConversationId}` : 'Active'}`
-                    }
-                  </div>
-                  
-                  {/* Clear session button */}
-                  <button
-                    onClick={() => {
-                      if (confirm('Clear current session? This will remove all messages from the current conversation.')) {
-                        setMessages([])
-                        setSessionId(undefined)
-                        setCurrentConversationId(null)
-                        setIsNewConversation(true) // Show "New Conversation" indicator
-                        if (typeof window !== 'undefined' && agent) {
-                          localStorage.removeItem(`playground_session_${agent.id}`)
-                          localStorage.removeItem(`playground_conversation_${agent.id}`)
-                        }
-                      }
-                    }}
-                    className="absolute top-2 right-2 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-red-100 text-red-500"
-                    title={isNewConversation ? "Cancel new conversation" : "Clear current session"}
-                  >
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              )}
-
-              {/* New Conversation Button */}
-              <button 
-                onClick={async () => {
-                  try {
-                    console.log('🔄 Starting new conversation creation...')
-                    console.log('📊 Agent details:', { id: agent.id, name: agent.name })
-                    
-                    setCreatingConversation(true)
-                    setError(null)
-                    
-                    // Create a new conversation in the database
-                    console.log('📡 Calling API to create conversation...')
-                    const newConversation = await apiClient.createConversation(
-                      agent.id, 
-                      `Playground Session - ${agent.name}`
-                    )
-                    
-                    console.log('✅ API response received:', newConversation)
-                    
-                    // Clear local state for fresh start
-                    console.log('🧹 Clearing local state...')
-                    setMessages([])
-                    setSessionId(undefined)
-                    setCurrentConversationId(null)
-                    setIsNewConversation(true) // Show "New Conversation" indicator for fresh start
-                    
-                    // Clear any stored session and conversation
-                    if (typeof window !== 'undefined') {
-                      console.log('🗑️ Clearing stored session from localStorage')
-                      localStorage.removeItem(`playground_session_${agent.id}`)
-                      localStorage.removeItem(`playground_conversation_${agent.id}`)
-                    }
-                    
-                    console.log('🎉 New conversation created successfully!')
-                    console.log('📋 Final state:', {
-                      sessionId: newConversation.session_id,
-                      conversationId: newConversation.id,
-                      title: newConversation.title
-                    })
-                    
-                    // Refresh conversation list
-                    await loadConversations()
-                  } catch (error) {
-                    console.error('❌ Failed to create new conversation:', error)
-                    console.error('🔍 Error details:', {
-                      message: error.message,
-                      status: error.status,
-                      response: error.response
-                    })
-                    setError('Failed to create new conversation')
-                  } finally {
-                    console.log('🏁 Conversation creation process completed')
-                    setCreatingConversation(false)
-                  }
-                }}
-                disabled={creatingConversation}
-                className="w-full rounded-xl py-3 px-4 text-sm font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:shadow-md" 
-                style={{ 
-                  background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
-                  boxShadow: '0 4px 12px rgba(59, 130, 246, 0.2)'
-                }}
-              >
-                <span className="text-white">
-                  {creatingConversation ? 'Creating...' : '+ New Conversation'}
-                </span>
-              </button>
-
-              {/* Conversation History */}
-              {loadingConversations ? (
-                <div className="p-3 rounded-xl text-center">
-                  <div className="text-sm text-slate-500">Loading conversations...</div>
-                </div>
-              ) : conversations.length > 0 ? (
-                <div className="space-y-2">
-                  <div className="text-xs font-medium text-slate-600 mb-2">Recent Conversations</div>
-                  {conversations.slice(0, 5).map((conversation) => {
-                    const isActive = currentConversationId === parseInt(conversation.id)
-                    return (
-                      <div 
-                        key={conversation.id}
-                        className={`p-3 rounded-xl cursor-pointer hover:translate-x-1 transition-transform duration-150 border relative group ${
-                          isActive 
-                            ? 'border-blue-300 bg-blue-50 shadow-sm' 
-                            : 'border-slate-200 hover:border-slate-300'
-                        }`}
-                        onClick={() => loadConversation(conversation.id)}
-                      >
-                        {/* Active indicator */}
-                        {isActive && (
-                          <div className="absolute top-2 left-2 w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                        )}
-                        
-                        <div className={`text-sm font-medium truncate ${isActive ? 'pr-12' : 'pr-8'}`}>
-                          {loadingConversation && currentConversationId === parseInt(conversation.id) ? (
-                            <span className="text-blue-600">Loading...</span>
-                          ) : (
-                            conversation.messages?.length > 0 
-                              ? conversation.messages[0].content.substring(0, 30) + '...' 
-                              : 'Empty conversation'
-                          )}
-                        </div>
-                        <div className="text-xs text-slate-400 mt-1">
-                          {conversation.messages?.length || 0} messages • {new Date(conversation.created_at).toLocaleDateString()}
-                          {isActive && (
-                            <span className="ml-2 text-blue-600 font-medium">• Active</span>
-                          )}
-                        </div>
-                        
-                        {/* Delete button */}
-                        <button
-                          onClick={(e) => deleteConversation(conversation.id, e)}
-                          className="absolute top-2 right-2 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-red-100 text-red-500"
-                          title="Delete conversation"
-                        >
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </div>
-                    )
-                  })}
-                </div>
-              ) : (
-                <div className="p-3 rounded-xl text-center">
-                  <div className="text-sm text-slate-500">No conversations yet</div>
-                </div>
-              )}
-            </div>
-          </div>
-        </motion.aside>
-      )}
+      
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <div className="flex flex-col flex-1 bg-white" style={{ boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)' }}>
+      <div className="flex-1 flex flex-col min-w-0 w-full lg:w-auto">
+        <div className="flex flex-col flex-1 bg-white w-full">
 
           {/* Header */}
           <div className="flex items-center justify-between px-4 lg:px-6 py-4 lg:py-5 bg-white border-b border-gray-100">
@@ -1078,7 +871,7 @@ export default function AgentPlaygroundPage() {
           </div>
 
           {/* Input Area */}
-          <div className="p-4 lg:p-6 bg-white/80 backdrop-blur-sm border-t border-gray-100">
+          <div className="sticky bottom-0 p-4 lg:p-6 bg-white/80 backdrop-blur-sm border-t border-gray-100 z-10">
             <div className="max-w-4xl mx-auto">
               <div className="relative">
                 <textarea
@@ -1216,6 +1009,205 @@ export default function AgentPlaygroundPage() {
             </div>
           </motion.div>
         </div>
+      )}
+
+
+{sidebarVisible && (
+        <motion.aside 
+          initial={{ x: -300, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          exit={{ x: -300, opacity: 0 }}
+          transition={{ duration: 0.3 }}
+          className="w-64 flex-shrink-0 ml-4 lg:ml-4"
+        >
+          <div className="p-6 h-full bg-white">
+            <div className="flex items-center gap-3 mb-4">
+              <button
+                onClick={() => setSidebarVisible(false)}
+                className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                title="Hide sidebar"
+              >
+                <PanelRightClose className="w-4 h-4 lg:w-5 lg:h-5 text-gray-600" />
+              </button>
+              <h3 className="text-base lg:text-lg font-semibold">Conversations</h3>
+            </div>
+            
+            <div className="space-y-3">
+              {/* New Chat Button */}
+              <button 
+                onClick={async () => {
+                  try {
+                    console.log('🔄 Starting new conversation creation...')
+                    console.log('📊 Agent details:', { id: agent.id, name: agent.name })
+                    
+                    setCreatingConversation(true)
+                    setError(null)
+                    
+                    // Create a new conversation in the database
+                    console.log('📡 Calling API to create conversation...')
+                    const newConversation = await apiClient.createConversation(
+                      agent.id, 
+                      `Playground Session - ${agent.name}`
+                    )
+                    
+                    console.log('✅ API response received:', newConversation)
+                    
+                    // Clear local state for fresh start
+                    console.log('🧹 Clearing local state...')
+                    setMessages([])
+                    setSessionId(undefined)
+                    setCurrentConversationId(null)
+                    setIsNewConversation(true) // Show "New Conversation" indicator for fresh start
+                    
+                    // Clear any stored session and conversation
+                    if (typeof window !== 'undefined') {
+                      console.log('🗑️ Clearing stored session from localStorage')
+                      localStorage.removeItem(`playground_session_${agent.id}`)
+                      localStorage.removeItem(`playground_conversation_${agent.id}`)
+                    }
+                    
+                    console.log('🎉 New conversation created successfully!')
+                    console.log('📋 Final state:', {
+                      sessionId: newConversation.session_id,
+                      conversationId: newConversation.id,
+                      title: newConversation.title
+                    })
+                    
+                    // Refresh conversation list
+                    await loadConversations()
+                  } catch (error) {
+                    console.error('❌ Failed to create new conversation:', error)
+                    console.error('🔍 Error details:', {
+                      message: error.message,
+                      status: error.status,
+                      response: error.response
+                    })
+                    setError('Failed to create new conversation')
+                  } finally {
+                    console.log('🏁 Conversation creation process completed')
+                    setCreatingConversation(false)
+                  }
+                }}
+                disabled={creatingConversation}
+                className="w-full rounded-xl py-3 px-4 text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <span className="flex items-center gap-2">
+                  {creatingConversation ? (
+                    'Creating...'
+                  ) : (
+                    <>
+                      <HiOutlinePencilAlt className="w-4 h-4" />
+                      New Chat
+                    </>
+                  )}
+                </span>
+              </button>
+
+              {/* Current Session - Show if there are messages OR if it's a new conversation */}
+              {(messages.length > 0 || isNewConversation) && (
+                <div className="p-3 rounded-xl cursor-pointer hover:translate-x-1 transition-transform duration-150 relative group border-2 border-blue-300 bg-blue-50 shadow-sm" 
+                     style={{ background: 'linear-gradient(180deg, rgba(239,246,255,0.8), rgba(219,234,254,0.8))', boxShadow: '0 6px 18px rgba(59,130,246,0.1)' }}>
+                  {/* Active indicator */}
+                  <div className="absolute top-2 left-2 w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
+                  
+                  <div className="text-sm font-medium pl-6">
+                    {isNewConversation ? 'New Conversation' : 'Current Session'}
+                  </div>
+                  <div className="text-xs text-slate-600 mt-1 pl-6">
+                    {isNewConversation 
+                      ? 'Start typing to create a conversation' 
+                      : `${messages.length} messages • ${currentConversationId ? `ID: ${currentConversationId}` : 'Active'}`
+                    }
+                  </div>
+                  
+                  {/* Clear session button */}
+                  <button
+                    onClick={() => {
+                      if (confirm('Clear current session? This will remove all messages from the current conversation.')) {
+                        setMessages([])
+                        setSessionId(undefined)
+                        setCurrentConversationId(null)
+                        setIsNewConversation(true) // Show "New Conversation" indicator
+                        if (typeof window !== 'undefined' && agent) {
+                          localStorage.removeItem(`playground_session_${agent.id}`)
+                          localStorage.removeItem(`playground_conversation_${agent.id}`)
+                        }
+                      }
+                    }}
+                    className="absolute top-2 right-2 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-red-100 text-red-500"
+                    title={isNewConversation ? "Cancel new conversation" : "Clear current session"}
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+
+
+              {/* Conversation History */}
+              {loadingConversations ? (
+                <div className="p-3 rounded-xl text-center">
+                  <div className="text-sm text-slate-500">Loading conversations...</div>
+                </div>
+              ) : conversations.length > 0 ? (
+                <div className="space-y-2">
+                  <div className="text-xs font-medium text-slate-600 mb-2">Recent Conversations</div>
+                  {conversations.slice(0, 5).map((conversation) => {
+                    const isActive = currentConversationId === parseInt(conversation.id)
+                    return (
+                      <div 
+                        key={conversation.id}
+                        className={`p-3 rounded-xl cursor-pointer hover:translate-x-1 transition-transform duration-150 border relative group ${
+                          isActive 
+                            ? 'border-blue-300 bg-blue-50 shadow-sm' 
+                            : 'border-slate-200 hover:border-slate-300'
+                        }`}
+                        onClick={() => loadConversation(conversation.id)}
+                      >
+                        {/* Active indicator */}
+                        {isActive && (
+                          <div className="absolute top-2 left-2 w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                        )}
+                        
+                        <div className={`text-sm font-medium truncate ${isActive ? 'pr-12' : 'pr-8'}`}>
+                          {loadingConversation && currentConversationId === parseInt(conversation.id) ? (
+                            <span className="text-blue-600">Loading...</span>
+                          ) : (
+                            conversation.messages?.length > 0 
+                              ? conversation.messages[0].content.substring(0, 30) + '...' 
+                              : 'Empty conversation'
+                          )}
+                        </div>
+                        <div className="text-xs text-slate-400 mt-1">
+                          {conversation.messages?.length || 0} messages • {new Date(conversation.created_at).toLocaleDateString()}
+                          {isActive && (
+                            <span className="ml-2 text-blue-600 font-medium">• Active</span>
+                          )}
+                        </div>
+                        
+                        {/* Delete button */}
+                        <button
+                          onClick={(e) => deleteConversation(conversation.id, e)}
+                          className="absolute top-2 right-2 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-red-100 text-red-500"
+                          title="Delete conversation"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="p-3 rounded-xl text-center">
+                  <div className="text-sm text-slate-500">No conversations yet</div>
+                </div>
+              )}
+            </div>
+          </div>
+        </motion.aside>
       )}
     </div>
   )
