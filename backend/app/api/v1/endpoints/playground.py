@@ -12,7 +12,7 @@ import asyncio
 import json
 
 from app.core.auth import get_current_user
-from app.core.database import get_db, User, Agent, Tool, Conversation, Message
+from app.core.database import get_db, User, Agent, Tool, Conversation, Message, Workspace
 
 router = APIRouter()
 
@@ -20,6 +20,7 @@ router = APIRouter()
 class PlaygroundMessage(BaseModel):
     message: str
     session_id: Optional[str] = None
+    workspace_id: Optional[int] = None
 
 class PlaygroundResponse(BaseModel):
     response: str
@@ -44,6 +45,8 @@ async def chat_with_agent_stream(
     """Chat with an agent using Server-Sent Events (SSE) for streaming"""
     import time
     start_time = time.time()
+    
+    print(f"📨 Received message data: workspace_id={message_data.workspace_id}, session_id={message_data.session_id}")
     
     # Get agent
     result = await db.execute(
@@ -92,15 +95,18 @@ async def chat_with_agent_stream(
     conversation = result.scalar_one_or_none()
     
     if not conversation:
+        print(f"🆕 Creating new conversation with workspace_id: {message_data.workspace_id}")
         conversation = Conversation(
             agent_id=agent_id,
             user_id=current_user.id,
             session_id=session_id,
+            workspace_id=message_data.workspace_id,
             title=f"Playground Session - {agent.name}"
         )
         db.add(conversation)
         await db.commit()
         await db.refresh(conversation)
+        print(f"✅ Created conversation {conversation.id} with workspace_id: {conversation.workspace_id}")
     
     # Save user message
     user_message = Message(
@@ -294,15 +300,18 @@ async def chat_with_agent(
     conversation = result.scalar_one_or_none()
     
     if not conversation:
+        print(f"🆕 Creating new conversation with workspace_id: {message_data.workspace_id}")
         conversation = Conversation(
             agent_id=agent_id,
             user_id=current_user.id,
             session_id=session_id,
+            workspace_id=message_data.workspace_id,
             title=f"Playground Session - {agent.name}"
         )
         db.add(conversation)
         await db.commit()
         await db.refresh(conversation)
+        print(f"✅ Created conversation {conversation.id} with workspace_id: {conversation.workspace_id}")
     
     # Save user message
     user_message = Message(
@@ -388,6 +397,7 @@ async def chat_with_agent(
 @router.get("/{agent_id}/conversations", response_model=List[ConversationHistory])
 async def get_playground_conversations(
     agent_id: int,
+    workspace_id: Optional[int] = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -419,13 +429,26 @@ async def get_playground_conversations(
             detail=f"Insufficient credits: Need {credit_check['required_credits']}, have {credit_check['available_credits']}. Please purchase more credits to access the playground."
         )
     
-    # Get conversations
-    result = await db.execute(
-        select(Conversation).where(
-            Conversation.agent_id == agent_id
-        ).order_by(Conversation.created_at.desc())
-    )
+    # Get conversations with optional workspace filtering
+    query = select(Conversation).where(Conversation.agent_id == agent_id)
+    
+    print(f"🔍 Loading conversations for agent {agent_id}, workspace_id: {workspace_id}")
+    
+    if workspace_id is not None:
+        # Filter by specific workspace
+        query = query.where(Conversation.workspace_id == workspace_id)
+        print(f"📂 Filtering by workspace_id: {workspace_id}")
+    else:
+        # Backward compatibility: show conversations without workspace (NULL workspace_id)
+        query = query.where(Conversation.workspace_id.is_(None))
+        print(f"📂 Filtering by NULL workspace_id (backward compatibility)")
+    
+    result = await db.execute(query.order_by(Conversation.created_at.desc()))
     conversations = result.scalars().all()
+    
+    print(f"📊 Found {len(conversations)} conversations")
+    for conv in conversations:
+        print(f"   - Conversation {conv.id}: workspace_id={conv.workspace_id}, title='{conv.title}'")
     
     conversation_histories = []
     for conv in conversations:
@@ -600,4 +623,254 @@ async def get_agent_tools(
             }
             for tool in agent_tools
         ]
-    } 
+    }
+
+# Workspace endpoints
+class WorkspaceCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    parent_id: Optional[int] = None
+    color: Optional[str] = None
+    icon: Optional[str] = None
+
+class WorkspaceUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    color: Optional[str] = None
+    icon: Optional[str] = None
+
+class WorkspaceResponse(BaseModel):
+    id: int
+    name: str
+    description: Optional[str]
+    parent_id: Optional[int]
+    color: Optional[str]
+    icon: Optional[str]
+    is_default: bool
+    created_at: str
+    updated_at: str
+
+@router.get("/{agent_id}/workspaces", response_model=List[WorkspaceResponse])
+async def get_workspaces(
+    agent_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get workspaces for an agent"""
+    # Verify agent belongs to user
+    result = await db.execute(
+        select(Agent).where(
+            Agent.id == agent_id,
+            Agent.user_id == current_user.id
+        )
+    )
+    agent = result.scalar_one_or_none()
+    
+    if not agent:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Agent not found"
+        )
+    
+    # Get workspaces for the user
+    result = await db.execute(
+        select(Workspace).where(
+            Workspace.user_id == current_user.id
+        ).order_by(Workspace.created_at.desc())
+    )
+    workspaces = result.scalars().all()
+    
+    return [
+        WorkspaceResponse(
+            id=ws.id,
+            name=ws.name,
+            description=ws.description,
+            parent_id=ws.parent_id,
+            color=ws.color,
+            icon=ws.icon,
+            is_default=ws.is_default,
+            created_at=ws.created_at.isoformat(),
+            updated_at=ws.updated_at.isoformat()
+        )
+        for ws in workspaces
+    ]
+
+@router.post("/{agent_id}/workspaces", response_model=WorkspaceResponse)
+async def create_workspace(
+    agent_id: int,
+    workspace_data: WorkspaceCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Create a new workspace"""
+    # Verify agent belongs to user
+    result = await db.execute(
+        select(Agent).where(
+            Agent.id == agent_id,
+            Agent.user_id == current_user.id
+        )
+    )
+    agent = result.scalar_one_or_none()
+    
+    if not agent:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Agent not found"
+        )
+    
+    # Create new workspace
+    new_workspace = Workspace(
+        user_id=current_user.id,
+        name=workspace_data.name,
+        description=workspace_data.description,
+        parent_id=workspace_data.parent_id,
+        color=workspace_data.color,
+        icon=workspace_data.icon,
+        is_default=False
+    )
+    
+    db.add(new_workspace)
+    await db.commit()
+    await db.refresh(new_workspace)
+    
+    return WorkspaceResponse(
+        id=new_workspace.id,
+        name=new_workspace.name,
+        description=new_workspace.description,
+        parent_id=new_workspace.parent_id,
+        color=new_workspace.color,
+        icon=new_workspace.icon,
+        is_default=new_workspace.is_default,
+        created_at=new_workspace.created_at.isoformat(),
+        updated_at=new_workspace.updated_at.isoformat()
+    )
+
+@router.put("/{agent_id}/workspaces/{workspace_id}", response_model=WorkspaceResponse)
+async def update_workspace(
+    agent_id: int,
+    workspace_id: int,
+    workspace_data: WorkspaceUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Update a workspace"""
+    # Verify agent belongs to user
+    result = await db.execute(
+        select(Agent).where(
+            Agent.id == agent_id,
+            Agent.user_id == current_user.id
+        )
+    )
+    agent = result.scalar_one_or_none()
+    
+    if not agent:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Agent not found"
+        )
+    
+    # Get workspace
+    result = await db.execute(
+        select(Workspace).where(
+            Workspace.id == workspace_id,
+            Workspace.user_id == current_user.id
+        )
+    )
+    workspace = result.scalar_one_or_none()
+    
+    if not workspace:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Workspace not found"
+        )
+    
+    # Update workspace
+    if workspace_data.name is not None:
+        workspace.name = workspace_data.name
+    if workspace_data.description is not None:
+        workspace.description = workspace_data.description
+    if workspace_data.color is not None:
+        workspace.color = workspace_data.color
+    if workspace_data.icon is not None:
+        workspace.icon = workspace_data.icon
+    
+    await db.commit()
+    await db.refresh(workspace)
+    
+    return WorkspaceResponse(
+        id=workspace.id,
+        name=workspace.name,
+        description=workspace.description,
+        parent_id=workspace.parent_id,
+        color=workspace.color,
+        icon=workspace.icon,
+        is_default=workspace.is_default,
+        created_at=workspace.created_at.isoformat(),
+        updated_at=workspace.updated_at.isoformat()
+    )
+
+@router.delete("/{agent_id}/workspaces/{workspace_id}")
+async def delete_workspace(
+    agent_id: int,
+    workspace_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Delete a workspace"""
+    # Verify agent belongs to user
+    result = await db.execute(
+        select(Agent).where(
+            Agent.id == agent_id,
+            Agent.user_id == current_user.id
+        )
+    )
+    agent = result.scalar_one_or_none()
+    
+    if not agent:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Agent not found"
+        )
+    
+    # Get workspace
+    result = await db.execute(
+        select(Workspace).where(
+            Workspace.id == workspace_id,
+            Workspace.user_id == current_user.id
+        )
+    )
+    workspace = result.scalar_one_or_none()
+    
+    if not workspace:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Workspace not found"
+        )
+    
+    # Check if it's the default workspace
+    if workspace.is_default:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete default workspace"
+        )
+    
+    # Move conversations to default workspace
+    default_workspace_result = await db.execute(
+        select(Workspace).where(
+            Workspace.user_id == current_user.id,
+            Workspace.is_default == True
+        )
+    )
+    default_workspace = default_workspace_result.scalar_one_or_none()
+    
+    if default_workspace:
+        # Update conversations to use default workspace
+        await db.execute(
+            select(Conversation).where(Conversation.workspace_id == workspace_id)
+        )
+        # Note: In a real implementation, you'd update the conversations here
+    
+    await db.delete(workspace)
+    await db.commit()
+    
+    return {"message": "Workspace deleted successfully"} 

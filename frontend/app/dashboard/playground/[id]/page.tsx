@@ -8,11 +8,12 @@ import { PanelRightClose } from 'lucide-react'
 import { PanelLeftClose } from 'lucide-react'
 import { HiOutlinePencilAlt } from "react-icons/hi"
 import Link from 'next/link'
-import { apiClient, type Agent } from '../../../../lib/api'
+import { apiClient, type Agent, type Workspace } from '../../../../lib/api'
 import { getUser, type User } from '../../../../lib/auth'
 import MarkdownRenderer from '../../../../components/ui/MarkdownRenderer'
 import DownloadableContent from '../../../../components/ui/DownloadableContent'
 import AudioInput from '../../../../components/AudioInput'
+import WorkspaceManager from '../../../../components/WorkspaceManager'
 
 type ChatMessage = {
   id: string
@@ -58,23 +59,76 @@ export default function AgentPlaygroundPage() {
   const [currentConversationId, setCurrentConversationId] = useState<number | null>(null)
   const [loadingConversation, setLoadingConversation] = useState(false)
   const [user, setUser] = useState<User | null>(null)
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<number | undefined>(undefined)
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([])
+  const [showWorkspaceManager, setShowWorkspaceManager] = useState(false)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
 
+  // Workspace management functions
+  const loadWorkspaces = async () => {
+    if (!agent) return
+    
+    try {
+      const workspacesData = await apiClient.getWorkspaces(agent.id)
+      setWorkspaces(workspacesData)
+    } catch (error) {
+      console.error('Failed to load workspaces:', error)
+    }
+  }
+
+  const handleWorkspaceSelect = (workspaceId: number | undefined) => {
+    console.log('🎯 Workspace selected:', workspaceId)
+    setSelectedWorkspaceId(workspaceId)
+    loadConversations(agent, workspaceId)
+    
+    // Clear current session when switching workspaces
+    console.log('🧹 Clearing current session for workspace switch')
+    setMessages([])
+    setSessionId(undefined)
+    setCurrentConversationId(null)
+    setIsNewConversation(true)
+    
+    // Clear localStorage
+    if (typeof window !== 'undefined' && agent) {
+      localStorage.removeItem(`playground_session_${agent.id}`)
+      localStorage.removeItem(`playground_conversation_${agent.id}`)
+    }
+    
+    console.log('✅ Workspace context set - ready for new conversation in workspace:', workspaceId)
+  }
+
+  const handleWorkspaceCreate = (workspace: Workspace) => {
+    setWorkspaces(prev => [workspace, ...prev])
+    setSelectedWorkspaceId(workspace.id)
+    loadConversations(agent, workspace.id)
+  }
+
   // Load conversations for this agent
-  const loadConversations = async (agentToUse?: any) => {
+  const loadConversations = async (agentToUse?: any, workspaceId?: number | undefined) => {
     const targetAgent = agentToUse || agent
     if (!targetAgent) return
     
     try {
       setLoadingConversations(true)
-      console.log('📂 Loading conversations for agent:', targetAgent.id)
-      const conversationsData = await apiClient.getPlaygroundConversations(targetAgent.id)
+      console.log('📂 Loading conversations for agent:', targetAgent.id, 'workspace:', workspaceId)
+      
+      // Use workspace-aware API call
+      const conversationsData = await apiClient.getPlaygroundConversationsWithWorkspace(
+        targetAgent.id, 
+        workspaceId
+      )
       setConversations(conversationsData)
       console.log('✅ Loaded conversations:', conversationsData.length)
       console.log('📂 Conversation details:', conversationsData.map(c => ({ 
         id: c.id, 
-        messageCount: c.messages?.length || 0 
+        messageCount: c.messages?.length || 0,
+        workspaceId: c.workspace_id || 'null' 
       })))
+      
+      // Debug: Log the actual conversation objects
+      if (conversationsData.length > 0) {
+        console.log('🔍 Full conversation data:', conversationsData[0])
+      }
     } catch (error) {
       console.error('❌ Failed to load conversations:', error)
     } finally {
@@ -298,6 +352,9 @@ export default function AgentPlaygroundPage() {
         setAgent(data)
         setSelectedModel(data.model || 'gpt-4o-mini')
         
+        // Load workspaces for this agent
+        await loadWorkspaces()
+        
         // Load conversations for this agent (now that we have the agent data)
         await loadConversations(data)
         
@@ -330,8 +387,15 @@ export default function AgentPlaygroundPage() {
       isNewConversation: isNewConversation,
       currentConversationId: currentConversationId,
       agentId: agent.id,
-      agentName: agent.name
+      agentName: agent.name,
+      selectedWorkspaceId: selectedWorkspaceId
     })
+    
+    if (selectedWorkspaceId) {
+      console.log('🏢 Creating conversation in workspace:', selectedWorkspaceId)
+    } else {
+      console.log('📁 Creating conversation in default workspace (All Conversations)')
+    }
     
     setError(null)
     setSending(true)
@@ -413,6 +477,12 @@ export default function AgentPlaygroundPage() {
                 localStorage.setItem(`playground_conversation_${agent.id}`, data.conversation_id.toString())
                 console.log('💾 Stored new conversation ID:', data.conversation_id)
                 
+                if (selectedWorkspaceId) {
+                  console.log('🎉 New conversation created in workspace:', selectedWorkspaceId, 'with ID:', data.conversation_id)
+                } else {
+                  console.log('🎉 New conversation created in default workspace with ID:', data.conversation_id)
+                }
+                
                 // Refresh the conversation list to show the new conversation
                 await loadConversations()
               }
@@ -458,7 +528,8 @@ export default function AgentPlaygroundPage() {
             
             setStreamingStatus(null)
             setSending(false)
-          }
+          },
+          selectedWorkspaceId
         )
       } else {
         // Use regular mode
@@ -1031,6 +1102,66 @@ export default function AgentPlaygroundPage() {
               </button>
               <h3 className="text-base lg:text-lg font-semibold">Conversations</h3>
             </div>
+
+            {/* Workspace Manager */}
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-xs font-medium text-gray-700">Workspaces</h4>
+                <button
+                  onClick={() => setShowWorkspaceManager(!showWorkspaceManager)}
+                  className="text-xs text-blue-600 hover:text-blue-700 transition-colors"
+                >
+                  {showWorkspaceManager ? 'Hide' : 'Manage'}
+                </button>
+              </div>
+              
+              {showWorkspaceManager ? (
+                <div className="max-h-48 overflow-y-auto">
+                  <WorkspaceManager
+                    agentId={agentId}
+                    selectedWorkspaceId={selectedWorkspaceId}
+                    onWorkspaceSelect={handleWorkspaceSelect}
+                    onWorkspaceCreate={handleWorkspaceCreate}
+                  />
+                </div>
+              ) : (
+                <div className="space-y-1 max-h-32 overflow-y-auto">
+                  {/* Quick workspace selector */}
+                  <button
+                    onClick={() => handleWorkspaceSelect(undefined)}
+                    className={`w-full flex items-center gap-2 p-1.5 rounded-md text-left transition-colors ${
+                      selectedWorkspaceId === undefined
+                        ? 'bg-blue-50 border border-blue-200'
+                        : 'bg-gray-50 hover:bg-gray-100 border border-transparent'
+                    }`}
+                  >
+                    <span className="text-xs">📁</span>
+                    <span className="text-xs font-medium truncate">All Conversations</span>
+                  </button>
+                  
+                  {workspaces.slice(0, 4).map((workspace) => (
+                    <button
+                      key={workspace.id}
+                      onClick={() => handleWorkspaceSelect(workspace.id)}
+                      className={`w-full flex items-center gap-2 p-1.5 rounded-md text-left transition-colors ${
+                        selectedWorkspaceId === workspace.id
+                          ? 'bg-blue-50 border border-blue-200'
+                          : 'bg-gray-50 hover:bg-gray-100 border border-transparent'
+                      }`}
+                    >
+                      <span className="text-xs">{workspace.icon}</span>
+                      <span className="text-xs font-medium truncate">{workspace.name}</span>
+                    </button>
+                  ))}
+                  
+                  {workspaces.length > 4 && (
+                    <div className="text-xs text-gray-500 text-center py-1">
+                      +{workspaces.length - 4} more
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
             
             <div className="space-y-3">
               {/* New Chat Button */}
@@ -1043,34 +1174,24 @@ export default function AgentPlaygroundPage() {
                     setCreatingConversation(true)
                     setError(null)
                     
-                    // Create a new conversation in the database
-                    console.log('📡 Calling API to create conversation...')
-                    const newConversation = await apiClient.createConversation(
-                      agent.id, 
-                      `Playground Session - ${agent.name}`
-                    )
-                    
-                    console.log('✅ API response received:', newConversation)
-                    
-                    // Clear local state for fresh start
-                    console.log('🧹 Clearing local state...')
+                    // Clear state for fresh start
+                    console.log('🧹 Clearing state for fresh start...')
                     setMessages([])
                     setSessionId(undefined)
                     setCurrentConversationId(null)
-                    setIsNewConversation(true) // Show "New Conversation" indicator for fresh start
+                    setIsNewConversation(true) // Show "New Conversation" indicator
                     
-                    // Clear any stored session and conversation
+                    // Clear localStorage to start fresh
                     if (typeof window !== 'undefined') {
-                      console.log('🗑️ Clearing stored session from localStorage')
                       localStorage.removeItem(`playground_session_${agent.id}`)
                       localStorage.removeItem(`playground_conversation_${agent.id}`)
                     }
                     
-                    console.log('🎉 New conversation created successfully!')
+                    console.log('🎉 Ready for new conversation!')
                     console.log('📋 Final state:', {
-                      sessionId: newConversation.session_id,
-                      conversationId: newConversation.id,
-                      title: newConversation.title
+                      sessionId: undefined,
+                      conversationId: null,
+                      isNewConversation: true
                     })
                     
                     // Refresh conversation list

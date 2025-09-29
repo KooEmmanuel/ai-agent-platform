@@ -65,6 +65,7 @@ export interface Conversation {
     created_at: string
   }>
   created_at: string
+  workspace_id?: number
 }
 
 export interface PlaygroundResponse {
@@ -74,6 +75,18 @@ export interface PlaygroundResponse {
   agent_id: number
   tools_used: string[]
   execution_time: number
+}
+
+export interface Workspace {
+  id: number
+  name: string
+  description?: string
+  parent_id?: number
+  color?: string
+  icon?: string
+  is_default: boolean
+  created_at: string
+  updated_at: string
 }
 
 class ApiClient {
@@ -480,20 +493,24 @@ class ApiClient {
     session_id?: string,
     onChunk?: (chunk: any) => void,
     onError?: (error: any) => void,
-    onComplete?: (data: any) => void
+    onComplete?: (data: any) => void,
+    workspace_id?: number
   ): Promise<void> {
     try {
       if (!this.token) {
         throw new Error('No valid authentication token')
       }
 
+      const requestBody = { message, session_id, workspace_id }
+      console.log('📤 Sending request body:', requestBody)
+      
       const response = await fetch(`${this.baseUrl}/api/v1/playground/${agent_id}/chat/stream`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${this.token}`,
         },
-        body: JSON.stringify({ message, session_id }),
+        body: JSON.stringify(requestBody),
       })
 
       if (!response.ok) {
@@ -614,6 +631,50 @@ class ApiClient {
     return this.request(`/playground/${agent_id}/conversations/${conversation_id}`, {
       method: 'DELETE'
     })
+  }
+
+  // Workspaces
+  async getWorkspaces(agent_id: number): Promise<Workspace[]> {
+    return this.request<Workspace[]>(`/playground/${agent_id}/workspaces`)
+  }
+
+  async createWorkspace(agent_id: number, data: {
+    name: string
+    description?: string
+    parent_id?: number
+    color?: string
+    icon?: string
+  }): Promise<Workspace> {
+    return this.request<Workspace>(`/playground/${agent_id}/workspaces`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  }
+
+  async updateWorkspace(agent_id: number, workspace_id: number, data: {
+    name?: string
+    description?: string
+    color?: string
+    icon?: string
+  }): Promise<Workspace> {
+    return this.request<Workspace>(`/playground/${agent_id}/workspaces/${workspace_id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    })
+  }
+
+  async deleteWorkspace(agent_id: number, workspace_id: number): Promise<{ message: string }> {
+    return this.request(`/playground/${agent_id}/workspaces/${workspace_id}`, {
+      method: 'DELETE'
+    })
+  }
+
+  async getPlaygroundConversationsWithWorkspace(agent_id: number, workspace_id?: number): Promise<Conversation[]> {
+    const params = new URLSearchParams()
+    if (workspace_id !== undefined) {
+      params.append('workspace_id', workspace_id.toString())
+    }
+    return this.request<Conversation[]>(`/playground/${agent_id}/conversations?${params.toString()}`)
   }
 
   // Tool Categories and Types

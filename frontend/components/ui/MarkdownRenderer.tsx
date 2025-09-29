@@ -16,8 +16,8 @@ export default function MarkdownRenderer({ content, className = "" }: Props) {
         // Try to import remark
         let remark = null
         try {
-          const remarkModule = await import("remark")
-          remark = remarkModule.remark || (remarkModule as any).default
+                  const remarkModule = await import("remark")
+        remark = remarkModule.remark || (remarkModule as any).default
         } catch (err) {
           console.warn("Remark not available, using fallback")
         }

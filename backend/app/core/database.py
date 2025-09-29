@@ -220,6 +220,7 @@ class User(Base):
     credit_transactions = relationship("CreditTransaction", back_populates="user")
     agents = relationship("Agent", back_populates="user")
     conversations = relationship("Conversation", back_populates="user")
+    workspaces = relationship("Workspace", back_populates="user")
     tools = relationship("Tool", back_populates="user")
     user_tools = relationship("UserTool", back_populates="user")
     integrations = relationship("Integration", back_populates="user")
@@ -340,6 +341,26 @@ class Integration(Base):
     user = relationship("User", back_populates="integrations")
     agent = relationship("Agent")
 
+class Workspace(Base):
+    __tablename__ = "workspaces"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    parent_id = Column(Integer, ForeignKey("workspaces.id"), nullable=True)  # For hierarchy
+    color = Column(String, nullable=True)  # UI color
+    icon = Column(String, nullable=True)  # UI icon
+    is_default = Column(Boolean, default=False)  # Default workspace
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    user = relationship("User", back_populates="workspaces")
+    parent = relationship("Workspace", remote_side=[id], back_populates="children")
+    children = relationship("Workspace", back_populates="parent")
+    conversations = relationship("Conversation", back_populates="workspace")
+
 class Conversation(Base):
     __tablename__ = "conversations"
     
@@ -359,12 +380,16 @@ class Conversation(Base):
     linked_email = Column(String, nullable=True, index=True)  # Optional email for persistence
     expires_at = Column(DateTime, nullable=True)  # NULL for persistent conversations
     
+    # Workspace support
+    workspace_id = Column(Integer, ForeignKey("workspaces.id"), nullable=True)  # Optional workspace
+    
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
     
     # Relationships
     user = relationship("User", back_populates="conversations")
     agent = relationship("Agent", back_populates="conversations")
+    workspace = relationship("Workspace", back_populates="conversations")
     messages = relationship("Message", back_populates="conversation")
     credit_transactions = relationship("CreditTransaction", back_populates="conversation")
 
