@@ -37,6 +37,7 @@ from .website_knowledge_base import WebsiteKnowledgeBaseTool
 from .reddit_tool import RedditTool
 from .rss_feed_tool import RSSFeedTool
 from .telegram_tool import TelegramTool
+from .web_automation_tool import WebAutomationTool
 
 __all__ = [
     'WebSearchTool',
@@ -70,5 +71,6 @@ __all__ = [
     'WebsiteKnowledgeBaseTool',
     'RedditTool',
     'RSSFeedTool',
-    'TelegramTool'
+    'TelegramTool',
+    'WebAutomationTool'
 ] 

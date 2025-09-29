@@ -599,3 +599,50 @@ class WebAutomationTool(BaseTool):
                 'error': str(e),
                 'status': 'error'
             }
+    
+    def get_tool_info(self) -> Dict[str, Any]:
+        """
+        Get information about this tool.
+        
+        Returns:
+            Tool information dictionary
+        """
+        return {
+            'name': self.name,
+            'description': self.description,
+            'category': self.category,
+            'tool_type': self.tool_type,
+            'capabilities': [
+                'Navigate to websites',
+                'Fill web forms automatically',
+                'Click buttons and links',
+                'Extract data from web pages',
+                'Take screenshots',
+                'Generate PDFs from web pages',
+                'Execute JavaScript code',
+                'Mobile device emulation',
+                'Multi-browser support (Chromium, Firefox, WebKit)',
+                'Headless and headed browser modes'
+            ],
+            'supported_actions': [
+                'navigate',
+                'fill_form', 
+                'click',
+                'extract_data',
+                'screenshot',
+                'pdf',
+                'evaluate_js'
+            ],
+            'supported_browsers': ['chromium', 'firefox', 'webkit'],
+            'parameters': {
+                'action': 'Action to perform (required)',
+                'url': 'URL to navigate to (for navigate action)',
+                'form_data': 'Form data to fill (for fill_form action)',
+                'selector': 'CSS selector for click or extract actions',
+                'extract_selectors': 'Selectors for data extraction',
+                'screenshot_path': 'Path to save screenshot',
+                'pdf_path': 'Path to save PDF',
+                'javascript': 'JavaScript code to execute',
+                'wait_time': 'Time to wait after action (milliseconds)'
+            }
+        }

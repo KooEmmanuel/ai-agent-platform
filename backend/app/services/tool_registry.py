@@ -43,9 +43,7 @@ from marketplace_tools import (
     MongoDBAdvancedTool,
     PDFGeneratorTool,
     WebsiteKnowledgeBaseTool,
-    RedditTool,
-    RSSFeedTool,
-    TelegramTool
+    WebAutomationTool
 )
 
 logger = logging.getLogger(__name__)
@@ -62,9 +60,6 @@ class ToolRegistry:
             # Search tools
             'web_search': WebSearchTool,
             'news_search': NewsSearchTool,
-            'reddit_tool': RedditTool,
-            'rss_feed_tool': RSSFeedTool,
-            'telegram_tool': TelegramTool,
             
             # Data tools
             'database_query': DatabaseQueryTool,
@@ -106,6 +101,9 @@ class ToolRegistry:
             
             # Analysis tools
             'text_analyzer': TextAnalyzerTool,
+            
+            # Web automation tools
+            'web_automation': WebAutomationTool,
         }
         
         # Tool name aliases for backward compatibility
