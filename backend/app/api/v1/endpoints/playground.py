@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 import asyncio
 import json
+import time
 
 from app.core.auth import get_current_user
 from app.core.database import get_db, User, Agent, Tool, Conversation, Message, Workspace
@@ -19,7 +20,7 @@ router = APIRouter()
 # Pydantic models
 class PlaygroundMessage(BaseModel):
     message: str
-    session_id: Optional[str] = None
+    conversation_id: Optional[int] = None
     workspace_id: Optional[int] = None
 
 class PlaygroundResponse(BaseModel):
@@ -46,7 +47,7 @@ async def chat_with_agent_stream(
     import time
     start_time = time.time()
     
-    print(f"📨 Received message data: workspace_id={message_data.workspace_id}, session_id={message_data.session_id}")
+    print(f"📨 Received message data: workspace_id={message_data.workspace_id}, conversation_id={message_data.conversation_id}")
     
     # Get agent
     result = await db.execute(
@@ -84,22 +85,26 @@ async def chat_with_agent_stream(
         )
     
     # Get or create conversation
-    session_id = message_data.session_id or f"playground_{agent_id}_{current_user.id}"
+    conversation = None
     
-    result = await db.execute(
-        select(Conversation).where(
-            Conversation.agent_id == agent_id,
-            Conversation.session_id == session_id
+    # If conversation_id is provided, use existing conversation
+    if message_data.conversation_id:
+        result = await db.execute(
+            select(Conversation).where(
+                Conversation.id == message_data.conversation_id,
+                Conversation.agent_id == agent_id,
+                Conversation.user_id == current_user.id
+            )
         )
-    )
-    conversation = result.scalar_one_or_none()
+        conversation = result.scalar_one_or_none()
+        print(f"🔍 Looking for existing conversation {message_data.conversation_id}: {'found' if conversation else 'not found'}")
     
     if not conversation:
         print(f"🆕 Creating new conversation with workspace_id: {message_data.workspace_id}")
         conversation = Conversation(
             agent_id=agent_id,
             user_id=current_user.id,
-            session_id=session_id,
+            session_id=f"conversation_{int(time.time())}",
             workspace_id=message_data.workspace_id,
             title=f"Playground Session - {agent.name}"
         )
@@ -135,7 +140,7 @@ async def chat_with_agent_stream(
                 agent=agent,
                 user_message=message_data.message,
                 conversation_history=conversation_history,
-                session_id=session_id
+                session_id=f"conversation_{conversation.id}"
             ):
                 chunk_type = chunk.get("type")
                 content = chunk.get("content", "")
@@ -154,8 +159,8 @@ async def chat_with_agent_stream(
                 elif chunk_type == "complete":
                     tools_used = chunk.get("tools_used", [])
                     print(f"✅ Playground stream completed with {len(tools_used)} tools used, full_response length: {len(full_response)}")
-                    # Send completion with the full response content
-                    yield f"data: {json.dumps({'type': 'complete', 'content': chunk.get('content', full_response), 'tools_used': tools_used})}\n\n"
+                    # Send completion with the full response content and conversation_id
+                    yield f"data: {json.dumps({'type': 'complete', 'content': chunk.get('content', full_response), 'tools_used': tools_used, 'conversation_id': conversation.id})}\n\n"
                     break
                 
                 elif chunk_type == "error":
@@ -224,8 +229,9 @@ async def chat_with_agent_stream(
                 await db.commit()
                 print(f"✅ Assistant message committed to database successfully")
                 
+                # Send metadata after completion (this won't break streaming since complete already returned)
                 execution_time = time.time() - start_time
-                yield f"data: {json.dumps({'type': 'metadata', 'execution_time': execution_time, 'session_id': session_id, 'conversation_id': conversation.id})}\n\n"
+                yield f"data: {json.dumps({'type': 'metadata', 'execution_time': execution_time, 'session_id': f'conversation_{conversation.id}', 'conversation_id': conversation.id})}\n\n"
             
         except Exception as e:
             print(f"❌ Playground streaming error: {str(e)}")
@@ -289,22 +295,26 @@ async def chat_with_agent(
         )
     
     # Get or create conversation
-    session_id = message_data.session_id or f"playground_{agent_id}_{current_user.id}"
+    conversation = None
     
-    result = await db.execute(
-        select(Conversation).where(
-            Conversation.agent_id == agent_id,
-            Conversation.session_id == session_id
+    # If conversation_id is provided, use existing conversation
+    if message_data.conversation_id:
+        result = await db.execute(
+            select(Conversation).where(
+                Conversation.id == message_data.conversation_id,
+                Conversation.agent_id == agent_id,
+                Conversation.user_id == current_user.id
+            )
         )
-    )
-    conversation = result.scalar_one_or_none()
+        conversation = result.scalar_one_or_none()
+        print(f"🔍 Looking for existing conversation {message_data.conversation_id}: {'found' if conversation else 'not found'}")
     
     if not conversation:
         print(f"🆕 Creating new conversation with workspace_id: {message_data.workspace_id}")
         conversation = Conversation(
             agent_id=agent_id,
             user_id=current_user.id,
-            session_id=session_id,
+            session_id=f"conversation_{int(time.time())}",
             workspace_id=message_data.workspace_id,
             title=f"Playground Session - {agent.name}"
         )
@@ -333,7 +343,7 @@ async def chat_with_agent(
         agent=agent,
         user_message=message_data.message,
         conversation_history=conversation_history,
-        session_id=session_id
+        session_id=f"conversation_{conversation.id}"
     )
     
     # Save agent response
@@ -387,12 +397,14 @@ async def chat_with_agent(
     
     return PlaygroundResponse(
         response=agent_response,
-        session_id=session_id,
+        session_id=f"conversation_{conversation.id}",
         conversation_id=conversation.id,
         agent_id=str(agent_id),
         tools_used=tools_used,
         execution_time=execution_time
     )
+
+# Removed the create_conversation endpoint - conversations should only be created when messages are sent
 
 @router.get("/{agent_id}/conversations", response_model=List[ConversationHistory])
 async def get_playground_conversations(

@@ -479,18 +479,18 @@ class ApiClient {
   async chatWithAgent(
     agent_id: number,
     message: string,
-    session_id?: string
+    conversation_id?: number
   ): Promise<PlaygroundResponse> {
     return this.request<PlaygroundResponse>(`/playground/${agent_id}/chat`, {
       method: 'POST',
-      body: JSON.stringify({ message, session_id }),
+      body: JSON.stringify({ message, conversation_id }),
     })
   }
 
   async chatWithAgentStream(
     agent_id: number,
     message: string,
-    session_id?: string,
+    conversation_id?: number,
     onChunk?: (chunk: any) => void,
     onError?: (error: any) => void,
     onComplete?: (data: any) => void,
@@ -501,7 +501,7 @@ class ApiClient {
         throw new Error('No valid authentication token')
       }
 
-      const requestBody = { message, session_id, workspace_id }
+      const requestBody = { message, conversation_id, workspace_id }
       console.log('📤 Sending request body:', requestBody)
       
       const response = await fetch(`${this.baseUrl}/api/v1/playground/${agent_id}/chat/stream`, {
@@ -562,6 +562,9 @@ class ApiClient {
               } else if (data.type === 'complete') {
                 onComplete?.(data)
                 return
+              } else if (data.type === 'metadata') {
+                // Handle metadata as a chunk, don't stop streaming
+                onChunk?.(data)
               } else {
                 onChunk?.(data)
               }
@@ -579,6 +582,8 @@ class ApiClient {
   async getPlaygroundConversations(agent_id: number): Promise<Conversation[]> {
     return this.request<Conversation[]>(`/playground/${agent_id}/conversations`)
   }
+
+  // Removed createPlaygroundConversation - conversations should only be created when messages are sent
 
   async createConversation(agent_id: number, title?: string): Promise<{
     id: number

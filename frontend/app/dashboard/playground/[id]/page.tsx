@@ -37,31 +37,38 @@ export default function AgentPlaygroundPage() {
     return p ? parseInt(p, 10) : NaN
   }, [params])
 
+  // Core state
   const [agent, setAgent] = useState<Agent | null>(null)
-  const [sessionId, setSessionId] = useState<string | undefined>(undefined)
+  const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  
+  // Chat state
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [showSettings, setShowSettings] = useState(false)
-  const [selectedModel, setSelectedModel] = useState('gpt-4o-mini')
-  const [sidebarVisible, setSidebarVisible] = useState(true)
-  const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
-  const [editInput, setEditInput] = useState('')
-  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
-  const [streamingMode, setStreamingMode] = useState(true) // Enable streaming by default
+  const [streamingMode, setStreamingMode] = useState(true)
   const [streamingStatus, setStreamingStatus] = useState<string | null>(null)
-  const [creatingConversation, setCreatingConversation] = useState(false)
+  
+  // Conversation state
+  const [currentConversationId, setCurrentConversationId] = useState<number | null>(null)
   const [conversations, setConversations] = useState<any[]>([])
   const [loadingConversations, setLoadingConversations] = useState(false)
-  const [isNewConversation, setIsNewConversation] = useState(false)
-  const [currentConversationId, setCurrentConversationId] = useState<number | null>(null)
   const [loadingConversation, setLoadingConversation] = useState(false)
-  const [user, setUser] = useState<User | null>(null)
+  
+  // Workspace state
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<number | undefined>(undefined)
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const [showWorkspaceManager, setShowWorkspaceManager] = useState(false)
+  
+  // UI state
+  const [sidebarVisible, setSidebarVisible] = useState(true)
+  const [showSettings, setShowSettings] = useState(false)
+  const [selectedModel, setSelectedModel] = useState('gpt-4o-mini')
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
+  const [editInput, setEditInput] = useState('')
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
+  const [creatingConversation, setCreatingConversation] = useState(false)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
 
   // Workspace management functions
@@ -81,18 +88,10 @@ export default function AgentPlaygroundPage() {
     setSelectedWorkspaceId(workspaceId)
     loadConversations(agent, workspaceId)
     
-    // Clear current session when switching workspaces
-    console.log('🧹 Clearing current session for workspace switch')
+    // Clear current conversation when switching workspaces
+    console.log('🧹 Clearing current conversation for workspace switch')
     setMessages([])
-    setSessionId(undefined)
     setCurrentConversationId(null)
-    setIsNewConversation(true)
-    
-    // Clear localStorage
-    if (typeof window !== 'undefined' && agent) {
-      localStorage.removeItem(`playground_session_${agent.id}`)
-      localStorage.removeItem(`playground_conversation_${agent.id}`)
-    }
     
     console.log('✅ Workspace context set - ready for new conversation in workspace:', workspaceId)
   }
@@ -136,68 +135,19 @@ export default function AgentPlaygroundPage() {
     }
   }
 
-  // Load current session messages if session exists
-  const loadCurrentSession = async () => {
-    if (!agent || !sessionId) return
+  // Load current conversation if it exists
+  const loadCurrentConversation = async () => {
+    if (!agent || !currentConversationId) return
     
     try {
-      console.log('📂 Loading current session messages:', sessionId)
-      
-      // If sessionId starts with 'conversation_', extract the ID and load that conversation
-      if (sessionId.startsWith('conversation_')) {
-        const conversationId = sessionId.replace('conversation_', '')
-        await loadConversation(conversationId)
-        return
-      }
-      
-      // For auto-generated sessions, find the conversation by session_id or currentConversationId
-      let currentConversation = null
-      
-      // First try to find by currentConversationId
-      if (currentConversationId) {
-        currentConversation = conversations.find(conv => conv.id.toString() === currentConversationId.toString())
-      }
-      
-      // If not found, try to find by session_id
-      if (!currentConversation) {
-        currentConversation = conversations.find(conv => conv.session_id === sessionId)
-      }
-      
-      if (currentConversation) {
-        console.log('✅ Found current session conversation:', currentConversation.id)
-        await loadConversation(currentConversation.id.toString())
-      } else {
-        console.log('📂 No matching conversation found for session:', sessionId)
-        console.log('📂 Clearing session state and refreshing conversations...')
-        
-        // Clear messages if no matching conversation
-        setMessages([])
-        setSessionId(undefined)
-        setCurrentConversationId(null)
-        setIsNewConversation(true) // Reset to new conversation state
-        
-        // Clear localStorage
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem(`playground_session_${agent.id}`)
-          localStorage.removeItem(`playground_conversation_${agent.id}`)
-        }
-        
-        // Refresh conversations to get latest list
-        await loadConversations()
-      }
+      console.log('📂 Loading current conversation:', currentConversationId)
+      await loadConversation(currentConversationId.toString())
     } catch (error) {
-      console.error('❌ Failed to load current session:', error)
+      console.error('❌ Failed to load current conversation:', error)
       
       // Clear state on error
       setMessages([])
-      setSessionId(undefined)
       setCurrentConversationId(null)
-      setIsNewConversation(true)
-      
-      if (typeof window !== 'undefined' && agent) {
-        localStorage.removeItem(`playground_session_${agent.id}`)
-        localStorage.removeItem(`playground_conversation_${agent.id}`)
-      }
     }
   }
 
@@ -219,23 +169,12 @@ export default function AgentPlaygroundPage() {
       }))
       
       setMessages(chatMessages)
-      // Use the actual session_id from the backend instead of constructing it
-      setSessionId(conversationData.session_id)
       setCurrentConversationId(parseInt(conversationId))
-      setIsNewConversation(false) // Loading an existing conversation
-      
-      // Store the session_id in localStorage for persistence
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(`playground_session_${agent.id}`, conversationData.session_id)
-        localStorage.setItem(`playground_conversation_${agent.id}`, conversationId)
-      }
       
       console.log('✅ Loaded conversation:', {
         conversationId,
         messageCount: chatMessages.length,
-        sessionId: conversationData.session_id,
-        currentConversationId: parseInt(conversationId),
-        isNewConversation: false
+        currentConversationId: parseInt(conversationId)
       })
       
       // Close sidebar on mobile
@@ -256,7 +195,6 @@ export default function AgentPlaygroundPage() {
     
     if (!agent) return
     
- 
     try {
       console.log('🗑️ Deleting conversation:', conversationId)
       await apiClient.deleteConversation(agent.id, parseInt(conversationId))
@@ -265,15 +203,9 @@ export default function AgentPlaygroundPage() {
       setConversations(prev => prev.filter(conv => conv.id.toString() !== conversationId))
       
       // If this was the current conversation, clear messages
-      if (sessionId === `conversation_${conversationId}` || currentConversationId === parseInt(conversationId)) {
+      if (currentConversationId === parseInt(conversationId)) {
         setMessages([])
-        setSessionId(undefined)
         setCurrentConversationId(null)
-        setIsNewConversation(false) // Don't show "New Conversation" indicator
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem(`playground_session_${agent.id}`)
-          localStorage.removeItem(`playground_conversation_${agent.id}`)
-        }
       }
       
       console.log('✅ Conversation deleted successfully')
@@ -332,19 +264,6 @@ export default function AgentPlaygroundPage() {
     }
     apiClient.setToken(token)
 
-    const storedSession = typeof window !== 'undefined' ? localStorage.getItem(`playground_session_${agentId}`) : null
-    const storedConversation = typeof window !== 'undefined' ? localStorage.getItem(`playground_conversation_${agentId}`) : null
-    
-    if (storedSession && storedConversation) {
-      console.log('📂 Found stored session and conversation:', { session: storedSession, conversation: storedConversation })
-      setSessionId(storedSession)
-      setCurrentConversationId(parseInt(storedConversation))
-      setIsNewConversation(false)
-    } else {
-      console.log('📂 No stored session/conversation found, starting fresh')
-      setIsNewConversation(true) // Show "New Conversation" indicator for fresh sessions
-    }
-
     ;(async () => {
       try {
         setLoading(true)
@@ -357,11 +276,6 @@ export default function AgentPlaygroundPage() {
         
         // Load conversations for this agent (now that we have the agent data)
         await loadConversations(data)
-        
-        // Load current session if it exists
-        if (storedSession && storedConversation) {
-          await loadCurrentSession()
-        }
       } catch (e: any) {
         setError(e?.message || 'Failed to load agent')
       } finally {
@@ -370,12 +284,12 @@ export default function AgentPlaygroundPage() {
     })()
   }, [agentId])
 
-  // Load current session when conversations are loaded and session exists
+  // Load current conversation when conversations are loaded and conversation exists
   useEffect(() => {
-    if (conversations.length > 0 && sessionId && agent) {
-      loadCurrentSession()
+    if (conversations.length > 0 && currentConversationId && agent) {
+      loadCurrentConversation()
     }
-  }, [conversations, sessionId, agent])
+  }, [conversations, currentConversationId, agent])
 
   const sendMessage = async () => {
     if (!input.trim() || !agent || sending) return
@@ -383,8 +297,6 @@ export default function AgentPlaygroundPage() {
     console.log('📤 Sending message...')
     console.log('📋 Message details:', {
       content: input.trim(),
-      sessionId: sessionId,
-      isNewConversation: isNewConversation,
       currentConversationId: currentConversationId,
       agentId: agent.id,
       agentName: agent.name,
@@ -401,10 +313,8 @@ export default function AgentPlaygroundPage() {
     setSending(true)
     setStreamingStatus(null)
     
-    // Show appropriate status for new conversations
-    if (messages.length === 0 && !sessionId) {
-      setStreamingStatus('Creating new conversation...')
-    }
+    // Note: Conversation will be created by the backend when we send the message
+    // No need to create it upfront - let the backend handle it
 
     const userMsg: ChatMessage = {
       id: `${Date.now()}_user`,
@@ -430,8 +340,9 @@ export default function AgentPlaygroundPage() {
         await apiClient.chatWithAgentStream(
           agent.id,
           userMsg.content,
-          sessionId,
+          currentConversationId, // Send current conversation ID directly
           (chunk) => {
+            console.log('📦 Received chunk:', chunk)
             // Handle streaming chunks
             if (chunk.type === 'content') {
               // Add the message to the list if it's the first content chunk
@@ -451,6 +362,13 @@ export default function AgentPlaygroundPage() {
               })
             } else if (chunk.type === 'status') {
               setStreamingStatus(chunk.content)
+            } else if (chunk.type === 'metadata') {
+              console.log('📊 Received metadata:', chunk)
+              // Handle metadata immediately
+              if (chunk.conversation_id && !currentConversationId) {
+                setCurrentConversationId(chunk.conversation_id)
+                console.log('💾 Set conversation ID from metadata:', chunk.conversation_id)
+              }
             }
           },
           (error) => {
@@ -465,27 +383,23 @@ export default function AgentPlaygroundPage() {
             setSending(false)
           },
           async (data) => {
-            // Handle completion
-            if (data.session_id && typeof window !== 'undefined') {
-              localStorage.setItem(`playground_session_${agent.id}`, data.session_id)
-              setSessionId(data.session_id)
-              setIsNewConversation(false) // No longer a new conversation
+            console.log('📨 Received completion data:', data)
+            
+            // Handle completion - check for conversation_id in the complete message
+            const conversationId = data.conversation_id
+            
+            if (conversationId && !currentConversationId) {
+              setCurrentConversationId(conversationId)
+              console.log('💾 Set conversation ID:', conversationId)
               
-              // If this was a new conversation, store the conversation ID and refresh list
-              if (currentConversationId === null && data.conversation_id) {
-                setCurrentConversationId(data.conversation_id)
-                localStorage.setItem(`playground_conversation_${agent.id}`, data.conversation_id.toString())
-                console.log('💾 Stored new conversation ID:', data.conversation_id)
-                
-                if (selectedWorkspaceId) {
-                  console.log('🎉 New conversation created in workspace:', selectedWorkspaceId, 'with ID:', data.conversation_id)
-                } else {
-                  console.log('🎉 New conversation created in default workspace with ID:', data.conversation_id)
-                }
-                
-                // Refresh the conversation list to show the new conversation
-                await loadConversations()
+              if (selectedWorkspaceId) {
+                console.log('🎉 New conversation created in workspace:', selectedWorkspaceId, 'with ID:', conversationId)
+              } else {
+                console.log('🎉 New conversation created in default workspace with ID:', conversationId)
               }
+              
+              // Refresh the conversation list to show the new conversation
+              await loadConversations()
             }
             
             // Check for downloadable content
@@ -533,21 +447,13 @@ export default function AgentPlaygroundPage() {
         )
       } else {
         // Use regular mode
-        const resp = await apiClient.chatWithAgent(agent.id, userMsg.content, sessionId)
-        if (resp.session_id && typeof window !== 'undefined') {
-          localStorage.setItem(`playground_session_${agent.id}`, resp.session_id)
-          setSessionId(resp.session_id)
-          setIsNewConversation(false) // No longer a new conversation
+        const resp = await apiClient.chatWithAgent(agent.id, userMsg.content, currentConversationId)
+        if (resp.conversation_id && !currentConversationId) {
+          setCurrentConversationId(resp.conversation_id)
+          console.log('💾 Set conversation ID:', resp.conversation_id)
           
-          // If this was a new conversation, store the conversation ID and refresh list
-          if (currentConversationId === null && resp.conversation_id) {
-            setCurrentConversationId(resp.conversation_id)
-            localStorage.setItem(`playground_conversation_${agent.id}`, resp.conversation_id.toString())
-            console.log('💾 Stored new conversation ID:', resp.conversation_id)
-            
-            // Refresh the conversation list to show the new conversation
-            await loadConversations()
-          }
+          // Refresh the conversation list to show the new conversation
+          await loadConversations()
         }
         
         // Check if response contains downloadable content
@@ -655,7 +561,7 @@ export default function AgentPlaygroundPage() {
     setEditInput('')
 
     try {
-      const resp = await apiClient.chatWithAgent(agent.id, updatedUserMsg.content, sessionId)
+      const resp = await apiClient.chatWithAgent(agent.id, updatedUserMsg.content, currentConversationId)
       const aiMsg: ChatMessage = {
         id: `${Date.now()}_assistant`,
         role: 'assistant',
@@ -1166,48 +1072,15 @@ export default function AgentPlaygroundPage() {
             <div className="space-y-3">
               {/* New Chat Button */}
               <button 
-                onClick={async () => {
-                  try {
-                    console.log('🔄 Starting new conversation creation...')
-                    console.log('📊 Agent details:', { id: agent.id, name: agent.name })
-                    
-                    setCreatingConversation(true)
-                    setError(null)
-                    
-                    // Clear state for fresh start
-                    console.log('🧹 Clearing state for fresh start...')
-                    setMessages([])
-                    setSessionId(undefined)
-                    setCurrentConversationId(null)
-                    setIsNewConversation(true) // Show "New Conversation" indicator
-                    
-                    // Clear localStorage to start fresh
-                    if (typeof window !== 'undefined') {
-                      localStorage.removeItem(`playground_session_${agent.id}`)
-                      localStorage.removeItem(`playground_conversation_${agent.id}`)
-                    }
-                    
-                    console.log('🎉 Ready for new conversation!')
-                    console.log('📋 Final state:', {
-                      sessionId: undefined,
-                      conversationId: null,
-                      isNewConversation: true
-                    })
-                    
-                    // Refresh conversation list
-                    await loadConversations()
-                  } catch (error) {
-                    console.error('❌ Failed to create new conversation:', error)
-                    console.error('🔍 Error details:', {
-                      message: error.message,
-                      status: error.status,
-                      response: error.response
-                    })
-                    setError('Failed to create new conversation')
-                  } finally {
-                    console.log('🏁 Conversation creation process completed')
-                    setCreatingConversation(false)
-                  }
+                onClick={() => {
+                  console.log('🔄 Starting new conversation...')
+                  
+                  // Clear current state - don't create conversation yet
+                  setMessages([])
+                  setCurrentConversationId(null)
+                  setError(null)
+                  
+                  console.log('🎉 Ready for new conversation - user can start typing')
                 }}
                 disabled={creatingConversation}
                 className="w-full rounded-xl py-3 px-4 text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
@@ -1224,46 +1097,6 @@ export default function AgentPlaygroundPage() {
                 </span>
               </button>
 
-              {/* Current Session - Show if there are messages OR if it's a new conversation */}
-              {(messages.length > 0 || isNewConversation) && (
-                <div className="p-3 rounded-xl cursor-pointer hover:translate-x-1 transition-transform duration-150 relative group border-2 border-blue-300 bg-blue-50 shadow-sm" 
-                     style={{ background: 'linear-gradient(180deg, rgba(239,246,255,0.8), rgba(219,234,254,0.8))', boxShadow: '0 6px 18px rgba(59,130,246,0.1)' }}>
-                  {/* Active indicator */}
-                  <div className="absolute top-2 left-2 w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
-                  
-                  <div className="text-sm font-medium pl-6">
-                    {isNewConversation ? 'New Conversation' : 'Current Session'}
-                  </div>
-                  <div className="text-xs text-slate-600 mt-1 pl-6">
-                    {isNewConversation 
-                      ? 'Start typing to create a conversation' 
-                      : `${messages.length} messages • ${currentConversationId ? `ID: ${currentConversationId}` : 'Active'}`
-                    }
-                  </div>
-                  
-                  {/* Clear session button */}
-                  <button
-                    onClick={() => {
-                      if (confirm('Clear current session? This will remove all messages from the current conversation.')) {
-                        setMessages([])
-                        setSessionId(undefined)
-                        setCurrentConversationId(null)
-                        setIsNewConversation(true) // Show "New Conversation" indicator
-                        if (typeof window !== 'undefined' && agent) {
-                          localStorage.removeItem(`playground_session_${agent.id}`)
-                          localStorage.removeItem(`playground_conversation_${agent.id}`)
-                        }
-                      }
-                    }}
-                    className="absolute top-2 right-2 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-red-100 text-red-500"
-                    title={isNewConversation ? "Cancel new conversation" : "Clear current session"}
-                  >
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              )}
 
 
               {/* Conversation History */}
@@ -1279,7 +1112,7 @@ export default function AgentPlaygroundPage() {
                     return (
                       <div 
                         key={conversation.id}
-                        className={`p-3 rounded-xl cursor-pointer hover:translate-x-1 transition-transform duration-150 border relative group ${
+                        className={`p-2 rounded-lg cursor-pointer hover:translate-x-1 transition-transform duration-150 border relative group ${
                           isActive 
                             ? 'border-blue-300 bg-blue-50 shadow-sm' 
                             : 'border-slate-200 hover:border-slate-300'
@@ -1288,22 +1121,22 @@ export default function AgentPlaygroundPage() {
                       >
                         {/* Active indicator */}
                         {isActive && (
-                          <div className="absolute top-2 left-2 w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                          <div className="absolute top-1.5 left-1.5 w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></div>
                         )}
                         
-                        <div className={`text-sm font-medium truncate ${isActive ? 'pr-12' : 'pr-8'}`}>
+                        <div className={`text-xs font-medium truncate ${isActive ? 'pr-8' : 'pr-6'}`}>
                           {loadingConversation && currentConversationId === parseInt(conversation.id) ? (
                             <span className="text-blue-600">Loading...</span>
                           ) : (
                             conversation.messages?.length > 0 
-                              ? conversation.messages[0].content.substring(0, 30) + '...' 
+                              ? conversation.messages[0].content.substring(0, 25) + '...' 
                               : 'Empty conversation'
                           )}
                         </div>
-                        <div className="text-xs text-slate-400 mt-1">
-                          {conversation.messages?.length || 0} messages • {new Date(conversation.created_at).toLocaleDateString()}
+                        <div className="text-xs text-slate-400 mt-0.5">
+                          {conversation.messages?.length || 0} msgs • {new Date(conversation.created_at).toLocaleDateString()}
                           {isActive && (
-                            <span className="ml-2 text-blue-600 font-medium">• Active</span>
+                            <span className="ml-1 text-blue-600 font-medium">• Active</span>
                           )}
                         </div>
                         

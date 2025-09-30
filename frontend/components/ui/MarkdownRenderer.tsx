@@ -12,6 +12,11 @@ export default function MarkdownRenderer({ content, className = "" }: Props) {
     let cancelled = false
 
     async function render() {
+      // Safety check for undefined or null content
+      if (!content || typeof content !== 'string') {
+        setHtml('')
+        return
+      }
       try {
         // Try to import remark
         let remark = null
@@ -32,13 +37,22 @@ export default function MarkdownRenderer({ content, className = "" }: Props) {
         const remarkPlugins = []
         try {
           const gfm = await import("remark-gfm")
-          remarkPlugins.push(gfm.default || gfm)
+          const gfmPlugin = gfm.default || gfm
+          if (gfmPlugin && typeof gfmPlugin === 'function') {
+            remarkPlugins.push(gfmPlugin)
+          }
         } catch (err) {}
 
         try {
           const rehype = await import("remark-rehype")
           const rehypeModule = rehype.default || rehype
-          remarkPlugins.push(rehypeModule, { allowDangerousHtml: true })
+          if (rehypeModule && typeof rehypeModule === 'function') {
+            remarkPlugins.push(rehypeModule, { allowDangerousHtml: true })
+          } else {
+            console.warn("Remark-rehype not available")
+            setHtml(convertMarkdownToHtml(content))
+            return
+          }
         } catch (err) {
           console.warn("Remark-rehype not available")
           setHtml(convertMarkdownToHtml(content))
@@ -48,7 +62,13 @@ export default function MarkdownRenderer({ content, className = "" }: Props) {
         try {
           const rehypeStringify = await import("rehype-stringify")
           const stringifyModule = rehypeStringify.default || rehypeStringify
-          remarkPlugins.push(stringifyModule, { allowDangerousHtml: true })
+          if (stringifyModule && typeof stringifyModule === 'function') {
+            remarkPlugins.push(stringifyModule, { allowDangerousHtml: true })
+          } else {
+            console.warn("Rehype-stringify not available")
+            setHtml(convertMarkdownToHtml(content))
+            return
+          }
         } catch (err) {
           console.warn("Rehype-stringify not available")
           setHtml(convertMarkdownToHtml(content))
@@ -58,8 +78,18 @@ export default function MarkdownRenderer({ content, className = "" }: Props) {
         // Try syntax highlighting
         try {
           const highlight = await import("rehype-highlight")
-          remarkPlugins.push(highlight.default || highlight)
+          const highlightPlugin = highlight.default || highlight
+          if (highlightPlugin && typeof highlightPlugin === 'function') {
+            remarkPlugins.push(highlightPlugin)
+          }
         } catch (err) {}
+
+        // Only process if we have valid plugins
+        if (remarkPlugins.length === 0) {
+          console.warn("No valid remark plugins available, using fallback")
+          setHtml(convertMarkdownToHtml(content))
+          return
+        }
 
         // Process the markdown
         const processor = remark().use(remarkPlugins)
@@ -83,6 +113,9 @@ export default function MarkdownRenderer({ content, className = "" }: Props) {
   }, [content])
 
   function escapeHtml(md: string) {
+    if (!md || typeof md !== 'string') {
+      return ''
+    }
     return md
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
@@ -92,6 +125,11 @@ export default function MarkdownRenderer({ content, className = "" }: Props) {
   }
 
   function convertMarkdownToHtml(md: string) {
+    // Safety check for undefined or null content
+    if (!md || typeof md !== 'string') {
+      return ''
+    }
+    
     // First, handle JSON data blocks and other structured data
     let processed = md
       // JSON data blocks
