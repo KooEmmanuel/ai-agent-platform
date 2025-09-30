@@ -396,6 +396,15 @@ export const TOOL_METADATA: Record<string, ToolMetadata> = {
     description: 'Example website integration tool',
     category: 'Integration',
     toolType: 'API'
+  },
+  web_automation: {
+    displayName: 'Web Automation Tool',
+    icon: CommandLineIcon,
+    logo: 'https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/playwright.svg',
+    description: 'Automate web interactions using Playwright. Navigate websites, fill forms, extract data, take screenshots, and generate PDFs.',
+    category: 'Automation',
+    toolType: 'Function',
+    brandColor: '#2E8B57'
   }
 }
 

@@ -7,7 +7,7 @@ from datetime import datetime
 from app.core.database import get_db
 from app.core.auth import get_current_user
 from app.core.database import User
-from app.services.credit_service import CreditService
+from app.services.credit_manager import CreditManager
 
 router = APIRouter()
 
@@ -36,14 +36,27 @@ class UsageCostResponse(BaseModel):
     cost: float
     has_sufficient_credits: bool
 
+class CreditEstimateRequest(BaseModel):
+    operation_type: str  # "agent_conversation", "tool_execution", "integration_message"
+    tool_name: Optional[str] = None
+    expected_tokens: Optional[int] = 0
+    is_custom_tool: Optional[bool] = False
+
+class CreditEstimateResponse(BaseModel):
+    estimated_cost: float
+    base_cost: float
+    tool_cost: float
+    operation: str
+    has_sufficient_credits: bool
+
 @router.get("/balance", response_model=CreditBalanceResponse)
 async def get_credit_balance(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """Get user's current credit balance"""
-    credit_service = CreditService(db)
-    balance = await credit_service.get_usage_summary(current_user.id)
+    credit_manager = CreditManager(db)
+    balance = await credit_manager.get_usage_summary(current_user.id)
     return CreditBalanceResponse(**balance)
 
 @router.get("/transactions", response_model=List[CreditTransactionResponse])
@@ -54,8 +67,8 @@ async def get_credit_transactions(
     db: AsyncSession = Depends(get_db)
 ):
     """Get user's credit transaction history"""
-    credit_service = CreditService(db)
-    transactions = await credit_service.get_credit_transactions(
+    credit_manager = CreditManager(db)
+    transactions = await credit_manager.get_credit_transactions(
         current_user.id, limit, offset
     )
     
@@ -78,18 +91,19 @@ async def calculate_usage_cost(
     db: AsyncSession = Depends(get_db)
 ):
     """Calculate cost for a specific tool usage"""
-    credit_service = CreditService(db)
+    credit_manager = CreditManager(db)
     
-    cost = await credit_service.calculate_usage_cost(
+    cost = await credit_manager.calculate_usage_cost(
         request.tool_name,
         request.input_tokens,
         request.output_tokens,
         request.api_calls
     )
     
-    has_sufficient_credits = await credit_service.check_credit_balance(
+    credit_check = await credit_manager.check_credit_balance(
         current_user.id, cost
     )
+    has_sufficient_credits = credit_check['has_sufficient_credits']
     
     return UsageCostResponse(
         tool_name=request.tool_name,
@@ -108,9 +122,9 @@ async def deduct_credits(
     db: AsyncSession = Depends(get_db)
 ):
     """Deduct credits from user account (for internal use)"""
-    credit_service = CreditService(db)
+    credit_manager = CreditManager(db)
     
-    success = await credit_service.deduct_credits(
+    credit_result = await credit_manager.consume_credits(
         current_user.id,
         amount,
         description,
@@ -118,6 +132,7 @@ async def deduct_credits(
         conversation_id,
         tool_used
     )
+    success = credit_result['success']
     
     if not success:
         raise HTTPException(
@@ -133,8 +148,8 @@ async def initialize_credits(
     db: AsyncSession = Depends(get_db)
 ):
     """Initialize user with free credits (for new users)"""
-    credit_service = CreditService(db)
-    user_credits = await credit_service.initialize_user_credits(current_user.id)
+    credit_manager = CreditManager(db)
+    user_credits = await credit_manager.initialize_user_credits(current_user.id)
     
     return {
         "message": "Credits initialized successfully",
@@ -148,11 +163,11 @@ async def get_usage_summary(
     db: AsyncSession = Depends(get_db)
 ):
     """Get detailed usage summary"""
-    credit_service = CreditService(db)
-    summary = await credit_service.get_usage_summary(current_user.id)
+    credit_manager = CreditManager(db)
+    summary = await credit_manager.get_usage_summary(current_user.id)
     
     # Get recent transactions
-    recent_transactions = await credit_service.get_credit_transactions(
+    recent_transactions = await credit_manager.get_credit_transactions(
         current_user.id, limit=10
     )
     
@@ -167,4 +182,33 @@ async def get_usage_summary(
             }
             for t in recent_transactions
         ]
-    } 
+    }
+
+@router.post("/estimate", response_model=CreditEstimateResponse)
+async def estimate_operation_cost(
+    request: CreditEstimateRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Estimate credit cost for an operation before execution"""
+    credit_manager = CreditManager(db)
+    
+    estimate = await credit_manager.estimate_operation_cost(
+        operation_type=request.operation_type,
+        tool_name=request.tool_name,
+        expected_tokens=request.expected_tokens,
+        is_custom_tool=request.is_custom_tool
+    )
+    
+    # Check if user has sufficient credits
+    credit_check = await credit_manager.check_credit_balance(
+        current_user.id, estimate['estimated_cost']
+    )
+    
+    return CreditEstimateResponse(
+        estimated_cost=estimate['estimated_cost'],
+        base_cost=estimate['base_cost'],
+        tool_cost=estimate['tool_cost'],
+        operation=estimate['operation'],
+        has_sufficient_credits=credit_check['has_sufficient_credits']
+    ) 

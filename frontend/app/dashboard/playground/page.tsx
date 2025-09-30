@@ -94,36 +94,37 @@ export default function PlaygroundPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div className="space-y-4 sm:space-y-6">
+      {/* Mobile-First Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">AI Agent Playground</h1>
-          <p className="text-gray-600">Select an agent to test and interact with</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">AI Agent Playground</h1>
+          <p className="text-sm sm:text-base text-gray-600">Select an agent to test and interact with</p>
         </div>
+        {/* Desktop Create Button */}
         <Link
           href="/dashboard/agents/create"
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+          className="hidden sm:inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
         >
           <PlusIcon className="w-5 h-5 mr-2" />
           Create
         </Link>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Mobile-First Stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white p-6 rounded-xl shadow-[0_4px_20px_rgba(59,130,246,0.1)]"
+          className="bg-white p-3 sm:p-4 lg:p-6 rounded-lg sm:rounded-xl shadow-[0_2px_8px_rgba(59,130,246,0.08)] lg:shadow-[0_4px_20px_rgba(59,130,246,0.1)]"
         >
           <div className="flex items-center">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <CpuChipIcon className="w-6 h-6 text-blue-600" />
+            <div className="p-1.5 sm:p-2 bg-blue-100 rounded-lg">
+              <CpuChipIcon className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-blue-600" />
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Total Agents</p>
-              <p className="text-2xl font-bold text-gray-900">{agents.length}</p>
+            <div className="ml-2 sm:ml-3 lg:ml-4">
+              <p className="text-xs sm:text-sm font-medium text-gray-600">Total</p>
+              <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">{agents.length}</p>
             </div>
           </div>
         </motion.div>
@@ -132,15 +133,15 @@ export default function PlaygroundPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-white p-6 rounded-xl shadow-[0_4px_20px_rgba(59,130,246,0.1)]"
+          className="bg-white p-3 sm:p-4 lg:p-6 rounded-lg sm:rounded-xl shadow-[0_2px_8px_rgba(59,130,246,0.08)] lg:shadow-[0_4px_20px_rgba(59,130,246,0.1)]"
         >
           <div className="flex items-center">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <PlayIcon className="w-6 h-6 text-green-600" />
+            <div className="p-1.5 sm:p-2 bg-green-100 rounded-lg">
+              <PlayIcon className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-green-600" />
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Active Agents</p>
-              <p className="text-2xl font-bold text-gray-900">
+            <div className="ml-2 sm:ml-3 lg:ml-4">
+              <p className="text-xs sm:text-sm font-medium text-gray-600">Active</p>
+              <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">
                 {agents.filter(agent => agent.is_active).length}
               </p>
             </div>
@@ -151,15 +152,15 @@ export default function PlaygroundPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-white p-6 rounded-xl shadow-[0_4px_20px_rgba(59,130,246,0.1)]"
+          className="bg-white p-3 sm:p-4 lg:p-6 rounded-lg sm:rounded-xl shadow-[0_2px_8px_rgba(59,130,246,0.08)] lg:shadow-[0_4px_20px_rgba(59,130,246,0.1)]"
         >
           <div className="flex items-center">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <SparklesIcon className="w-6 h-6 text-purple-600" />
+            <div className="p-1.5 sm:p-2 bg-purple-100 rounded-lg">
+              <SparklesIcon className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-purple-600" />
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Ready to Test</p>
-              <p className="text-2xl font-bold text-gray-900">
+            <div className="ml-2 sm:ml-3 lg:ml-4">
+              <p className="text-xs sm:text-sm font-medium text-gray-600">Ready</p>
+              <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">
                 {agents.filter(agent => agent.is_active).length}
               </p>
             </div>
@@ -189,7 +190,7 @@ export default function PlaygroundPage() {
           </Link>
         </motion.div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {agents.map((agent, index) => (
             <motion.div
               key={agent.id}
@@ -282,6 +283,21 @@ export default function PlaygroundPage() {
           <li>• Test different queries to see how your agent responds</li>
           <li>• Use this to refine your agent's behavior and tools</li>
         </ul>
+      </motion.div>
+
+      {/* Mobile Floating Action Button */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0 }}
+        className="fixed bottom-6 right-6 z-50 sm:hidden"
+      >
+        <Link
+          href="/dashboard/agents/create"
+          className="w-14 h-14 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center group"
+        >
+          <PlusIcon className="w-6 h-6 transition-transform group-hover:scale-110" />
+        </Link>
       </motion.div>
     </div>
   )

@@ -4,10 +4,16 @@ import { useEffect, useMemo, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { ArrowLeftIcon, PaperAirplaneIcon, XMarkIcon, Bars3Icon, EyeSlashIcon, ClipboardIcon, PencilIcon, CheckIcon } from '@heroicons/react/24/outline'
+import { PanelRightClose } from 'lucide-react'
+import { PanelLeftClose } from 'lucide-react'
+import { HiOutlinePencilAlt } from "react-icons/hi"
 import Link from 'next/link'
-import { apiClient, type Agent } from '../../../../lib/api'
+import { apiClient, type Agent, type Workspace } from '../../../../lib/api'
+import { getUser, type User } from '../../../../lib/auth'
 import MarkdownRenderer from '../../../../components/ui/MarkdownRenderer'
 import DownloadableContent from '../../../../components/ui/DownloadableContent'
+import AudioInput from '../../../../components/AudioInput'
+import WorkspaceManager from '../../../../components/WorkspaceManager'
 
 type ChatMessage = {
   id: string
@@ -19,6 +25,7 @@ type ChatMessage = {
     fileType: string
     fileSize?: number
     showPreview?: boolean
+    downloadUrl?: string
   }
 }
 
@@ -51,24 +58,77 @@ export default function AgentPlaygroundPage() {
   const [isNewConversation, setIsNewConversation] = useState(false)
   const [currentConversationId, setCurrentConversationId] = useState<number | null>(null)
   const [loadingConversation, setLoadingConversation] = useState(false)
-  const endRef = useRef<HTMLDivElement>(null)
+  const [user, setUser] = useState<User | null>(null)
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<number | undefined>(undefined)
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([])
+  const [showWorkspaceManager, setShowWorkspaceManager] = useState(false)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
 
+  // Workspace management functions
+  const loadWorkspaces = async () => {
+    if (!agent) return
+    
+    try {
+      const workspacesData = await apiClient.getWorkspaces(agent.id)
+      setWorkspaces(workspacesData)
+    } catch (error) {
+      console.error('Failed to load workspaces:', error)
+    }
+  }
+
+  const handleWorkspaceSelect = (workspaceId: number | undefined) => {
+    console.log('🎯 Workspace selected:', workspaceId)
+    setSelectedWorkspaceId(workspaceId)
+    loadConversations(agent, workspaceId)
+    
+    // Clear current session when switching workspaces
+    console.log('🧹 Clearing current session for workspace switch')
+    setMessages([])
+    setSessionId(undefined)
+    setCurrentConversationId(null)
+    setIsNewConversation(true)
+    
+    // Clear localStorage
+    if (typeof window !== 'undefined' && agent) {
+      localStorage.removeItem(`playground_session_${agent.id}`)
+      localStorage.removeItem(`playground_conversation_${agent.id}`)
+    }
+    
+    console.log('✅ Workspace context set - ready for new conversation in workspace:', workspaceId)
+  }
+
+  const handleWorkspaceCreate = (workspace: Workspace) => {
+    setWorkspaces(prev => [workspace, ...prev])
+    setSelectedWorkspaceId(workspace.id)
+    loadConversations(agent, workspace.id)
+  }
+
   // Load conversations for this agent
-  const loadConversations = async (agentToUse?: any) => {
+  const loadConversations = async (agentToUse?: any, workspaceId?: number | undefined) => {
     const targetAgent = agentToUse || agent
     if (!targetAgent) return
     
     try {
       setLoadingConversations(true)
-      console.log('📂 Loading conversations for agent:', targetAgent.id)
-      const conversationsData = await apiClient.getPlaygroundConversations(targetAgent.id)
+      console.log('📂 Loading conversations for agent:', targetAgent.id, 'workspace:', workspaceId)
+      
+      // Use workspace-aware API call
+      const conversationsData = await apiClient.getPlaygroundConversationsWithWorkspace(
+        targetAgent.id, 
+        workspaceId
+      )
       setConversations(conversationsData)
       console.log('✅ Loaded conversations:', conversationsData.length)
       console.log('📂 Conversation details:', conversationsData.map(c => ({ 
         id: c.id, 
-        messageCount: c.messages?.length || 0 
+        messageCount: c.messages?.length || 0,
+        workspaceId: c.workspace_id || 'null' 
       })))
+      
+      // Debug: Log the actual conversation objects
+      if (conversationsData.length > 0) {
+        console.log('🔍 Full conversation data:', conversationsData[0])
+      }
     } catch (error) {
       console.error('❌ Failed to load conversations:', error)
     } finally {
@@ -82,20 +142,25 @@ export default function AgentPlaygroundPage() {
     
     try {
       console.log('📂 Loading current session messages:', sessionId)
-      console.log('📂 Available conversations:', conversations.map(c => ({ id: c.id })))
       
-      // Find the conversation that matches the current session
-      let currentConversation = null
-      
-      // Try to find by conversation ID (if sessionId is in format "conversation_123")
+      // If sessionId starts with 'conversation_', extract the ID and load that conversation
       if (sessionId.startsWith('conversation_')) {
         const conversationId = sessionId.replace('conversation_', '')
-        currentConversation = conversations.find(conv => conv.id.toString() === conversationId)
+        await loadConversation(conversationId)
+        return
       }
       
-      // If still not found, try to find by currentConversationId
-      if (!currentConversation && currentConversationId) {
+      // For auto-generated sessions, find the conversation by session_id or currentConversationId
+      let currentConversation = null
+      
+      // First try to find by currentConversationId
+      if (currentConversationId) {
         currentConversation = conversations.find(conv => conv.id.toString() === currentConversationId.toString())
+      }
+      
+      // If not found, try to find by session_id
+      if (!currentConversation) {
+        currentConversation = conversations.find(conv => conv.session_id === sessionId)
       }
       
       if (currentConversation) {
@@ -103,21 +168,32 @@ export default function AgentPlaygroundPage() {
         await loadConversation(currentConversation.id.toString())
       } else {
         console.log('📂 No matching conversation found for session:', sessionId)
-        console.log('📂 Clearing session state...')
+        console.log('📂 Clearing session state and refreshing conversations...')
+        
         // Clear messages if no matching conversation
         setMessages([])
         setSessionId(undefined)
         setCurrentConversationId(null)
+        setIsNewConversation(true) // Reset to new conversation state
+        
+        // Clear localStorage
         if (typeof window !== 'undefined') {
           localStorage.removeItem(`playground_session_${agent.id}`)
           localStorage.removeItem(`playground_conversation_${agent.id}`)
         }
+        
+        // Refresh conversations to get latest list
+        await loadConversations()
       }
     } catch (error) {
       console.error('❌ Failed to load current session:', error)
+      
+      // Clear state on error
       setMessages([])
       setSessionId(undefined)
       setCurrentConversationId(null)
+      setIsNewConversation(true)
+      
       if (typeof window !== 'undefined' && agent) {
         localStorage.removeItem(`playground_session_${agent.id}`)
         localStorage.removeItem(`playground_conversation_${agent.id}`)
@@ -143,14 +219,21 @@ export default function AgentPlaygroundPage() {
       }))
       
       setMessages(chatMessages)
-      setSessionId(`conversation_${conversationId}`)
+      // Use the actual session_id from the backend instead of constructing it
+      setSessionId(conversationData.session_id)
       setCurrentConversationId(parseInt(conversationId))
       setIsNewConversation(false) // Loading an existing conversation
+      
+      // Store the session_id in localStorage for persistence
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(`playground_session_${agent.id}`, conversationData.session_id)
+        localStorage.setItem(`playground_conversation_${agent.id}`, conversationId)
+      }
       
       console.log('✅ Loaded conversation:', {
         conversationId,
         messageCount: chatMessages.length,
-        sessionId: `conversation_${conversationId}`,
+        sessionId: conversationData.session_id,
         currentConversationId: parseInt(conversationId),
         isNewConversation: false
       })
@@ -173,10 +256,7 @@ export default function AgentPlaygroundPage() {
     
     if (!agent) return
     
-    if (!confirm('Are you sure you want to delete this conversation? This action cannot be undone.')) {
-      return
-    }
-    
+ 
     try {
       console.log('🗑️ Deleting conversation:', conversationId)
       await apiClient.deleteConversation(agent.id, parseInt(conversationId))
@@ -214,8 +294,16 @@ export default function AgentPlaygroundPage() {
 
 
 
+  // Load user data
   useEffect(() => {
-    // Scroll to bottom when messages change, but only within the messages container
+    const userData = getUser()
+    if (userData) {
+      setUser(userData)
+    }
+  }, [])
+
+  useEffect(() => {
+    // Scroll to bottom when messages change
     if (messages.length > 0 && messagesContainerRef.current) {
       // Use setTimeout to ensure DOM has updated
       setTimeout(() => {
@@ -227,7 +315,7 @@ export default function AgentPlaygroundPage() {
         }
       }, 100)
     }
-  }, [messages])
+  }, [messages, sending])
 
   useEffect(() => {
     if (!Number.isFinite(agentId)) {
@@ -254,7 +342,7 @@ export default function AgentPlaygroundPage() {
       setIsNewConversation(false)
     } else {
       console.log('📂 No stored session/conversation found, starting fresh')
-      setIsNewConversation(false) // Don't show "New Conversation" indicator
+      setIsNewConversation(true) // Show "New Conversation" indicator for fresh sessions
     }
 
     ;(async () => {
@@ -263,6 +351,9 @@ export default function AgentPlaygroundPage() {
         const data = await apiClient.getAgent(agentId)
         setAgent(data)
         setSelectedModel(data.model || 'gpt-4o-mini')
+        
+        // Load workspaces for this agent
+        await loadWorkspaces()
         
         // Load conversations for this agent (now that we have the agent data)
         await loadConversations(data)
@@ -296,12 +387,24 @@ export default function AgentPlaygroundPage() {
       isNewConversation: isNewConversation,
       currentConversationId: currentConversationId,
       agentId: agent.id,
-      agentName: agent.name
+      agentName: agent.name,
+      selectedWorkspaceId: selectedWorkspaceId
     })
+    
+    if (selectedWorkspaceId) {
+      console.log('🏢 Creating conversation in workspace:', selectedWorkspaceId)
+    } else {
+      console.log('📁 Creating conversation in default workspace (All Conversations)')
+    }
     
     setError(null)
     setSending(true)
     setStreamingStatus(null)
+    
+    // Show appropriate status for new conversations
+    if (messages.length === 0 && !sessionId) {
+      setStreamingStatus('Creating new conversation...')
+    }
 
     const userMsg: ChatMessage = {
       id: `${Date.now()}_user`,
@@ -351,21 +454,37 @@ export default function AgentPlaygroundPage() {
             }
           },
           (error) => {
-            setError(error || 'Streaming error occurred')
+            const errorMessage = error instanceof Error ? error.message : (error || 'Streaming error occurred')
+            
+            // Check if it's a credit-related error
+            if (errorMessage.includes('Insufficient credits') || errorMessage.includes('Payment Required') || errorMessage.includes('HTTP 402')) {
+              setError(`💳 Insufficient credits. Please purchase more credits to continue using the playground.`)
+            } else {
+              setError(errorMessage)
+            }
             setSending(false)
           },
-          (data) => {
+          async (data) => {
             // Handle completion
             if (data.session_id && typeof window !== 'undefined') {
               localStorage.setItem(`playground_session_${agent.id}`, data.session_id)
               setSessionId(data.session_id)
               setIsNewConversation(false) // No longer a new conversation
               
-              // If this was a new conversation, store the conversation ID
+              // If this was a new conversation, store the conversation ID and refresh list
               if (currentConversationId === null && data.conversation_id) {
                 setCurrentConversationId(data.conversation_id)
                 localStorage.setItem(`playground_conversation_${agent.id}`, data.conversation_id.toString())
                 console.log('💾 Stored new conversation ID:', data.conversation_id)
+                
+                if (selectedWorkspaceId) {
+                  console.log('🎉 New conversation created in workspace:', selectedWorkspaceId, 'with ID:', data.conversation_id)
+                } else {
+                  console.log('🎉 New conversation created in default workspace with ID:', data.conversation_id)
+                }
+                
+                // Refresh the conversation list to show the new conversation
+                await loadConversations()
               }
             }
             
@@ -375,14 +494,19 @@ export default function AgentPlaygroundPage() {
             
             try {
               const responseData = JSON.parse(data.content)
-              if (responseData.success && responseData.pdf_base64) {
+              if (responseData.success && responseData.download_url) {
+                // Use the download URL as-is (backend now provides full URL)
+                const downloadUrl = responseData.download_url
+                
                 downloadable = {
-                  filename: responseData.filename || 'document.pdf',
+                  filename: responseData.data?.filename || 'document.pdf',
                   fileType: 'application/pdf',
-                  fileSize: responseData.file_size,
-                  showPreview: true
+                  fileSize: responseData.data?.file_size,
+                  showPreview: true,
+                  downloadUrl: downloadUrl
                 }
-                content = responseData.pdf_base64
+                // Keep the original content, don't replace with download_url
+                content = data.content
               }
             } catch (e) {
               // Not JSON, treat as regular text response
@@ -404,7 +528,8 @@ export default function AgentPlaygroundPage() {
             
             setStreamingStatus(null)
             setSending(false)
-          }
+          },
+          selectedWorkspaceId
         )
       } else {
         // Use regular mode
@@ -414,11 +539,14 @@ export default function AgentPlaygroundPage() {
           setSessionId(resp.session_id)
           setIsNewConversation(false) // No longer a new conversation
           
-          // If this was a new conversation, store the conversation ID
+          // If this was a new conversation, store the conversation ID and refresh list
           if (currentConversationId === null && resp.conversation_id) {
             setCurrentConversationId(resp.conversation_id)
             localStorage.setItem(`playground_conversation_${agent.id}`, resp.conversation_id.toString())
             console.log('💾 Stored new conversation ID:', resp.conversation_id)
+            
+            // Refresh the conversation list to show the new conversation
+            await loadConversations()
           }
         }
         
@@ -428,14 +556,19 @@ export default function AgentPlaygroundPage() {
         
         try {
           const responseData = JSON.parse(resp.response)
-          if (responseData.success && responseData.pdf_base64) {
+          if (responseData.success && responseData.download_url) {
+            // Use the download URL as-is (backend now provides full URL)
+            const downloadUrl = responseData.download_url
+            
             downloadable = {
-              filename: responseData.filename || 'document.pdf',
+              filename: responseData.data?.filename || 'document.pdf',
               fileType: 'application/pdf',
-              fileSize: responseData.file_size,
-              showPreview: true
+              fileSize: responseData.data?.file_size,
+              showPreview: true,
+              downloadUrl: downloadUrl
             }
-            content = responseData.pdf_base64
+            // Keep the original content, don't replace with download_url
+            content = resp.response
           }
         } catch (e) {
           // Not JSON, treat as regular text response
@@ -446,7 +579,14 @@ export default function AgentPlaygroundPage() {
         setSending(false)
       }
     } catch (e: any) {
-      setError(e?.message || 'Failed to send message')
+      const errorMessage = e?.message || 'Failed to send message'
+      
+      // Check if it's a credit-related error
+      if (errorMessage.includes('Insufficient credits') || errorMessage.includes('Payment Required') || errorMessage.includes('HTTP 402')) {
+        setError(`💳 Insufficient credits. Please purchase more credits to continue using the playground.`)
+      } else {
+        setError(errorMessage)
+      }
       setSending(false)
     }
   }
@@ -547,13 +687,41 @@ export default function AgentPlaygroundPage() {
   }
 
   if (error) {
+    const isCreditError = error.includes('Insufficient credits') || error.includes('Payment Required') || error.includes('HTTP 402')
+    
     return (
       <div className="min-h-screen bg-gradient-to-b from-white to-slate-50 flex items-center justify-center">
         <div className="max-w-md w-full bg-white rounded-2xl p-6 text-center" style={{ boxShadow: '0 20px 60px rgba(99, 179, 237, 0.08)' }}>
-          <p className="text-red-600 mb-4">{error}</p>
-          <Link href="/dashboard" className="inline-flex items-center px-4 py-2 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
-            <ArrowLeftIcon className="w-4 h-4 mr-2" /> Back to Dashboard
-          </Link>
+          {isCreditError ? (
+            <>
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-yellow-100 flex items-center justify-center">
+                <span className="text-2xl">💳</span>
+              </div>
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">Insufficient Credits</h2>
+              <p className="text-gray-600 mb-6">{error}</p>
+              <div className="space-y-3">
+                <Link 
+                  href="/dashboard/billing" 
+                  className="inline-flex items-center justify-center w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Purchase Credits
+                </Link>
+                <Link 
+                  href="/dashboard" 
+                  className="inline-flex items-center justify-center w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <ArrowLeftIcon className="w-4 h-4 mr-2" /> Back to Dashboard
+                </Link>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-red-600 mb-4">{error}</p>
+              <Link href="/dashboard" className="inline-flex items-center px-4 py-2 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
+                <ArrowLeftIcon className="w-4 h-4 mr-2" /> Back to Dashboard
+              </Link>
+            </>
+          )}
         </div>
       </div>
     )
@@ -568,246 +736,46 @@ export default function AgentPlaygroundPage() {
   }
 
   return (
-    <div className="h-screen bg-gradient-to-b from-white to-slate-50 flex overflow-hidden">
+    <div className="h-screen  flex overflow-hidden">
       
       {/* Left Column - Controls */}
-      {sidebarVisible && (
-        <motion.aside 
-          initial={{ x: -300, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          exit={{ x: -300, opacity: 0 }}
-          transition={{ duration: 0.3 }}
-          className="w-80 p-4 lg:p-6 hidden lg:block flex-shrink-0"
-        >
-          <div className="rounded-2xl p-4 h-full bg-white" style={{ boxShadow: '0 10px 30px rgba(99, 179, 237, 0.08)' }}>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <Link 
-                  href="/dashboard/agents" 
-                  className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                >
-                  <ArrowLeftIcon className="w-4 h-4 lg:w-5 lg:h-5 text-gray-600" />
-                </Link>
-                <h3 className="text-base lg:text-lg font-semibold">Conversations</h3>
-              </div>
-              <button
-                onClick={loadConversations}
-                disabled={loadingConversations}
-                className="p-2 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
-                title="Refresh conversations"
-              >
-                <svg className="w-4 h-4 lg:w-5 lg:h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-              </button>
-              <button
-                onClick={() => setSidebarVisible(false)}
-                className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                title="Hide sidebar"
-              >
-                <EyeSlashIcon className="w-4 h-4 lg:w-5 lg:h-5 text-gray-600" />
-              </button>
-            </div>
-            
-            <div className="space-y-3">
-              {/* Current Session - Only show if there are messages */}
-              {messages.length > 0 && (
-                <div className="p-3 rounded-xl cursor-pointer hover:translate-x-1 transition-transform duration-150 relative group border-2 border-blue-300 bg-blue-50 shadow-sm" 
-                     style={{ background: 'linear-gradient(180deg, rgba(239,246,255,0.8), rgba(219,234,254,0.8))', boxShadow: '0 6px 18px rgba(59,130,246,0.1)' }}>
-                  {/* Active indicator */}
-                  <div className="absolute top-2 left-2 w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
-                  
-                  <div className="text-sm font-medium pl-6">
-                    Current Session
-                  </div>
-                  <div className="text-xs text-slate-600 mt-1 pl-6">
-                    {messages.length} messages • {currentConversationId ? `ID: ${currentConversationId}` : 'Active'}
-                  </div>
-                  
-                  {/* Clear session button */}
-                  <button
-                    onClick={() => {
-                      if (confirm('Clear current session? This will remove all messages from the current conversation.')) {
-                        setMessages([])
-                        setSessionId(undefined)
-                        setCurrentConversationId(null)
-                        setIsNewConversation(false) // Don't show "New Conversation" indicator
-                        if (typeof window !== 'undefined' && agent) {
-                          localStorage.removeItem(`playground_session_${agent.id}`)
-                          localStorage.removeItem(`playground_conversation_${agent.id}`)
-                        }
-                      }
-                    }}
-                    className="absolute top-2 right-2 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-red-100 text-red-500"
-                    title={isNewConversation ? "Cancel new conversation" : "Clear current session"}
-                  >
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              )}
-
-              {/* New Conversation Button */}
-              <button 
-                onClick={async () => {
-                  try {
-                    console.log('🔄 Starting new conversation creation...')
-                    console.log('📊 Agent details:', { id: agent.id, name: agent.name })
-                    
-                    setCreatingConversation(true)
-                    setError(null)
-                    
-                    // Create a new conversation in the database
-                    console.log('📡 Calling API to create conversation...')
-                    const newConversation = await apiClient.createConversation(
-                      agent.id, 
-                      `Playground Session - ${agent.name}`
-                    )
-                    
-                    console.log('✅ API response received:', newConversation)
-                    
-                    // Clear local state for fresh start
-                    console.log('🧹 Clearing local state...')
-                    setMessages([])
-                    setSessionId(undefined)
-                    setCurrentConversationId(null)
-                    setIsNewConversation(false) // Don't show "New Conversation" indicator
-                    
-                    // Clear any stored session and conversation
-                    if (typeof window !== 'undefined') {
-                      console.log('🗑️ Clearing stored session from localStorage')
-                      localStorage.removeItem(`playground_session_${agent.id}`)
-                      localStorage.removeItem(`playground_conversation_${agent.id}`)
-                    }
-                    
-                    console.log('🎉 New conversation created successfully!')
-                    console.log('📋 Final state:', {
-                      sessionId: newConversation.session_id,
-                      conversationId: newConversation.id,
-                      title: newConversation.title
-                    })
-                    
-                    // Refresh conversation list
-                    await loadConversations()
-                  } catch (error) {
-                    console.error('❌ Failed to create new conversation:', error)
-                    console.error('🔍 Error details:', {
-                      message: error.message,
-                      status: error.status,
-                      response: error.response
-                    })
-                    setError('Failed to create new conversation')
-                  } finally {
-                    console.log('🏁 Conversation creation process completed')
-                    setCreatingConversation(false)
-                  }
-                }}
-                disabled={creatingConversation}
-                className="w-full rounded-xl py-2 px-3 text-sm lg:text-base font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed" 
-                style={{ background: 'linear-gradient(90deg,#E6F6FF,#F6FBFF)' }}
-              >
-                {creatingConversation ? 'Creating...' : '+ New Conversation'}
-              </button>
-
-              {/* Conversation History */}
-              {loadingConversations ? (
-                <div className="p-3 rounded-xl text-center">
-                  <div className="text-sm text-slate-500">Loading conversations...</div>
-                </div>
-              ) : conversations.length > 0 ? (
-                <div className="space-y-2">
-                  <div className="text-xs font-medium text-slate-600 mb-2">Recent Conversations</div>
-                  {conversations.slice(0, 5).map((conversation) => {
-                    const isActive = currentConversationId === parseInt(conversation.id)
-                    return (
-                      <div 
-                        key={conversation.id}
-                        className={`p-3 rounded-xl cursor-pointer hover:translate-x-1 transition-transform duration-150 border relative group ${
-                          isActive 
-                            ? 'border-blue-300 bg-blue-50 shadow-sm' 
-                            : 'border-slate-200 hover:border-slate-300'
-                        }`}
-                        onClick={() => loadConversation(conversation.id)}
-                      >
-                        {/* Active indicator */}
-                        {isActive && (
-                          <div className="absolute top-2 left-2 w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                        )}
-                        
-                        <div className={`text-sm font-medium truncate ${isActive ? 'pr-12' : 'pr-8'}`}>
-                          {loadingConversation && currentConversationId === parseInt(conversation.id) ? (
-                            <span className="text-blue-600">Loading...</span>
-                          ) : (
-                            conversation.messages?.length > 0 
-                              ? conversation.messages[0].content.substring(0, 30) + '...' 
-                              : 'Empty conversation'
-                          )}
-                        </div>
-                        <div className="text-xs text-slate-400 mt-1">
-                          {conversation.messages?.length || 0} messages • {new Date(conversation.created_at).toLocaleDateString()}
-                          {isActive && (
-                            <span className="ml-2 text-blue-600 font-medium">• Active</span>
-                          )}
-                        </div>
-                        
-                        {/* Delete button */}
-                        <button
-                          onClick={(e) => deleteConversation(conversation.id, e)}
-                          className="absolute top-2 right-2 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-red-100 text-red-500"
-                          title="Delete conversation"
-                        >
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </div>
-                    )
-                  })}
-                </div>
-              ) : (
-                <div className="p-3 rounded-xl text-center">
-                  <div className="text-sm text-slate-500">No conversations yet</div>
-                </div>
-              )}
-            </div>
-          </div>
-        </motion.aside>
-      )}
+      
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <div className="flex flex-col flex-1 rounded-2xl lg:rounded-3xl overflow-hidden bg-white" style={{ boxShadow: '0 20px 60px rgba(99, 179, 237, 0.08)' }}>
+      <div className="flex-1 flex flex-col min-w-0 w-full lg:w-auto">
+        <div className="flex flex-col flex-1 bg-white w-full">
 
           {/* Header */}
-          <div className="flex items-center justify-between px-4 lg:px-6 py-3 lg:py-4 bg-white/60 backdrop-blur-sm">
-            <div className="flex items-center gap-2 lg:gap-3">
+          <div className="flex items-center justify-between px-4 lg:px-6 py-4 lg:py-5 bg-white border-b border-gray-100">
+            <div className="flex items-center gap-3 lg:gap-4">
               {!sidebarVisible && (
                 <button
                   onClick={() => setSidebarVisible(true)}
-                  className="p-1.5 lg:p-2 rounded-lg hover:bg-gray-100 transition-colors mr-2"
+                  className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
                   title="Show sidebar"
                 >
-                  <Bars3Icon className="w-4 h-4 lg:w-5 lg:h-5 text-gray-600" />
+                  <Bars3Icon className="w-5 h-5 text-gray-600" />
                 </button>
               )}
-              <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-lg flex items-center justify-center font-bold text-sky-700 bg-white text-sm lg:text-base" 
-                   style={{ boxShadow: '0 6px 20px rgba(99, 179, 237, 0.08)' }}>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white bg-gradient-to-br from-blue-500 to-blue-600 text-lg" 
+                   style={{ boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)' }}>
                 {agent.name.charAt(0).toUpperCase()}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="text-sm lg:text-base font-semibold truncate">{agent.name}</div>
-                <div className="text-xs text-slate-400 line-clamp-1">
+                <div className="text-lg font-semibold text-gray-900 truncate">{agent.name}</div>
+                <div className="text-sm text-gray-500 line-clamp-1">
                   {agent.description || 'AI Assistant'}
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2 lg:gap-3 flex-shrink-0">
-              <div className="text-xs text-slate-500 hidden sm:block">Model: {selectedModel}</div>
+            <div className="flex items-center gap-3 flex-shrink-0">
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-lg">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <span className="text-sm text-gray-600">{selectedModel}</span>
+              </div>
               <button 
                 onClick={() => setShowSettings(true)}
-                className="px-2 lg:px-3 py-1 lg:py-1.5 rounded-lg text-xs lg:text-sm" 
-                style={{ background: 'rgba(230,246,255,0.9)' }}
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 hover:bg-gray-200 transition-colors" 
               >
                 Settings
               </button>
@@ -817,13 +785,17 @@ export default function AgentPlaygroundPage() {
           {/* Messages */}
           <div 
             ref={messagesContainerRef}
-            className="flex-1 overflow-y-auto overflow-x-hidden px-4 lg:px-6 py-4 lg:py-6 bg-gradient-to-b from-white to-slate-50 min-h-0" 
+            className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50 pb-4" 
             aria-live="polite"
+            style={{ maxHeight: 'calc(100vh - 200px)' }}
           >
             {messages.length === 0 && (
-              <div className="text-center text-gray-500 mt-8 lg:mt-10">
-                <div className="text-base lg:text-lg font-medium mb-2">Welcome to {agent.name}!</div>
-                <div className="text-xs lg:text-sm">Start a conversation to see how I can help you.</div>
+              <div className="text-center text-gray-500 mt-16 lg:mt-20">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-full bg-blue-500"></div>
+                </div>
+                <div className="text-xl lg:text-2xl font-semibold mb-2 text-gray-700">Welcome to {agent.name}!</div>
+                <div className="text-sm lg:text-base text-gray-500 max-w-md mx-auto">I'm here to help you. Start a conversation to see how I can assist you with your tasks.</div>
               </div>
             )}
             
@@ -832,76 +804,102 @@ export default function AgentPlaygroundPage() {
                 key={m.id} 
                 initial={{ opacity: 0, y: 6 }} 
                 animate={{ opacity: 1, y: 0 }} 
-                className={`group max-w-[85%] lg:max-w-[78%] mb-4 ${m.role === 'user' ? 'ml-auto text-right' : 'mr-auto text-left'}`}
+                className={`group ${m.role === 'user' ? 'bg-white' : 'bg-gray-50'}`}
               >
-                <div 
-                  className={`inline-block rounded-2xl px-3 lg:px-4 py-2 lg:py-3 leading-relaxed text-sm lg:text-base`} 
-                  style={{ 
-                    background: m.role === 'user' ? 'linear-gradient(180deg,#E6F6FF,#F6FBFF)' : 'white', 
-                    boxShadow: '0 8px 28px rgba(99, 179, 237, 0.06)' 
-                  }}
-                >
-                  {editingMessageId === m.id ? (
-                    <div>
-                      <textarea
-                        value={editInput}
-                        onChange={(e) => setEditInput(e.target.value)}
-                        className="w-full rounded-lg p-2 border text-sm"
-                      />
-                      <div className="flex gap-2 mt-2">
-                        <button
-                          onClick={regenerateFromEdit}
-                          className="px-2 lg:px-3 py-1 lg:py-1.5 bg-blue-600 text-white rounded-lg text-xs"
-                        >
-                          Regenerate
-                        </button>
-                        <button
-                          onClick={() => {
-                            setEditingMessageId(null)
-                            setEditInput('')
-                          }}
-                          className="px-2 lg:px-3 py-1 lg:py-1.5 border rounded-lg text-xs"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div>
-                      {m.downloadable ? (
-                        <DownloadableContent
-                          content={m.content}
-                          filename={m.downloadable.filename}
-                          fileType={m.downloadable.fileType}
-                          fileSize={m.downloadable.fileSize}
-                          showPreview={m.downloadable.showPreview}
-                        />
+                <div className="max-w-4xl mx-auto px-4 lg:px-6 py-6 lg:py-8">
+                  <div className="flex gap-4">
+                    {/* Avatar */}
+                    <div className="flex-shrink-0">
+                      {m.role === 'user' ? (
+                        user?.avatar_url ? (
+                          <img 
+                            src={user.avatar_url} 
+                            alt={user.name || 'User'} 
+                            className="w-8 h-8 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-semibold">
+                            {(user?.name || 'U').charAt(0).toUpperCase()}
+                          </div>
+                        )
                       ) : (
-                        <MarkdownRenderer content={m.content} />
+                        <div className="w-8 h-8 rounded-full bg-gray-200 text-gray-700 flex items-center justify-center text-sm font-semibold">
+                          {agent.name.charAt(0).toUpperCase()}
+                        </div>
                       )}
-                      <div className="flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={() => copyToClipboard(m.content, m.id)}
-                          className="p-1 rounded hover:bg-gray-100 transition-colors"
-                          title="Copy message"
-                        >
-                          <ClipboardIcon className="w-3 h-3 lg:w-4 lg:h-4 text-gray-500" />
-                        </button>
-                        {m.role === 'user' && (
-                          <button
-                            onClick={() => {
-                              setEditingMessageId(m.id)
-                              setEditInput(m.content)
-                            }}
-                            className="p-1 rounded hover:bg-gray-100 transition-colors"
-                            title="Edit message"
-                          >
-                            <PencilIcon className="w-3 h-3 lg:w-4 lg:h-4 text-gray-500" />
-                          </button>
+                    </div>
+                    
+                    {/* Message content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-gray-500 mb-2">
+                        {m.role === 'user' ? (user?.name || 'You') : agent.name}
+                      </div>
+                                            <div className="prose prose-sm lg:prose-base max-w-none">
+                        {editingMessageId === m.id ? (
+                          <div>
+                            <textarea
+                              value={editInput}
+                              onChange={(e) => setEditInput(e.target.value)}
+                              className="w-full rounded-lg p-2 border text-sm"
+                            />
+                            <div className="flex gap-2 mt-2">
+                              <button
+                                onClick={regenerateFromEdit}
+                                className="px-2 lg:px-3 py-1 lg:py-1.5 bg-blue-600 text-white rounded-lg text-xs"
+                              >
+                                Regenerate
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setEditingMessageId(null)
+                                  setEditInput('')
+                                }}
+                                className="px-2 lg:px-3 py-1 lg:py-1.5 border rounded-lg text-xs"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div>
+                            {m.downloadable ? (
+                              <DownloadableContent
+                                content={m.content}
+                                downloadUrl={m.downloadable.downloadUrl}
+                                filename={m.downloadable.filename}
+                                fileType={m.downloadable.fileType}
+                                fileSize={m.downloadable.fileSize}
+                                showPreview={m.downloadable.showPreview}
+                              />
+                            ) : (
+                              <MarkdownRenderer content={m.content} />
+                            )}
+                            <div className="flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                onClick={() => copyToClipboard(m.content, m.id)}
+                                className="p-1 rounded hover:bg-gray-100 transition-colors"
+                                title="Copy message"
+                              >
+                                <ClipboardIcon className="w-3 h-3 lg:w-4 lg:h-4 text-gray-500" />
+                              </button>
+                              {m.role === 'user' && (
+                                <button
+                                  onClick={() => {
+                                    setEditingMessageId(m.id)
+                                    setEditInput(m.content)
+                                  }}
+                                  className="p-1 rounded hover:bg-gray-100 transition-colors"
+                                  title="Edit message"
+                                >
+                                  <PencilIcon className="w-3 h-3 lg:w-4 lg:h-4 text-gray-500" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
                         )}
                       </div>
                     </div>
-                  )}
+                  </div>
                 </div>
               </motion.div>
             ))}
@@ -910,17 +908,33 @@ export default function AgentPlaygroundPage() {
               <motion.div 
                 initial={{ opacity: 0, y: 6 }} 
                 animate={{ opacity: 1, y: 0 }} 
-                className="mr-auto text-left max-w-[85%] lg:max-w-[78%] mb-4"
+                className="bg-gray-50"
               >
-                <div 
-                  className="inline-block rounded-2xl px-3 lg:px-4 py-2 lg:py-3 bg-white" 
-                  style={{ boxShadow: '0 8px 28px rgba(99, 179, 237, 0.06)' }}
-                >
-                  <div className="flex items-center gap-2">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                    <span className="text-sm lg:text-base text-gray-600">
-                      {streamingMode && streamingStatus ? streamingStatus : 'Thinking...'}
-                    </span>
+                <div className="max-w-4xl mx-auto px-4 lg:px-6 py-6 lg:py-8">
+                  <div className="flex gap-4">
+                    {/* Avatar */}
+                    <div className="flex-shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-gray-200 text-gray-700 flex items-center justify-center text-sm font-semibold">
+                        {agent.name.charAt(0).toUpperCase()}
+                      </div>
+                    </div>
+                    
+                    {/* Loading content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-gray-500 mb-2">
+                        {agent.name}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="flex space-x-1">
+                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                        </div>
+                        <span className="text-sm text-gray-600">
+                          {streamingMode && streamingStatus ? streamingStatus : 'Thinking...'}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </motion.div>
@@ -928,46 +942,47 @@ export default function AgentPlaygroundPage() {
           </div>
 
           {/* Input Area */}
-          <div className="p-4 lg:p-6 bg-white/60 backdrop-blur-sm">
-            <div className="flex gap-3">
-              <div className="flex-1">
+          <div className="sticky bottom-0 p-4 lg:p-6 bg-white/80 backdrop-blur-sm border-t border-gray-100 z-10">
+            <div className="max-w-4xl mx-auto">
+              <div className="relative">
                 <textarea
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={onKeyDown}
-                  placeholder="Type your message here. Press Enter to send, Shift+Enter for new line."
-                  className="w-full resize-none min-h-[48px] lg:min-h-[56px] max-h-32 lg:max-h-36 rounded-xl p-3 lg:p-4 text-sm focus:outline-none" 
-                  style={{ boxShadow: 'inset 0 1px 0 rgba(0,0,0,0.02)', background: 'linear-gradient(180deg,#ffffff,#fbfdff)' }}
+                  placeholder="Message..."
+                  className="w-full resize-none min-h-[52px] lg:min-h-[60px] max-h-40 rounded-2xl px-4 lg:px-5 py-3 lg:py-4 text-sm lg:text-base focus:outline-none border border-gray-200 focus:border-blue-400 transition-all duration-200 pr-32" 
+                  style={{ 
+                    background: 'linear-gradient(180deg,#ffffff,#fafbfc)',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06)'
+                  }}
                   disabled={sending}
                 />
+                
+                {/* Send and Audio buttons positioned absolutely */}
+                <div className="absolute right-2 lg:right-3 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
+                  <AudioInput
+                    onTranscript={(text) => setInput(text)}
+                    disabled={sending}
+                    className="p-2 lg:p-2.5 rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-50"
+                  />
+                  <button 
+                    onClick={sendMessage} 
+                    disabled={!input.trim() || sending}
+                    className="rounded-xl p-2 lg:p-2.5 font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center transition-all duration-200" 
+                    style={{ 
+                      background: input.trim() && !sending ? 'linear-gradient(135deg, #3b82f6, #1d4ed8)' : 'linear-gradient(135deg, #e5e7eb, #d1d5db)',
+                      boxShadow: input.trim() && !sending ? '0 4px 12px rgba(59, 130, 246, 0.3)' : '0 2px 4px rgba(0,0,0,0.1)'
+                    }}
+                  >
+                    <PaperAirplaneIcon className="w-4 h-4 lg:w-5 lg:h-5 text-white" />
+                  </button>
+                </div>
               </div>
 
-              <div className="flex flex-col gap-2">
-                <button 
-                  onClick={sendMessage} 
-                  disabled={!input.trim() || sending}
-                  className="rounded-lg p-2 lg:p-3 font-semibold shadow disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center" 
-                  style={{ background: '#E6F6FF' }}
-                >
-                  <PaperAirplaneIcon className="w-4 h-4 lg:w-5 lg:h-5" />
-                </button>
-
-                <button 
-                  onClick={() => setInput('')}
-                  className="rounded-lg px-2 lg:px-3 py-1.5 lg:py-2 text-xs lg:text-sm" 
-                  style={{ background: 'rgba(250,250,255,0.9)' }}
-                  disabled={sending}
-                >
-                  Clear
-                </button>
+              {/* Helper row */}
+              <div className="mt-3 text-xs text-gray-500 flex items-center justify-end px-1">
+                {/* Audio input moved to beside send button */}
               </div>
-            </div>
-
-            {/* Helper row */}
-            <div className="mt-3 text-xs text-slate-400 flex items-center justify-between">
-              <div className="hidden sm:block">Press <span className="font-medium">Enter</span> to send • <span className="font-medium">Shift+Enter</span> for new line</div>
-              <div className="sm:hidden">Press <span className="font-medium">Enter</span> to send</div>
-              <div>Words: <span className="font-semibold">{input.trim().split(/\s+/).filter(Boolean).length}</span></div>
             </div>
           </div>
 
@@ -1035,6 +1050,19 @@ export default function AgentPlaygroundPage() {
                 </p>
               </div>
               
+              <div className="border-t border-gray-200 pt-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-3">Agent Configuration</h4>
+                <Link
+                  href={`/dashboard/agents/${agentId}/tools`}
+                  className="flex items-center justify-between w-full px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                >
+                  <span>Add More Tools</span>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
+              </div>
+              
               <div className="flex gap-3 pt-4">
                 <button
                   onClick={() => updateAgentModel(selectedModel)}
@@ -1052,6 +1080,255 @@ export default function AgentPlaygroundPage() {
             </div>
           </motion.div>
         </div>
+      )}
+
+
+{sidebarVisible && (
+        <motion.aside 
+          initial={{ x: -300, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          exit={{ x: -300, opacity: 0 }}
+          transition={{ duration: 0.3 }}
+          className="w-64 flex-shrink-0 ml-4 lg:ml-4"
+        >
+          <div className="p-6 h-full bg-white">
+            <div className="flex items-center gap-3 mb-4">
+              <button
+                onClick={() => setSidebarVisible(false)}
+                className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                title="Hide sidebar"
+              >
+                <PanelRightClose className="w-4 h-4 lg:w-5 lg:h-5 text-gray-600" />
+              </button>
+              <h3 className="text-base lg:text-lg font-semibold">Conversations</h3>
+            </div>
+
+            {/* Workspace Manager */}
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-xs font-medium text-gray-700">Workspaces</h4>
+                <button
+                  onClick={() => setShowWorkspaceManager(!showWorkspaceManager)}
+                  className="text-xs text-blue-600 hover:text-blue-700 transition-colors"
+                >
+                  {showWorkspaceManager ? 'Hide' : 'Manage'}
+                </button>
+              </div>
+              
+              {showWorkspaceManager ? (
+                <div className="max-h-48 overflow-y-auto">
+                  <WorkspaceManager
+                    agentId={agentId}
+                    selectedWorkspaceId={selectedWorkspaceId}
+                    onWorkspaceSelect={handleWorkspaceSelect}
+                    onWorkspaceCreate={handleWorkspaceCreate}
+                  />
+                </div>
+              ) : (
+                <div className="space-y-1 max-h-32 overflow-y-auto">
+                  {/* Quick workspace selector */}
+                  <button
+                    onClick={() => handleWorkspaceSelect(undefined)}
+                    className={`w-full flex items-center gap-2 p-1.5 rounded-md text-left transition-colors ${
+                      selectedWorkspaceId === undefined
+                        ? 'bg-blue-50 border border-blue-200'
+                        : 'bg-gray-50 hover:bg-gray-100 border border-transparent'
+                    }`}
+                  >
+                    <span className="text-xs">📁</span>
+                    <span className="text-xs font-medium truncate">All Conversations</span>
+                  </button>
+                  
+                  {workspaces.slice(0, 4).map((workspace) => (
+                    <button
+                      key={workspace.id}
+                      onClick={() => handleWorkspaceSelect(workspace.id)}
+                      className={`w-full flex items-center gap-2 p-1.5 rounded-md text-left transition-colors ${
+                        selectedWorkspaceId === workspace.id
+                          ? 'bg-blue-50 border border-blue-200'
+                          : 'bg-gray-50 hover:bg-gray-100 border border-transparent'
+                      }`}
+                    >
+                      <span className="text-xs">{workspace.icon}</span>
+                      <span className="text-xs font-medium truncate">{workspace.name}</span>
+                    </button>
+                  ))}
+                  
+                  {workspaces.length > 4 && (
+                    <div className="text-xs text-gray-500 text-center py-1">
+                      +{workspaces.length - 4} more
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            
+            <div className="space-y-3">
+              {/* New Chat Button */}
+              <button 
+                onClick={async () => {
+                  try {
+                    console.log('🔄 Starting new conversation creation...')
+                    console.log('📊 Agent details:', { id: agent.id, name: agent.name })
+                    
+                    setCreatingConversation(true)
+                    setError(null)
+                    
+                    // Clear state for fresh start
+                    console.log('🧹 Clearing state for fresh start...')
+                    setMessages([])
+                    setSessionId(undefined)
+                    setCurrentConversationId(null)
+                    setIsNewConversation(true) // Show "New Conversation" indicator
+                    
+                    // Clear localStorage to start fresh
+                    if (typeof window !== 'undefined') {
+                      localStorage.removeItem(`playground_session_${agent.id}`)
+                      localStorage.removeItem(`playground_conversation_${agent.id}`)
+                    }
+                    
+                    console.log('🎉 Ready for new conversation!')
+                    console.log('📋 Final state:', {
+                      sessionId: undefined,
+                      conversationId: null,
+                      isNewConversation: true
+                    })
+                    
+                    // Refresh conversation list
+                    await loadConversations()
+                  } catch (error) {
+                    console.error('❌ Failed to create new conversation:', error)
+                    console.error('🔍 Error details:', {
+                      message: error.message,
+                      status: error.status,
+                      response: error.response
+                    })
+                    setError('Failed to create new conversation')
+                  } finally {
+                    console.log('🏁 Conversation creation process completed')
+                    setCreatingConversation(false)
+                  }
+                }}
+                disabled={creatingConversation}
+                className="w-full rounded-xl py-3 px-4 text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <span className="flex items-center gap-2">
+                  {creatingConversation ? (
+                    'Creating...'
+                  ) : (
+                    <>
+                      <HiOutlinePencilAlt className="w-4 h-4" />
+                      New Chat
+                    </>
+                  )}
+                </span>
+              </button>
+
+              {/* Current Session - Show if there are messages OR if it's a new conversation */}
+              {(messages.length > 0 || isNewConversation) && (
+                <div className="p-3 rounded-xl cursor-pointer hover:translate-x-1 transition-transform duration-150 relative group border-2 border-blue-300 bg-blue-50 shadow-sm" 
+                     style={{ background: 'linear-gradient(180deg, rgba(239,246,255,0.8), rgba(219,234,254,0.8))', boxShadow: '0 6px 18px rgba(59,130,246,0.1)' }}>
+                  {/* Active indicator */}
+                  <div className="absolute top-2 left-2 w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
+                  
+                  <div className="text-sm font-medium pl-6">
+                    {isNewConversation ? 'New Conversation' : 'Current Session'}
+                  </div>
+                  <div className="text-xs text-slate-600 mt-1 pl-6">
+                    {isNewConversation 
+                      ? 'Start typing to create a conversation' 
+                      : `${messages.length} messages • ${currentConversationId ? `ID: ${currentConversationId}` : 'Active'}`
+                    }
+                  </div>
+                  
+                  {/* Clear session button */}
+                  <button
+                    onClick={() => {
+                      if (confirm('Clear current session? This will remove all messages from the current conversation.')) {
+                        setMessages([])
+                        setSessionId(undefined)
+                        setCurrentConversationId(null)
+                        setIsNewConversation(true) // Show "New Conversation" indicator
+                        if (typeof window !== 'undefined' && agent) {
+                          localStorage.removeItem(`playground_session_${agent.id}`)
+                          localStorage.removeItem(`playground_conversation_${agent.id}`)
+                        }
+                      }
+                    }}
+                    className="absolute top-2 right-2 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-red-100 text-red-500"
+                    title={isNewConversation ? "Cancel new conversation" : "Clear current session"}
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+
+
+              {/* Conversation History */}
+              {loadingConversations ? (
+                <div className="p-3 rounded-xl text-center">
+                  <div className="text-sm text-slate-500">Loading conversations...</div>
+                </div>
+              ) : conversations.length > 0 ? (
+                <div className="space-y-2">
+                  <div className="text-xs font-medium text-slate-600 mb-2">Recent Conversations</div>
+                  {conversations.slice(0, 5).map((conversation) => {
+                    const isActive = currentConversationId === parseInt(conversation.id)
+                    return (
+                      <div 
+                        key={conversation.id}
+                        className={`p-3 rounded-xl cursor-pointer hover:translate-x-1 transition-transform duration-150 border relative group ${
+                          isActive 
+                            ? 'border-blue-300 bg-blue-50 shadow-sm' 
+                            : 'border-slate-200 hover:border-slate-300'
+                        }`}
+                        onClick={() => loadConversation(conversation.id)}
+                      >
+                        {/* Active indicator */}
+                        {isActive && (
+                          <div className="absolute top-2 left-2 w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                        )}
+                        
+                        <div className={`text-sm font-medium truncate ${isActive ? 'pr-12' : 'pr-8'}`}>
+                          {loadingConversation && currentConversationId === parseInt(conversation.id) ? (
+                            <span className="text-blue-600">Loading...</span>
+                          ) : (
+                            conversation.messages?.length > 0 
+                              ? conversation.messages[0].content.substring(0, 30) + '...' 
+                              : 'Empty conversation'
+                          )}
+                        </div>
+                        <div className="text-xs text-slate-400 mt-1">
+                          {conversation.messages?.length || 0} messages • {new Date(conversation.created_at).toLocaleDateString()}
+                          {isActive && (
+                            <span className="ml-2 text-blue-600 font-medium">• Active</span>
+                          )}
+                        </div>
+                        
+                        {/* Delete button */}
+                        <button
+                          onClick={(e) => deleteConversation(conversation.id, e)}
+                          className="absolute top-2 right-2 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-red-100 text-red-500"
+                          title="Delete conversation"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="p-3 rounded-xl text-center">
+                  <div className="text-sm text-slate-500">No conversations yet</div>
+                </div>
+              )}
+            </div>
+          </div>
+        </motion.aside>
       )}
     </div>
   )

@@ -38,7 +38,8 @@ class AgentService:
         agent: Agent, 
         user_message: str, 
         conversation_history: List[Dict[str, str]] = None,
-        session_id: str = None
+        session_id: str = None,
+        user_id: int = None
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """
         Execute an agent with streaming response
@@ -121,7 +122,7 @@ class AgentService:
                 messages.append(assistant_message)
                 
                 tools_used = await self._handle_tool_calls_stream(
-                    agent, assistant_message["tool_calls"], messages
+                    agent, assistant_message["tool_calls"], messages, user_id
                 )
                 
                 # Make a follow-up streaming call to get the final response after tool execution
@@ -158,7 +159,8 @@ class AgentService:
         agent: Agent, 
         user_message: str, 
         conversation_history: List[Dict[str, str]] = None,
-        session_id: str = None
+        session_id: str = None,
+        user_id: int = None
     ) -> Tuple[str, List[str], float]:
         """
         Execute an agent with the given message and return response, tools used, and cost
@@ -237,7 +239,7 @@ class AgentService:
                 })
                 
                 tools_used = await self._handle_tool_calls(
-                    agent, assistant_message.tool_calls, messages
+                    agent, assistant_message.tool_calls, messages, user_id
                 )
                 
                 # Make a follow-up call to get the final response after tool execution
@@ -628,7 +630,8 @@ class AgentService:
         self, 
         agent: Agent, 
         tool_calls: List[Any], 
-        messages: List[Dict[str, str]]
+        messages: List[Dict[str, str]],
+        user_id: int = None
     ) -> List[str]:
         """Handle tool calls from the AI model"""
         tools_used = []
@@ -646,7 +649,7 @@ class AgentService:
             start_time = time.time()
             try:
                 # Execute the tool using the registry
-                tool_result = await self._execute_tool(tool_name, tool_args, agent)
+                tool_result = await self._execute_tool(tool_name, tool_args, agent, user_id)
                 execution_time = time.time() - start_time
                 
                 # Log successful tool execution
@@ -665,10 +668,19 @@ class AgentService:
                 )
                 
                 # Add tool response to messages
+                # Sanitize tool result to avoid sending massive base64 content to AI
+                if isinstance(tool_result, dict):
+                    sanitized_result = self._sanitize_tool_result_for_ai(tool_result)
+                    content = json.dumps(sanitized_result)
+                    logger.info(f"📤 Sending sanitized tool result to AI: {content[:200]}...")
+                else:
+                    content = str(tool_result)
+                    logger.info(f"📤 Sending string tool result to AI: {content[:200]}...")
+                
                 messages.append({
                     "role": "tool",
                     "tool_call_id": tool_call.id,
-                    "content": str(tool_result)
+                    "content": content
                 })
                 
             except Exception as e:
@@ -704,7 +716,8 @@ class AgentService:
         self, 
         agent: Agent, 
         tool_calls: List[Dict], 
-        messages: List[Dict[str, str]]
+        messages: List[Dict[str, str]],
+        user_id: int = None
     ) -> List[str]:
         """Handle tool calls with streaming updates"""
         tools_used = []
@@ -719,14 +732,23 @@ class AgentService:
                 
                 # Execute tool
                 logger.info(f"🔄 Starting tool execution: {tool_name}")
-                tool_result = await self._execute_tool(tool_name, arguments, agent)
+                tool_result = await self._execute_tool(tool_name, arguments, agent, user_id)
                 logger.info(f"✅ Tool execution completed: {tool_name}")
                 
                 # Add tool result to messages
+                # Sanitize tool result to avoid sending massive base64 content to AI
+                if isinstance(tool_result, dict):
+                    sanitized_result = self._sanitize_tool_result_for_ai(tool_result)
+                    content = json.dumps(sanitized_result)
+                    logger.info(f"📤 Sending sanitized tool result to AI: {content[:200]}...")
+                else:
+                    content = str(tool_result)
+                    logger.info(f"📤 Sending string tool result to AI: {content[:200]}...")
+                
                 messages.append({
                     "role": "tool",
                     "tool_call_id": tool_call["id"],
-                    "content": tool_result
+                    "content": content
                 })
                 
                 tools_used.append(tool_name)
@@ -747,7 +769,7 @@ class AgentService:
         
         return tools_used
 
-    async def _execute_tool(self, tool_name: str, arguments: str, agent: Agent = None) -> str:
+    async def _execute_tool(self, tool_name: str, arguments: str, agent: Agent = None, user_id: int = None) -> str:
         """Execute a specific tool using the tool registry"""
         try:
             args = json.loads(arguments) if isinstance(arguments, str) else arguments
@@ -809,6 +831,13 @@ class AgentService:
             sanitized_tool_name = self._sanitize_tool_name(tool_name_from_json)
             logger.info(f"🔄 Mapping tool: '{tool_name_from_json}' -> '{sanitized_tool_name}'")
             
+            # Add user_id to tool_params for tools that need it (like PDF generator)
+            # Priority: passed user_id > agent.user_id
+            if user_id:
+                tool_params['user_id'] = user_id
+            elif agent and hasattr(agent, 'user_id'):
+                tool_params['user_id'] = agent.user_id
+            
             result = await tool_registry.execute_tool(
                 tool_name=sanitized_tool_name,
                 config=merged_config,  # Use merged config from JSON
@@ -817,9 +846,14 @@ class AgentService:
             )
             
             if result.get('success'):
-                # Return the actual result
+                # Return the full result dictionary so frontend can access download_url, etc.
                 logger.info(f"Tool {tool_name_from_json} executed successfully")
-                return str(result.get('result', 'Tool executed successfully'))
+                logger.info(f"📤 Full tool result: {result}")
+                logger.info(f"📤 Result type: {type(result)}")
+                logger.info(f"📤 Result keys: {list(result.keys()) if isinstance(result, dict) else 'Not a dict'}")
+                if isinstance(result, dict) and 'download_url' in result:
+                    logger.info(f"📤 Download URL: {result['download_url'][:100]}...")
+                return result
             else:
                 # Return error message
                 error_msg = f"Tool execution failed: {result.get('error', 'Unknown error')}"
@@ -842,6 +876,24 @@ class AgentService:
         tool_cost = len(tools_used) * 0.01  # $0.01 per tool call
         
         return input_cost + output_cost + tool_cost
+
+    def _sanitize_tool_result_for_ai(self, tool_result: dict) -> dict:
+        """Sanitize tool result to remove large base64 content before sending to AI"""
+        sanitized = tool_result.copy()
+        
+        # Remove or truncate large base64 content
+        if 'data' in sanitized and isinstance(sanitized['data'], dict):
+            data = sanitized['data'].copy()
+            if 'pdf_content' in data:
+                # Replace with a placeholder indicating the content exists
+                data['pdf_content'] = f"[PDF_CONTENT_BASE64_LENGTH_{len(data['pdf_content'])}]"
+            sanitized['data'] = data
+        
+        # Remove download_url if it contains base64 content
+        if 'download_url' in sanitized and sanitized['download_url'].startswith('data:'):
+            sanitized['download_url'] = "[DOWNLOAD_URL_AVAILABLE]"
+        
+        return sanitized
 
     async def get_conversation_history(self, conversation_id: int) -> List[Dict[str, str]]:
         """Get conversation history for context"""

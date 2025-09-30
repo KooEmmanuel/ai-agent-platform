@@ -8,9 +8,12 @@ import base64
 import json
 import markdown
 import os
+import tempfile
+import uuid
 from datetime import datetime
 from typing import Dict, List, Any, Optional, Union
 from bs4 import BeautifulSoup
+from app.core.config import settings
 
 # ReportLab imports for PDF generation
 from reportlab.lib.pagesizes import letter, A4, legal
@@ -262,9 +265,11 @@ class PDFGeneratorTool:
         # Parse HTML and convert to ReportLab elements
         soup = BeautifulSoup(html_content, 'html.parser')
         
-        for element in soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'ul', 'ol', 'li', 'blockquote', 'pre', 'code']):
-            if element.name in ['h1', 'h2', 'h3']:
-                style_name = f"Heading{element.name[1]}"
+        for element in soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'ul', 'ol', 'blockquote', 'pre', 'code']):
+            if element.name in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
+                # Map h4, h5, h6 to h3 style for now
+                level = min(int(element.name[1]), 3)
+                style_name = f"Heading{level}"
                 text = element.get_text().strip()
                 if text:
                     elements.append(Paragraph(text, styles[style_name]))
@@ -291,10 +296,6 @@ class PDFGeneratorTool:
                 if text:
                     elements.append(Paragraph(text, styles["Code"]))
                     elements.append(Spacer(1, 6))
-        
-        # Add a test element to ensure something is in the PDF
-        elements.append(Paragraph("TEST: PDF Generation Working", styles["Normal"]))
-        elements.append(Spacer(1, 12))
         
         return elements
 
@@ -356,6 +357,9 @@ class PDFGeneratorTool:
                 bottomMargin=margins["bottom"] * inch
             )
             
+            # Store elements count before build (build() consumes the elements list)
+            elements_count = len(elements)
+            
             # Build PDF
             doc.build(elements, onFirstPage=self._create_header_footer, onLaterPages=self._create_header_footer)
             
@@ -370,17 +374,15 @@ class PDFGeneratorTool:
                     "method": "reportlab"
                 }
             
-            # Encode to base64
-            pdf_base64 = base64.b64encode(pdf_content).decode('utf-8')
-            
+            # Return PDF content for blob storage
             return {
                 "success": True,
                 "method": "reportlab",
-                "pdf_content": pdf_base64,
+                "pdf_content": pdf_content,
                 "file_size": len(pdf_content),
                 "page_size": page_size,
                 "template": template,
-                "elements_count": len(elements)
+                "elements_count": elements_count
             }
             
         except Exception as e:
@@ -398,8 +400,11 @@ class PDFGeneratorTool:
             "metadata": metadata or {}
         }
         
-        # Add download URL if we have content
-        if "pdf_content" in data:
+        # Add download URL if we have file
+        if "file_url" in data:
+            response["download_url"] = data["file_url"]
+        elif "pdf_content" in data:
+            # For blob storage, we'll handle this in the agent service
             response["download_url"] = f"data:application/pdf;base64,{data['pdf_content']}"
         elif "html_content" in data:
             response["download_url"] = f"data:text/html;base64,{data['html_content']}"
@@ -420,6 +425,7 @@ class PDFGeneratorTool:
             content = kwargs.get('content', '')
             document_type = kwargs.get('document_type', 'general')
             filename = kwargs.get('filename', 'document.pdf')
+            user_id = kwargs.get('user_id')  # Get user_id from kwargs
             
             config = self.config.copy()
             config.update({
@@ -446,6 +452,42 @@ class PDFGeneratorTool:
             if result["success"]:
                 # Add filename to result
                 result["filename"] = filename
+                
+                # Try to upload to Vercel Blob if user_id is provided
+                if user_id and 'pdf_content' in result:
+                    try:
+                        from app.services.file_management_service import file_management_service
+                        
+                        # Upload PDF to Vercel Blob
+                        upload_result = await file_management_service.upload_file(
+                            file_content=result['pdf_content'],
+                            filename=filename,
+                            user_id=user_id,
+                            folder_path="generated_pdfs"
+                        )
+                        
+                        if upload_result.get('success'):
+                            # Replace base64 content with Vercel Blob URL
+                            result['file_url'] = upload_result['blob_url']
+                            result['download_url'] = upload_result['blob_url']
+                            result['blob_url'] = upload_result['blob_url']
+                            result['uploaded_to_blob'] = True
+                            
+                            # Remove the large base64 content to save space
+                            if 'pdf_content' in result:
+                                del result['pdf_content']
+                        else:
+                            # Fallback to base64 if upload fails
+                            result['upload_error'] = upload_result.get('error', 'Upload failed')
+                            result['download_url'] = f"data:application/pdf;base64,{base64.b64encode(result['pdf_content']).decode()}"
+                    except Exception as upload_error:
+                        # Fallback to base64 if upload fails
+                        result['upload_error'] = str(upload_error)
+                        result['download_url'] = f"data:application/pdf;base64,{base64.b64encode(result['pdf_content']).decode()}"
+                else:
+                    # No user_id provided, use base64 fallback
+                    result['download_url'] = f"data:application/pdf;base64,{base64.b64encode(result['pdf_content']).decode()}"
+                
                 return self._format_success(result)
             else:
                 return self._format_error(result.get("error", "PDF generation failed"))

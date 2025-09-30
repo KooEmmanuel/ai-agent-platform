@@ -11,7 +11,12 @@ import {
   TrashIcon,
   EyeIcon,
   ChatBubbleLeftRightIcon,
-  ClockIcon
+  ClockIcon,
+  MagnifyingGlassIcon,
+  FunnelIcon,
+  Squares2X2Icon,
+  ListBulletIcon,
+  WrenchScrewdriverIcon
 } from '@heroicons/react/24/outline'
 import { apiClient } from '../../../lib/api'  
 
@@ -22,6 +27,8 @@ export default function AgentsPage() {
   const [agents, setAgents] = useState<Agent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all')
 
   useEffect(() => {
     fetchAgents()
@@ -59,37 +66,102 @@ export default function AgentsPage() {
     })
   }
 
+  // Filter agents based on search and status
+  const filteredAgents = agents.filter(agent => {
+    const matchesSearch = agent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (agent.description && agent.description.toLowerCase().includes(searchTerm.toLowerCase()))
+    
+    const matchesStatus = filterStatus === 'all' || 
+                         (filterStatus === 'active' && agent.is_active) ||
+                         (filterStatus === 'inactive' && !agent.is_active)
+    
+    return matchesSearch && matchesStatus
+  })
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">AI Agents</h1>
-          <p className="text-gray-600">Create and manage your AI agents</p>
+    <div className="space-y-4 sm:space-y-6">
+      {/* Mobile-First Header */}
+      <div className="space-y-4">
+        {/* Title Section */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">AI Agents</h1>
+            <p className="text-sm sm:text-base text-gray-600">Create and manage your AI agents</p>
+          </div>
+          {/* Desktop Create Button */}
+          <Link
+            href="/dashboard/agents/create"
+            className="hidden sm:inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+          >
+            <PlusIcon className="w-5 h-5 mr-2" />
+            Create
+          </Link>
         </div>
-        <Link
-          href="/dashboard/agents/create"
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-        >
-          <PlusIcon className="w-5 h-5 mr-2" />
-          Create
-        </Link>
+
+        {/* Mobile-First Search and Filters */}
+        <div className="space-y-3">
+          {/* Search Bar */}
+          <div className="relative">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search agents..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 sm:pl-10 pr-4 py-2.5 sm:py-3 border border-gray-200 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white shadow-sm text-sm sm:text-base"
+            />
+          </div>
+
+          {/* Filter Tabs */}
+          <div className="flex items-center bg-white rounded-lg p-1 shadow-sm border border-gray-200">
+            <button
+              onClick={() => setFilterStatus('all')}
+              className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                filterStatus === 'all'
+                  ? 'bg-blue-100 text-blue-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              All ({agents.length})
+            </button>
+            <button
+              onClick={() => setFilterStatus('active')}
+              className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                filterStatus === 'active'
+                  ? 'bg-green-100 text-green-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Active ({agents.filter(a => a.is_active).length})
+            </button>
+            <button
+              onClick={() => setFilterStatus('inactive')}
+              className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                filterStatus === 'inactive'
+                  ? 'bg-gray-100 text-gray-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Inactive ({agents.filter(a => !a.is_active).length})
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Mobile-First Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white p-6 rounded-xl shadow-[0_4px_20px_rgba(59,130,246,0.1)]"
+          className="bg-white p-3 sm:p-4 lg:p-6 rounded-lg sm:rounded-xl shadow-[0_2px_8px_rgba(59,130,246,0.08)] lg:shadow-[0_4px_20px_rgba(59,130,246,0.1)]"
         >
           <div className="flex items-center">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <CpuChipIcon className="w-6 h-6 text-blue-600" />
+            <div className="p-1.5 sm:p-2 bg-blue-100 rounded-lg">
+              <CpuChipIcon className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-blue-600" />
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Total Agents</p>
-              <p className="text-2xl font-bold text-gray-900">{agents.length}</p>
+            <div className="ml-2 sm:ml-3 lg:ml-4">
+              <p className="text-xs sm:text-sm font-medium text-gray-600">Total</p>
+              <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">{agents.length}</p>
             </div>
           </div>
         </motion.div>
@@ -98,17 +170,53 @@ export default function AgentsPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-white p-6 rounded-xl shadow-[0_4px_20px_rgba(59,130,246,0.1)]"
+          className="bg-white p-3 sm:p-4 lg:p-6 rounded-lg sm:rounded-xl shadow-[0_2px_8px_rgba(59,130,246,0.08)] lg:shadow-[0_4px_20px_rgba(59,130,246,0.1)]"
         >
           <div className="flex items-center">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <PlayIcon className="w-6 h-6 text-green-600" />
+            <div className="p-1.5 sm:p-2 bg-green-100 rounded-lg">
+              <PlayIcon className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-green-600" />
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Active Agents</p>
-              <p className="text-2xl font-bold text-gray-900">
+            <div className="ml-2 sm:ml-3 lg:ml-4">
+              <p className="text-xs sm:text-sm font-medium text-gray-600">Active</p>
+              <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">
                 {agents.filter(agent => agent.is_active).length}
               </p>
+            </div>
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="bg-white p-3 sm:p-4 lg:p-6 rounded-lg sm:rounded-xl shadow-[0_2px_8px_rgba(59,130,246,0.08)] lg:shadow-[0_4px_20px_rgba(59,130,246,0.1)]"
+        >
+          <div className="flex items-center">
+            <div className="p-1.5 sm:p-2 bg-purple-100 rounded-lg">
+              <WrenchScrewdriverIcon className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-purple-600" />
+            </div>
+            <div className="ml-2 sm:ml-3 lg:ml-4">
+              <p className="text-xs sm:text-sm font-medium text-gray-600">Tools</p>
+              <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">
+                {agents.reduce((sum, agent) => sum + (agent.tool_count || 0), 0)}
+              </p>
+            </div>
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="bg-white p-3 sm:p-4 lg:p-6 rounded-lg sm:rounded-xl shadow-[0_2px_8px_rgba(59,130,246,0.08)] lg:shadow-[0_4px_20px_rgba(59,130,246,0.1)]"
+        >
+          <div className="flex items-center">
+            <div className="p-1.5 sm:p-2 bg-orange-100 rounded-lg">
+              <ChatBubbleLeftRightIcon className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-orange-600" />
+            </div>
+            <div className="ml-2 sm:ml-3 lg:ml-4">
+              <p className="text-xs sm:text-sm font-medium text-gray-600">Conversations</p>
+              <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">0</p>
             </div>
           </div>
         </motion.div>
@@ -136,7 +244,7 @@ export default function AgentsPage() {
           </div>
         )}
         
-        {!loading && !error && agents.length === 0 && (
+        {!loading && !error && filteredAgents.length === 0 && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -159,7 +267,7 @@ export default function AgentsPage() {
           </motion.div>
         )}
         
-        {!loading && !error && agents.length > 0 && (
+        {!loading && !error && filteredAgents.length > 0 && (
           <>
             {/* Desktop Table View */}
             <div className="hidden lg:block">
@@ -191,7 +299,7 @@ export default function AgentsPage() {
                     </tr>
                   </thead>
                   <tbody className="bg-white">
-                    {agents.map((agent, index) => (
+                    {filteredAgents.map((agent, index) => (
                       <motion.tr
                         key={agent.id}
                         initial={{ opacity: 0, y: 20 }}
@@ -270,14 +378,14 @@ export default function AgentsPage() {
 
             {/* Mobile/Tablet Card View */}
             <div className="lg:hidden">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-6">
-                {agents.map((agent, index) => (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 sm:p-6">
+                {filteredAgents.map((agent, index) => (
                   <motion.div
                     key={agent.id}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.05 }}
-                    className="bg-white rounded-xl shadow-[0_2px_8px_rgba(59,130,246,0.08)] p-4 hover:shadow-[0_4px_16px_rgba(59,130,246,0.12)] transition-all duration-200"
+                    className="bg-white rounded-xl shadow-[0_2px_8px_rgba(59,130,246,0.08)] p-4 sm:p-6 hover:shadow-[0_4px_16px_rgba(59,130,246,0.12)] transition-all duration-200 border border-gray-100"
                   >
                     {/* Header */}
                     <div className="flex items-start justify-between mb-3">
@@ -356,6 +464,21 @@ export default function AgentsPage() {
           </>
         )}
       </div>
+
+      {/* Mobile Floating Action Button */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0 }}
+        className="fixed bottom-6 right-6 z-50 sm:hidden"
+      >
+        <Link
+          href="/dashboard/agents/create"
+          className="w-14 h-14 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center group"
+        >
+          <PlusIcon className="w-6 h-6 transition-transform group-hover:scale-110" />
+        </Link>
+      </motion.div>
     </div>
   )
 } 

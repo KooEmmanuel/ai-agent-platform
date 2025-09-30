@@ -342,24 +342,28 @@ export default function ToolsPage() {
   }
 
   return (
-    <div className="space-y-4 lg:space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="min-w-0 flex-1">
-          <h1 className="text-xl lg:text-2xl font-bold text-gray-900">Tools</h1>
-          <p className="text-sm lg:text-base text-gray-600">Discover and manage tools for your agents</p>
+    <div className="space-y-4 sm:space-y-6">
+      {/* Mobile-First Header */}
+      <div className="space-y-4">
+        {/* Title Section */}
+        <div className="flex items-center justify-between">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Tools</h1>
+            <p className="text-sm sm:text-base text-gray-600">Discover and manage tools for your agents</p>
+          </div>
+          {/* Desktop Create Button */}
+          <Link
+            href="/dashboard/tools/create"
+            className="hidden sm:inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+          >
+            <PlusIcon className="w-5 h-5 mr-2" />
+            Create
+          </Link>
         </div>
-        <Link
-          href="/dashboard/tools/create"
-          className="inline-flex items-center px-3 lg:px-4 py-2 border border-transparent text-xs lg:text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-        >
-          <PlusIcon className="w-4 h-4 lg:w-5 lg:h-5 mr-2" />
-          Create
-        </Link>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 lg:gap-4">
+      {/* Mobile-First Stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -411,9 +415,40 @@ export default function ToolsPage() {
         </motion.div>
       </div>
 
-      {/* Tabs */}
+      {/* Mobile-First Tabs */}
       <div className="bg-white rounded-xl shadow-[0_2px_8px_rgba(59,130,246,0.08)] lg:shadow-[0_4px_20px_rgba(59,130,246,0.1)]">
-        <div className="border-b border-gray-200">
+        {/* Mobile Tab Toggle */}
+        <div className="flex items-center bg-white rounded-xl p-1 shadow-sm border border-gray-200 sm:hidden">
+          <button
+            onClick={() => setActiveTab('marketplace')}
+            className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+              activeTab === 'marketplace'
+                ? 'bg-blue-100 text-blue-600'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <div className="flex items-center justify-center space-x-2">
+              <GlobeAltIcon className="w-4 h-4" />
+              <span>Marketplace</span>
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab('your-tools')}
+            className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+              activeTab === 'your-tools'
+                ? 'bg-green-100 text-green-600'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <div className="flex items-center justify-center space-x-2">
+              <UserIcon className="w-4 h-4" />
+              <span>Your Tools</span>
+            </div>
+          </button>
+        </div>
+
+        {/* Desktop Tabs */}
+        <div className="hidden sm:block border-b border-gray-200">
           <nav className="-mb-px flex space-x-6 lg:space-x-8 px-4 lg:px-6" aria-label="Tabs">
             <button
               onClick={() => setActiveTab('marketplace')}
@@ -444,29 +479,33 @@ export default function ToolsPage() {
           </nav>
         </div>
 
-        {/* Filters and Search */}
-        <div className="p-4 lg:p-6 border-b border-gray-200">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
-            {/* Search */}
-            <div className="relative flex-1 max-w-md">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 lg:h-5 lg:w-5 text-gray-400" />
+        {/* Mobile-First Filters and Search */}
+        <div className="p-4 sm:p-6 border-b border-gray-200">
+          <div className="space-y-4">
+            {/* Search Bar */}
+            <div className="relative">
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
               <input
                 type="text"
                 placeholder={`Search ${activeTab === 'marketplace' ? 'marketplace' : 'your'} tools...`}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 lg:pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                className="w-full pl-9 sm:pl-10 pr-4 py-2.5 sm:py-3 border border-gray-200 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white shadow-sm text-sm sm:text-base"
               />
             </div>
 
-            {/* Filters */}
-            <div className="flex items-center space-x-2 lg:space-x-4">
-              <div className="flex items-center space-x-2">
-                <FunnelIcon className="h-4 w-4 lg:h-5 lg:w-5 text-gray-400" />
+            {/* Mobile-First Filter Row */}
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+              {/* Category Filter */}
+              <div className="flex-1">
+                <div className="flex items-center space-x-2 mb-1">
+                  <FunnelIcon className="w-4 h-4 text-gray-400" />
+                  <label className="text-xs font-medium text-gray-600">Category</label>
+                </div>
                 <select
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="border border-gray-300 rounded-lg px-2 lg:px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                 >
                   {categories.map(category => (
                     <option key={category} value={category}>{category}</option>
@@ -474,11 +513,15 @@ export default function ToolsPage() {
                 </select>
               </div>
 
-              <div className="flex items-center space-x-2">
+              {/* Type Filter */}
+              <div className="flex-1">
+                <div className="flex items-center space-x-2 mb-1">
+                  <label className="text-xs font-medium text-gray-600">Type</label>
+                </div>
                 <select
                   value={selectedType}
                   onChange={(e) => setSelectedType(e.target.value)}
-                  className="border border-gray-300 rounded-lg px-2 lg:px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                 >
                   {toolTypes.map(type => (
                     <option key={type} value={type}>{type}</option>
@@ -844,6 +887,21 @@ export default function ToolsPage() {
         variant={confirmDialog.action === 'remove' ? 'warning' : 'danger'}
         loading={loadingStates[confirmDialog.tool?.id || 0]}
       />
+
+      {/* Mobile Floating Action Button */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0 }}
+        className="fixed bottom-6 right-6 z-50 sm:hidden"
+      >
+        <Link
+          href="/dashboard/tools/create"
+          className="w-14 h-14 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center group"
+        >
+          <PlusIcon className="w-6 h-6 transition-transform group-hover:scale-110" />
+        </Link>
+      </motion.div>
     </div>
   )
 } 

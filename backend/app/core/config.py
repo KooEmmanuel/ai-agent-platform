@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
+    # API Base URL
+    API_BASE_URL: str = os.getenv("API_BASE_URL", "http://localhost:8000").rstrip('/')
+    
     # CORS
     ALLOWED_ORIGINS: List[str] = [
         "http://localhost:3000",

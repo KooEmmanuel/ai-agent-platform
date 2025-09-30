@@ -41,7 +41,8 @@ export const signInWithGoogle = async () => {
     const idToken = await user.getIdToken();
     
     // Send token to our backend
-    const response = await fetch('/api/auth/firebase', {
+    const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    const response = await fetch(`${apiBaseUrl}/api/v1/auth/firebase`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -3,6 +3,7 @@ import { DocumentArrowDownIcon, EyeIcon } from '@heroicons/react/24/outline'
 
 interface DownloadableContentProps {
   content: string
+  downloadUrl?: string
   filename?: string
   fileType?: string
   fileSize?: number
@@ -11,17 +12,20 @@ interface DownloadableContentProps {
 
 const DownloadableContent: React.FC<DownloadableContentProps> = ({
   content,
+  downloadUrl,
   filename = 'download',
   fileType = 'application/pdf',
   fileSize,
   showPreview = false
 }) => {
   const handleDownload = () => {
-    // Check if content is base64 encoded
-    if (content.startsWith('data:')) {
-      // Content is already a data URL
+    const urlToUse = downloadUrl || content
+    
+    // Check if it's a data URL or file URL
+    if (urlToUse.startsWith('data:') || urlToUse.startsWith('http://')) {
+      // Content is already a data URL or full file URL
       const link = document.createElement('a')
-      link.href = content
+      link.href = urlToUse
       link.download = filename
       document.body.appendChild(link)
       link.click()
@@ -62,9 +66,11 @@ const DownloadableContent: React.FC<DownloadableContentProps> = ({
   }
 
   const handlePreview = () => {
-    if (content.startsWith('data:')) {
+    const urlToUse = downloadUrl || content
+    
+    if (urlToUse.startsWith('data:') || urlToUse.startsWith('http://')) {
       // Open in new tab
-      window.open(content, '_blank')
+      window.open(urlToUse, '_blank')
     } else {
       // Create blob URL for preview
       try {

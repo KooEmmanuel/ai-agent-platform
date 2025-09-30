@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, or_
 
 from app.core.database import User
+from app.core.database_models import UserFile
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -55,7 +56,6 @@ class FileManagementService:
         file_content: bytes, 
         filename: str, 
         user_id: int, 
-        agent_id: Optional[int] = None,
         folder_path: str = "",
         db: AsyncSession = None
     ) -> Dict[str, Any]:
@@ -66,7 +66,6 @@ class FileManagementService:
             file_content: File content as bytes
             filename: Original filename
             user_id: ID of the user uploading the file
-            agent_id: Optional agent ID for organization
             folder_path: Optional folder path for organization
             db: Database session
             
@@ -74,6 +73,13 @@ class FileManagementService:
             Dictionary with upload result
         """
         try:
+            # Check if blob token is configured
+            if not self.blob_token:
+                return {
+                    'success': False,
+                    'error': 'Blob storage not configured. Please set BLOB_READ_WRITE_TOKEN environment variable.'
+                }
+            
             # Validate file
             validation_result = self._validate_file(file_content, filename)
             if not validation_result['valid']:
@@ -86,30 +92,31 @@ class FileManagementService:
             file_extension = Path(filename).suffix.lower()
             unique_filename = f"{uuid.uuid4()}{file_extension}"
             
-            # Create blob path
-            blob_path = f"users/{user_id}"
-            if agent_id:
-                blob_path += f"/agents/{agent_id}"
+            # Create blob path - simple structure for library files
+            blob_path = f"users/{user_id}/library"
             if folder_path:
                 blob_path += f"/{folder_path}"
             blob_path += f"/{unique_filename}"
             
             # Upload to Vercel Blob
-            blob = await put(
+            logger.info(f"Uploading file to blob storage: {blob_path}")
+            blob = put(
                 blob_path,
                 file_content,
-                access='public',
-                token=self.blob_token
+                {
+                    "token": self.blob_token,
+                    "addRandomSuffix": "true"
+                }
             )
+            logger.info(f"Blob upload successful: {blob.get('url', 'No URL')}")
             
             # Save file metadata to database
             if db:
                 user_file = UserFile(
                     user_id=user_id,
-                    agent_id=agent_id,
                     original_name=filename,
                     stored_name=unique_filename,
-                    blob_url=blob.url,
+                    blob_url=blob['url'],
                     blob_path=blob_path,
                     file_size=len(file_content),
                     mime_type=validation_result['mime_type'],
@@ -126,7 +133,7 @@ class FileManagementService:
                 return {
                     'success': True,
                     'file_id': user_file.id,
-                    'blob_url': blob.url,
+                    'blob_url': blob['url'],
                     'original_name': filename,
                     'file_size': len(file_content),
                     'mime_type': validation_result['mime_type']
@@ -134,7 +141,7 @@ class FileManagementService:
             else:
                 return {
                     'success': True,
-                    'blob_url': blob.url,
+                    'blob_url': blob['url'],
                     'original_name': filename,
                     'file_size': len(file_content),
                     'mime_type': validation_result['mime_type']
@@ -160,7 +167,7 @@ class FileManagementService:
         
         Args:
             user_id: User ID
-            agent_id: Optional agent ID filter
+            agent_id: Optional agent ID filter (ignored since agent_id column removed)
             folder_path: Optional folder path filter
             file_type: Optional file type filter
             db: Database session
@@ -174,8 +181,9 @@ class FileManagementService:
             
             query = select(UserFile).where(UserFile.user_id == user_id)
             
-            if agent_id:
-                query = query.where(UserFile.agent_id == agent_id)
+            # Note: agent_id filter removed since agent_id column no longer exists
+            # if agent_id:
+            #     query = query.where(UserFile.agent_id == agent_id)
             
             if folder_path:
                 query = query.where(UserFile.folder_path == folder_path)
@@ -241,7 +249,7 @@ class FileManagementService:
             
             # Delete from Vercel Blob
             try:
-                await delete(file.blob_path, token=self.blob_token)
+                delete(file.blob_url, {"token": self.blob_token})
             except Exception as e:
                 logger.warning(f"Error deleting blob: {str(e)}")
             
