@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { FolderIcon, FolderOpenIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline'
+import { FolderIcon, FolderOpenIcon, PencilIcon, TrashIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline'
 import { HiPencilAlt } from "react-icons/hi"
 import { apiClient, Workspace } from '../lib/api'
 
@@ -10,13 +10,17 @@ interface WorkspaceManagerProps {
   selectedWorkspaceId?: number
   onWorkspaceSelect: (workspaceId: number | undefined) => void
   onWorkspaceCreate: (workspace: Workspace) => void
+  onNewChat: (workspaceId: number) => void
+  triggerCreate?: boolean
 }
 
 export default function WorkspaceManager({
   agentId,
   selectedWorkspaceId,
   onWorkspaceSelect,
-  onWorkspaceCreate
+  onWorkspaceCreate,
+  onNewChat,
+  triggerCreate
 }: WorkspaceManagerProps) {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const [loading, setLoading] = useState(true)
@@ -34,6 +38,12 @@ export default function WorkspaceManager({
   useEffect(() => {
     loadWorkspaces()
   }, [agentId])
+
+  useEffect(() => {
+    if (triggerCreate) {
+      setShowCreateForm(true)
+    }
+  }, [triggerCreate])
 
   const loadWorkspaces = async () => {
     try {
@@ -130,16 +140,6 @@ export default function WorkspaceManager({
 
   return (
     <div className="p-2">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold text-gray-900">Workspaces</h3>
-        <button
-          onClick={() => setShowCreateForm(true)}
-          className="p-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-md transition-colors"
-          title="New Workspace"
-        >
-          <HiPencilAlt className="w-4 h-4" />
-        </button>
-      </div>
 
       {/* Workspace List */}
       <div className="space-y-1 max-h-64 overflow-y-auto">
@@ -179,6 +179,13 @@ export default function WorkspaceManager({
             </button>
             
             <div className="flex items-center gap-0.5 flex-shrink-0">
+              <button
+                onClick={() => onNewChat(workspace.id)}
+                className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                title="New chat in this workspace"
+              >
+                <ChatBubbleLeftRightIcon className="w-3 h-3" />
+              </button>
               <button
                 onClick={() => startEdit(workspace)}
                 className="p-1 text-gray-400 hover:text-gray-600 transition-colors"

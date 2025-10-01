@@ -59,7 +59,6 @@ export default function AgentPlaygroundPage() {
   // Workspace state
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<number | undefined>(undefined)
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
-  const [showWorkspaceManager, setShowWorkspaceManager] = useState(false)
   
   // UI state
   const [sidebarVisible, setSidebarVisible] = useState(true)
@@ -69,6 +68,9 @@ export default function AgentPlaygroundPage() {
   const [editInput, setEditInput] = useState('')
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
   const [creatingConversation, setCreatingConversation] = useState(false)
+  const [showPlusDropdown, setShowPlusDropdown] = useState(false)
+  const [workspacesCollapsed, setWorkspacesCollapsed] = useState(false)
+  const [triggerWorkspaceCreate, setTriggerWorkspaceCreate] = useState(false)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
 
   // Workspace management functions
@@ -101,6 +103,18 @@ export default function AgentPlaygroundPage() {
     setSelectedWorkspaceId(workspace.id)
     loadConversations(agent, workspace.id)
   }
+
+  const handleNewChat = (workspaceId: number) => {
+    // Clear current conversation and set the workspace
+    setCurrentConversationId(null)
+    setMessages([])
+    setSelectedWorkspaceId(workspaceId)
+    setCreatingConversation(false) // Reset to false since we're ready for new chat
+    
+    // Load conversations for this workspace
+    loadConversations(agent, workspaceId)
+  }
+
 
   // Load conversations for this agent
   const loadConversations = async (agentToUse?: any, workspaceId?: number | undefined) => {
@@ -194,7 +208,7 @@ export default function AgentPlaygroundPage() {
     event.stopPropagation() // Prevent loading the conversation when clicking delete
     
     if (!agent) return
-    
+ 
     try {
       console.log('🗑️ Deleting conversation:', conversationId)
       await apiClient.deleteConversation(agent.id, parseInt(conversationId))
@@ -290,6 +304,28 @@ export default function AgentPlaygroundPage() {
       loadCurrentConversation()
     }
   }, [conversations, currentConversationId, agent])
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showPlusDropdown) {
+        const target = event.target as Element
+        if (!target.closest('.relative')) {
+          setShowPlusDropdown(false)
+        }
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showPlusDropdown])
+
+  // Reset workspace create trigger after it's been used
+  useEffect(() => {
+    if (triggerWorkspaceCreate) {
+      setTriggerWorkspaceCreate(false)
+    }
+  }, [triggerWorkspaceCreate])
 
   const sendMessage = async () => {
     if (!input.trim() || !agent || sending) return
@@ -391,15 +427,15 @@ export default function AgentPlaygroundPage() {
             if (conversationId && !currentConversationId) {
               setCurrentConversationId(conversationId)
               console.log('💾 Set conversation ID:', conversationId)
-              
-              if (selectedWorkspaceId) {
+                
+                if (selectedWorkspaceId) {
                 console.log('🎉 New conversation created in workspace:', selectedWorkspaceId, 'with ID:', conversationId)
-              } else {
+                } else {
                 console.log('🎉 New conversation created in default workspace with ID:', conversationId)
-              }
-              
-              // Refresh the conversation list to show the new conversation
-              await loadConversations()
+                }
+                
+                // Refresh the conversation list to show the new conversation
+                await loadConversations()
             }
             
             // Check for downloadable content
@@ -449,11 +485,11 @@ export default function AgentPlaygroundPage() {
         // Use regular mode
         const resp = await apiClient.chatWithAgent(agent.id, userMsg.content, currentConversationId)
         if (resp.conversation_id && !currentConversationId) {
-          setCurrentConversationId(resp.conversation_id)
+            setCurrentConversationId(resp.conversation_id)
           console.log('💾 Set conversation ID:', resp.conversation_id)
-          
-          // Refresh the conversation list to show the new conversation
-          await loadConversations()
+            
+            // Refresh the conversation list to show the new conversation
+            await loadConversations()
         }
         
         // Check if response contains downloadable content
@@ -998,7 +1034,9 @@ export default function AgentPlaygroundPage() {
           className="w-64 flex-shrink-0 ml-4 lg:ml-4"
         >
           <div className="p-6 h-full bg-white">
-            <div className="flex items-center gap-3 mb-4">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
               <button
                 onClick={() => setSidebarVisible(false)}
                 className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
@@ -1009,155 +1047,125 @@ export default function AgentPlaygroundPage() {
               <h3 className="text-base lg:text-lg font-semibold">Conversations</h3>
             </div>
 
-            {/* Workspace Manager */}
-            <div className="mb-4">
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="text-xs font-medium text-gray-700">Workspaces</h4>
+              {/* Plus Dropdown */}
+              <div className="relative">
                 <button
-                  onClick={() => setShowWorkspaceManager(!showWorkspaceManager)}
-                  className="text-xs text-blue-600 hover:text-blue-700 transition-colors"
+                  onClick={() => setShowPlusDropdown(!showPlusDropdown)}
+                  className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                  title="New"
                 >
-                  {showWorkspaceManager ? 'Hide' : 'Manage'}
+                  <svg className="w-4 h-4 lg:w-5 lg:h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                </button>
+                
+                {showPlusDropdown && (
+                  <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+                    <div className="py-1">
+                      <button
+                        onClick={() => {
+                          setShowPlusDropdown(false)
+                          setCurrentConversationId(null)
+                          setMessages([])
+                          setError(null)
+                          setCreatingConversation(false)
+                        }}
+                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                      >
+                        <HiOutlinePencilAlt className="w-4 h-4" />
+                        New Chat
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowPlusDropdown(false)
+                          setTriggerWorkspaceCreate(true)
+                        }}
+                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                        New Workspace
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+              
+            {/* Workspaces Section */}
+            <div className="mb-4">
+              {/* Workspaces Header with Toggle */}
+              <div className="flex items-center justify-between mb-2">
+                <button
+                  onClick={() => setWorkspacesCollapsed(!workspacesCollapsed)}
+                  className="flex items-center gap-2 text-xs font-medium text-gray-700 hover:text-gray-900 transition-colors"
+                >
+                  <svg 
+                    className={`w-3 h-3 transition-transform ${workspacesCollapsed ? 'rotate-0' : 'rotate-90'}`} 
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                  Workspaces
                 </button>
               </div>
-              
-              {showWorkspaceManager ? (
-                <div className="max-h-48 overflow-y-auto">
+
+              {/* Workspace Manager - Collapsible */}
+              {!workspacesCollapsed && (
+                <div className="max-h-48 overflow-y-auto mb-3">
                   <WorkspaceManager
                     agentId={agentId}
                     selectedWorkspaceId={selectedWorkspaceId}
                     onWorkspaceSelect={handleWorkspaceSelect}
                     onWorkspaceCreate={handleWorkspaceCreate}
+                    onNewChat={handleNewChat}
+                    triggerCreate={triggerWorkspaceCreate}
                   />
                 </div>
-              ) : (
-                <div className="space-y-1 max-h-32 overflow-y-auto">
-                  {/* Quick workspace selector */}
-                  <button
-                    onClick={() => handleWorkspaceSelect(undefined)}
-                    className={`w-full flex items-center gap-2 p-1.5 rounded-md text-left transition-colors ${
-                      selectedWorkspaceId === undefined
-                        ? 'bg-blue-50 border border-blue-200'
-                        : 'bg-gray-50 hover:bg-gray-100 border border-transparent'
-                    }`}
-                  >
-                    <span className="text-xs">📁</span>
-                    <span className="text-xs font-medium truncate">All Conversations</span>
-                  </button>
-                  
-                  {workspaces.slice(0, 4).map((workspace) => (
-                    <button
-                      key={workspace.id}
-                      onClick={() => handleWorkspaceSelect(workspace.id)}
-                      className={`w-full flex items-center gap-2 p-1.5 rounded-md text-left transition-colors ${
-                        selectedWorkspaceId === workspace.id
-                          ? 'bg-blue-50 border border-blue-200'
-                          : 'bg-gray-50 hover:bg-gray-100 border border-transparent'
-                      }`}
-                    >
-                      <span className="text-xs">{workspace.icon}</span>
-                      <span className="text-xs font-medium truncate">{workspace.name}</span>
-                    </button>
-                  ))}
-                  
-                  {workspaces.length > 4 && (
-                    <div className="text-xs text-gray-500 text-center py-1">
-                      +{workspaces.length - 4} more
-                    </div>
-                  )}
-                </div>
               )}
+
             </div>
-            
-            <div className="space-y-3">
-              {/* New Chat Button */}
-              <button 
-                onClick={() => {
-                  console.log('🔄 Starting new conversation...')
-                  
-                  // Clear current state - don't create conversation yet
-                  setMessages([])
-                  setCurrentConversationId(null)
-                  setError(null)
-                  
-                  console.log('🎉 Ready for new conversation - user can start typing')
-                }}
-                disabled={creatingConversation}
-                className="w-full rounded-xl py-3 px-4 text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <span className="flex items-center gap-2">
-                  {creatingConversation ? (
-                    'Creating...'
-                  ) : (
-                    <>
-                      <HiOutlinePencilAlt className="w-4 h-4" />
-                      New Chat
-                    </>
-                  )}
-                </span>
-              </button>
 
-
-
-              {/* Conversation History */}
-              {loadingConversations ? (
-                <div className="p-3 rounded-xl text-center">
-                  <div className="text-sm text-slate-500">Loading conversations...</div>
-                </div>
-              ) : conversations.length > 0 ? (
+            {/* My Chats Section */}
                 <div className="space-y-2">
-                  <div className="text-xs font-medium text-slate-600 mb-2">Recent Conversations</div>
-                  {conversations.slice(0, 5).map((conversation) => {
+              <div className="text-xs font-medium text-slate-600 mb-2">My Chats</div>
+              {loadingConversations ? (
+                <div className="text-xs text-gray-500 p-2">Loading conversations...</div>
+              ) : conversations.filter(c => !c.workspace_id).length > 0 ? (
+                <div className="space-y-1">
+                  {conversations.filter(c => !c.workspace_id).slice(0, 5).map((conversation) => {
                     const isActive = currentConversationId === parseInt(conversation.id)
                     return (
-                      <div 
+                      <button
                         key={conversation.id}
-                        className={`p-2 rounded-lg cursor-pointer hover:translate-x-1 transition-transform duration-150 border relative group ${
-                          isActive 
-                            ? 'border-blue-300 bg-blue-50 shadow-sm' 
-                            : 'border-slate-200 hover:border-slate-300'
-                        }`}
                         onClick={() => loadConversation(conversation.id)}
+                        className={`w-full flex items-center gap-2 p-2 rounded-md text-left transition-colors ${
+                          isActive 
+                            ? 'bg-blue-100 border border-blue-200'
+                            : 'hover:bg-gray-100 border border-transparent'
+                        }`}
                       >
-                        {/* Active indicator */}
-                        {isActive && (
-                          <div className="absolute top-1.5 left-1.5 w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></div>
-                        )}
-                        
-                        <div className={`text-xs font-medium truncate ${isActive ? 'pr-8' : 'pr-6'}`}>
-                          {loadingConversation && currentConversationId === parseInt(conversation.id) ? (
+                        <div className="w-2 h-2 bg-gray-400 rounded-full flex-shrink-0"></div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs font-medium text-gray-700 truncate">
+                            {loadingConversation && isActive ? (
                             <span className="text-blue-600">Loading...</span>
                           ) : (
                             conversation.messages?.length > 0 
-                              ? conversation.messages[0].content.substring(0, 25) + '...' 
+                                ? conversation.messages[0].content.substring(0, 20) + '...' 
                               : 'Empty conversation'
                           )}
                         </div>
-                        <div className="text-xs text-slate-400 mt-0.5">
-                          {conversation.messages?.length || 0} msgs • {new Date(conversation.created_at).toLocaleDateString()}
-                          {isActive && (
-                            <span className="ml-1 text-blue-600 font-medium">• Active</span>
-                          )}
                         </div>
-                        
-                        {/* Delete button */}
-                        <button
-                          onClick={(e) => deleteConversation(conversation.id, e)}
-                          className="absolute top-2 right-2 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-red-100 text-red-500"
-                          title="Delete conversation"
-                        >
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
                         </button>
-                      </div>
                     )
                   })}
                 </div>
               ) : (
-                <div className="p-3 rounded-xl text-center">
-                  <div className="text-sm text-slate-500">No conversations yet</div>
-                </div>
+                <div className="text-xs text-gray-500 p-2">No chats yet</div>
               )}
             </div>
           </div>
