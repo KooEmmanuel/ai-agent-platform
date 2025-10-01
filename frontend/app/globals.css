@@ -402,6 +402,99 @@ input, textarea, select {
   }
 }
 
+/* Syntax highlighting styles for react-syntax-highlighter */
+.hljs {
+  background: #1f2937 !important;
+  color: #e5e7eb !important;
+}
+
+.hljs-comment,
+.hljs-quote {
+  color: #6b7280 !important;
+  font-style: italic;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-subst {
+  color: #f472b6 !important;
+  font-weight: bold;
+}
+
+.hljs-number,
+.hljs-literal,
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag .hljs-attr {
+  color: #fbbf24 !important;
+}
+
+.hljs-string,
+.hljs-doctag {
+  color: #34d399 !important;
+}
+
+.hljs-title,
+.hljs-section,
+.hljs-selector-id {
+  color: #60a5fa !important;
+  font-weight: bold;
+}
+
+.hljs-subst {
+  font-weight: normal;
+}
+
+.hljs-type,
+.hljs-class .hljs-title {
+  color: #a78bfa !important;
+  font-weight: bold;
+}
+
+.hljs-tag,
+.hljs-name,
+.hljs-attribute {
+  color: #f472b6 !important;
+  font-weight: normal;
+}
+
+.hljs-regexp,
+.hljs-link {
+  color: #34d399 !important;
+}
+
+.hljs-symbol,
+.hljs-bullet {
+  color: #fbbf24 !important;
+}
+
+.hljs-built_in,
+.hljs-builtin-name {
+  color: #60a5fa !important;
+}
+
+.hljs-meta {
+  color: #6b7280 !important;
+}
+
+.hljs-deletion {
+  background: #fef2f2 !important;
+  color: #dc2626 !important;
+}
+
+.hljs-addition {
+  background: #f0fdf4 !important;
+  color: #16a34a !important;
+}
+
+.hljs-emphasis {
+  font-style: italic;
+}
+
+.hljs-strong {
+  font-weight: bold;
+}
+
 /* Mobile viewport fixes */
 html, body {
   height: 100%;
