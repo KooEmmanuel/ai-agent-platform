@@ -28,7 +28,9 @@ class Settings(BaseSettings):
         "http://localhost:3000",
         "http://localhost:3001",
         "https://kwickbuild.vercel.app",  # Production frontend
+        "https://kwickbuild.com",  # Production frontend
         "https://kwickbuild.up.railway.app",  # Backend itself
+
         "https://ai-agent-platform-production.up.railway.app",  # Alternative backend URL
     ]
     

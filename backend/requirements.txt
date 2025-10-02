@@ -15,6 +15,7 @@ httpx==0.25.2
 
 # Reddit API
 praw==7.7.1
+asyncpraw==7.7.1
 
 # Data processing and analysis
 pandas==2.1.4
