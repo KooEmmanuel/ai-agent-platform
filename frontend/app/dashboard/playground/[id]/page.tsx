@@ -89,6 +89,7 @@ export default function AgentPlaygroundPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(10)
   const [searchTerm, setSearchTerm] = useState('')
+  const [selectedCollections, setSelectedCollections] = useState<string[]>([])
   const messagesContainerRef = useRef<HTMLDivElement>(null)
 
   // Workspace management functions
@@ -354,7 +355,8 @@ export default function AgentPlaygroundPage() {
       currentConversationId: currentConversationId,
       agentId: agent.id,
       agentName: agent.name,
-      selectedWorkspaceId: selectedWorkspaceId
+      selectedWorkspaceId: selectedWorkspaceId,
+      selectedCollections: selectedCollections
     })
     
     if (selectedWorkspaceId) {
@@ -497,11 +499,12 @@ export default function AgentPlaygroundPage() {
             setStreamingStatus(null)
             setSending(false)
           },
-          selectedWorkspaceId
+          selectedWorkspaceId,
+          selectedCollections.length > 0 ? selectedCollections : undefined
         )
       } else {
         // Use regular mode
-        const resp = await apiClient.chatWithAgent(agent.id, userMsg.content, currentConversationId?.toString())
+        const resp = await apiClient.chatWithAgent(agent.id, userMsg.content, currentConversationId?.toString(), selectedCollections.length > 0 ? selectedCollections : undefined)
         if (resp.conversation_id && !currentConversationId) {
             setCurrentConversationId(resp.conversation_id)
           console.log('💾 Set conversation ID:', resp.conversation_id)
@@ -986,6 +989,22 @@ export default function AgentPlaygroundPage() {
     setCurrentPage(1)
   }, [searchTerm])
 
+  // Handle collection selection
+  const handleCollectionToggle = (collectionName: string) => {
+    setSelectedCollections(prev => {
+      if (prev.includes(collectionName)) {
+        return prev.filter(name => name !== collectionName)
+      } else {
+        return [...prev, collectionName]
+      }
+    })
+  }
+
+  // Clear all selected collections
+  const clearSelectedCollections = () => {
+    setSelectedCollections([])
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-white to-slate-50 flex items-center justify-center">
@@ -1291,11 +1310,15 @@ export default function AgentPlaygroundPage() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={onKeyDown}
-                  placeholder="Message..."
+                  placeholder={selectedCollections.length > 0 ? `Message... (${selectedCollections.length} collection${selectedCollections.length > 1 ? 's' : ''} selected)` : "Message..."}
                   className="w-full resize-none min-h-[52px] lg:min-h-[60px] max-h-40 rounded-2xl pl-12 lg:pl-14 pr-32 py-3 lg:py-4 text-sm lg:text-base focus:outline-none border border-gray-200 focus:border-blue-400 transition-all duration-200" 
                   style={{ 
-                    background: 'linear-gradient(180deg,#ffffff,#fafbfc)',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06)'
+                    background: selectedCollections.length > 0 
+                      ? 'linear-gradient(180deg,#f0f9ff,#e0f2fe)' 
+                      : 'linear-gradient(180deg,#ffffff,#fafbfc)',
+                    boxShadow: selectedCollections.length > 0
+                      ? '0 2px 8px rgba(59, 130, 246, 0.1), 0 1px 2px rgba(59, 130, 246, 0.06)'
+                      : '0 2px 8px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06)'
                   }}
                   disabled={sending}
                 />
@@ -1698,6 +1721,46 @@ export default function AgentPlaygroundPage() {
               </div>
             </div>
 
+            {/* Selected Collections */}
+            {selectedCollections.length > 0 && (
+              <div className="px-6 py-3 border-b border-gray-200 bg-blue-50/50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                    <span className="text-sm font-medium text-blue-900">
+                      {selectedCollections.length} collection{selectedCollections.length > 1 ? 's' : ''} selected
+                    </span>
+                  </div>
+                  <button
+                    onClick={clearSelectedCollections}
+                    className="text-xs text-blue-600 hover:text-blue-800 underline"
+                  >
+                    Clear all
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {selectedCollections.map((collectionName) => (
+                    <span
+                      key={collectionName}
+                      className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full"
+                    >
+                      {collectionName}
+                      <button
+                        onClick={() => handleCollectionToggle(collectionName)}
+                        className="hover:text-blue-600"
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-6">
               {/* Items List */}
@@ -1741,14 +1804,27 @@ export default function AgentPlaygroundPage() {
                               </p>
                             </div>
                           </div>
-                          <button className={`p-2 rounded-lg transition-colors ${
-                            isCollection 
-                              ? 'hover:bg-blue-100' 
-                              : 'hover:bg-green-100'
-                          }`}>
-                            <PlusIcon className={`w-4 h-4 ${
-                              isCollection ? 'text-blue-600' : 'text-green-600'
-                            }`} />
+                          <button 
+                            onClick={() => {
+                              if (isCollection) {
+                                handleCollectionToggle(item.name)
+                              }
+                            }}
+                            className={`p-2 rounded-lg transition-colors ${
+                              isCollection 
+                                ? selectedCollections.includes(item.name)
+                                  ? 'bg-blue-100 text-blue-600'
+                                  : 'hover:bg-blue-100 text-blue-600'
+                                : 'hover:bg-green-100 text-green-600'
+                            }`}
+                          >
+                            {isCollection && selectedCollections.includes(item.name) ? (
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                            ) : (
+                              <PlusIcon className="w-4 h-4" />
+                            )}
                           </button>
                         </div>
                       </div>
