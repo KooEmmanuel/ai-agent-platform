@@ -3,10 +3,15 @@
 import { useEffect, useMemo, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { ArrowLeftIcon, PaperAirplaneIcon, XMarkIcon, Bars3Icon, EyeSlashIcon, ClipboardIcon, PencilIcon, CheckIcon } from '@heroicons/react/24/outline'
+import { ArrowLeftIcon, PaperAirplaneIcon, XMarkIcon, Bars3Icon, EyeSlashIcon, ClipboardIcon, PencilIcon, CheckIcon, PlusIcon } from '@heroicons/react/24/outline'
 import { PanelRightClose } from 'lucide-react'
 import { PanelLeftClose } from 'lucide-react'
 import { HiOutlinePencilAlt } from "react-icons/hi"
+import { HiDocument } from "react-icons/hi2"
+import { FaHeadSideVirus } from "react-icons/fa"
+import * as Humanize from 'humanize-plus'
+import jsPDF from 'jspdf'
+import html2canvas from 'html2canvas'
 import Link from 'next/link'
 import { apiClient, type Agent, type Workspace } from '../../../../lib/api'
 import { getUser, type User } from '../../../../lib/auth'
@@ -71,6 +76,19 @@ export default function AgentPlaygroundPage() {
   const [showPlusDropdown, setShowPlusDropdown] = useState(false)
   const [workspacesCollapsed, setWorkspacesCollapsed] = useState(false)
   const [triggerWorkspaceCreate, setTriggerWorkspaceCreate] = useState(false)
+  const [showHumanizeModal, setShowHumanizeModal] = useState(false)
+  const [humanizedText, setHumanizedText] = useState('')
+  const [humanizingText, setHumanizingText] = useState(false)
+  const [originalText, setOriginalText] = useState('')
+  const [generatingPDF, setGeneratingPDF] = useState(false)
+  const [showPlusModal, setShowPlusModal] = useState(false)
+  const [collections, setCollections] = useState<any[]>([])
+  const [files, setFiles] = useState<any[]>([])
+  const [loadingCollections, setLoadingCollections] = useState(false)
+  const [loadingFiles, setLoadingFiles] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage] = useState(10)
+  const [searchTerm, setSearchTerm] = useState('')
   const messagesContainerRef = useRef<HTMLDivElement>(null)
 
   // Workspace management functions
@@ -570,6 +588,278 @@ export default function AgentPlaygroundPage() {
     }
   }
 
+  const humanizeText = async (text: string) => {
+    try {
+      setHumanizingText(true)
+      setOriginalText(text)
+      
+      // Simulate processing time
+      await new Promise(resolve => setTimeout(resolve, 1500))
+      
+      // Use humanize-plus library for text transformation
+      let humanized = text
+      
+      // Apply various humanization techniques using the library
+      // 1. Capitalize and format text naturally
+      humanized = Humanize.capitalize(humanized, true)
+      
+      // 2. Replace formal phrases with more natural ones
+      humanized = humanized
+        .replace(/Furthermore/g, 'What\'s more')
+        .replace(/Additionally/g, 'Plus')
+        .replace(/Moreover/g, 'On top of that')
+        .replace(/In conclusion/g, 'To wrap this up')
+        .replace(/It is important to note/g, 'Here\'s the thing')
+        .replace(/Furthermore, it should be noted/g, 'Another key point')
+        .replace(/In order to/g, 'To')
+        .replace(/Due to the fact that/g, 'Since')
+        .replace(/At this point in time/g, 'Now')
+        .replace(/In the event that/g, 'If')
+        .replace(/It should be noted that/g, 'Keep in mind that')
+        .replace(/It is worth noting/g, 'Worth mentioning')
+        .replace(/In other words/g, 'Put simply')
+        .replace(/As a result/g, 'So')
+        .replace(/In addition/g, 'Also')
+        .replace(/For instance/g, 'For example')
+        .replace(/In particular/g, 'Especially')
+        .replace(/It is clear that/g, 'Clearly')
+        .replace(/It is evident that/g, 'Obviously')
+        .replace(/It is apparent that/g, 'It\'s clear that')
+        .replace(/It is obvious that/g, 'Obviously')
+        .replace(/It is important to understand/g, 'It\'s key to understand')
+        .replace(/It is crucial to note/g, 'It\'s crucial to note')
+        .replace(/It is essential to remember/g, 'Remember')
+        .replace(/It is necessary to consider/g, 'Consider')
+        .replace(/It is vital to understand/g, 'It\'s vital to understand')
+        .replace(/It is worth considering/g, 'Consider')
+        .replace(/It is worth mentioning/g, 'Worth mentioning')
+        .replace(/It is worth noting/g, 'Worth noting')
+        .replace(/It is worth remembering/g, 'Remember')
+        .replace(/It is worth understanding/g, 'Understand')
+        .replace(/It is worth considering/g, 'Consider')
+        .replace(/It is worth mentioning/g, 'Worth mentioning')
+        .replace(/It is worth noting/g, 'Worth noting')
+        .replace(/It is worth remembering/g, 'Remember')
+        .replace(/It is worth understanding/g, 'Understand')
+      
+      // 3. Add some natural sentence variations
+      const sentences = humanized.split('. ')
+      const variedSentences = sentences.map((sentence, index) => {
+        if (index === 0) return sentence
+        // Occasionally start with a more casual connector
+        const casualStarters = ['Plus,', 'Also,', 'And', 'But', 'However,', 'Meanwhile,', 'On the other hand,']
+        if (Math.random() < 0.3 && sentence.length > 20) {
+          const starter = casualStarters[Math.floor(Math.random() * casualStarters.length)]
+          return `${starter} ${sentence.toLowerCase()}`
+        }
+        return sentence
+      })
+      
+      humanized = variedSentences.join('. ')
+      
+      // 4. Apply title case for better readability
+      humanized = Humanize.titleCase(humanized)
+      
+      setHumanizedText(humanized)
+      setShowHumanizeModal(true)
+    } catch (err) {
+      console.error('Failed to humanize text: ', err)
+      setError('Failed to humanize text')
+    } finally {
+      setHumanizingText(false)
+    }
+  }
+
+  const generatePDF = async (content: string, messageId: string) => {
+    try {
+      setGeneratingPDF(true)
+      
+      // Create a temporary div with the content
+      const tempDiv = document.createElement('div')
+      tempDiv.style.position = 'absolute'
+      tempDiv.style.left = '-9999px'
+      tempDiv.style.top = '0'
+      tempDiv.style.width = '800px'
+      tempDiv.style.padding = '40px 40px 60px 40px' // Extra bottom padding
+      tempDiv.style.backgroundColor = 'white'
+      tempDiv.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+      tempDiv.style.lineHeight = '1.6'
+      tempDiv.style.color = '#333'
+      tempDiv.style.pageBreakInside = 'auto'
+      tempDiv.style.orphans = '3'
+      tempDiv.style.widows = '3'
+      tempDiv.style.marginBottom = '20px' // Extra margin at bottom
+      // Enhanced markdown processing
+      const processMarkdown = (text: string) => {
+        let processed = text
+        
+        // Headers with page break handling
+        processed = processed.replace(/^### (.*$)/gim, '<h3 style="color: #2563eb; font-size: 1.25em; margin: 1.5em 0 0.5em 0; font-weight: 600; page-break-after: avoid; page-break-inside: avoid;">$1</h3>')
+        processed = processed.replace(/^## (.*$)/gim, '<h2 style="color: #2563eb; font-size: 1.5em; margin: 1.5em 0 0.5em 0; font-weight: 600; page-break-after: avoid; page-break-inside: avoid;">$1</h2>')
+        processed = processed.replace(/^# (.*$)/gim, '<h1 style="color: #2563eb; font-size: 1.75em; margin: 1.5em 0 0.5em 0; font-weight: 600; page-break-after: avoid; page-break-inside: avoid;">$1</h1>')
+        
+        // Bold and italic
+        processed = processed.replace(/\*\*(.*?)\*\*/g, '<strong style="font-weight: 600;">$1</strong>')
+        processed = processed.replace(/\*(.*?)\*/g, '<em style="font-style: italic;">$1</em>')
+        
+        // Code blocks (multi-line) with page break handling
+        processed = processed.replace(/```([\s\S]*?)```/g, '<pre style="background: #f3f4f6; padding: 16px; border-radius: 8px; overflow-x: auto; margin: 1em 0; font-family: \'Monaco\', \'Menlo\', monospace; font-size: 0.9em; border-left: 4px solid #3b82f6; page-break-inside: avoid; break-inside: avoid;">$1</pre>')
+        
+        // Inline code
+        processed = processed.replace(/`(.*?)`/g, '<code style="background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-family: \'Monaco\', \'Menlo\', monospace; font-size: 0.9em;">$1</code>')
+        
+        // Blockquotes with page break handling
+        processed = processed.replace(/^> (.*$)/gim, '<blockquote style="border-left: 4px solid #3b82f6; margin: 1em 0; padding-left: 1em; color: #6b7280; font-style: italic; page-break-inside: avoid; break-inside: avoid;">$1</blockquote>')
+        
+        // Lists with page break handling
+        processed = processed.replace(/^\* (.*$)/gim, '<li style="margin-bottom: 0.5em; list-style-type: disc; page-break-inside: avoid; break-inside: avoid;">$1</li>')
+        processed = processed.replace(/^- (.*$)/gim, '<li style="margin-bottom: 0.5em; list-style-type: disc; page-break-inside: avoid; break-inside: avoid;">$1</li>')
+        processed = processed.replace(/^\d+\. (.*$)/gim, '<li style="margin-bottom: 0.5em; list-style-type: decimal; page-break-inside: avoid; break-inside: avoid;">$1</li>')
+        
+        // Wrap consecutive list items in ul/ol with page break handling
+        processed = processed.replace(/(<li[^>]*>.*<\/li>)/g, (match, p1, offset, string) => {
+          const before = string.substring(0, offset)
+          const after = string.substring(offset + match.length)
+          const isFirst = !before.match(/<li[^>]*>.*<\/li>[\s\S]*$/)
+          const isLast = !after.match(/^[\s\S]*<li[^>]*>.*<\/li>/)
+          
+          if (isFirst) return `<ul style="margin: 1em 0; padding-left: 2em; page-break-inside: avoid; break-inside: avoid;">${match}`
+          if (isLast) return `${match}</ul>`
+          return match
+        })
+        
+        // Links
+        processed = processed.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color: #3b82f6; text-decoration: none;">$1</a>')
+        
+        // Tables (basic support) with page break handling
+        const tableRegex = /^\|(.+)\|\s*\n\|[-\s|]+\|\s*\n((?:\|.+\|\s*\n?)*)/gm
+        processed = processed.replace(tableRegex, (match, header, rows) => {
+          const headerCells = header.split('|').map(cell => cell.trim()).filter(cell => cell)
+          const rowLines = rows.trim().split('\n').filter(line => line.trim())
+          
+          let tableHtml = '<table style="border-collapse: collapse; width: 100%; margin: 1em 0; border: 1px solid #d1d5db; page-break-inside: avoid; break-inside: avoid;">'
+          
+          // Header
+          tableHtml += '<thead><tr>'
+          headerCells.forEach(cell => {
+            tableHtml += `<th style="border: 1px solid #d1d5db; padding: 8px 12px; text-align: left; background: #f9fafb; font-weight: 600; page-break-after: avoid;">${cell}</th>`
+          })
+          tableHtml += '</tr></thead>'
+          
+          // Rows
+          tableHtml += '<tbody>'
+          rowLines.forEach(line => {
+            const cells = line.split('|').map(cell => cell.trim()).filter(cell => cell)
+            tableHtml += '<tr style="page-break-inside: avoid; break-inside: avoid;">'
+            cells.forEach(cell => {
+              tableHtml += `<td style="border: 1px solid #d1d5db; padding: 8px 12px; text-align: left;">${cell}</td>`
+            })
+            tableHtml += '</tr>'
+          })
+          tableHtml += '</tbody></table>'
+          
+          return tableHtml
+        })
+        
+        // Horizontal rules with page break handling
+        processed = processed.replace(/^---$/gim, '<hr style="border: none; border-top: 2px solid #e5e7eb; margin: 2em 0; page-break-after: avoid; page-break-before: avoid;">')
+        processed = processed.replace(/^\*\*\*$/gim, '<hr style="border: none; border-top: 2px solid #e5e7eb; margin: 2em 0; page-break-after: avoid; page-break-before: avoid;">')
+        
+        // Add page break classes for better control
+        processed = processed.replace(/\n\n/g, '</p><p style="margin: 1em 0; page-break-inside: avoid; orphans: 2; widows: 2;">')
+        processed = processed.replace(/^/, '<p style="margin: 1em 0; page-break-inside: avoid; orphans: 2; widows: 2;">')
+        processed = processed.replace(/$/, '</p>')
+        
+        // Line breaks within paragraphs
+        processed = processed.replace(/\n/g, '<br>')
+        
+        return processed
+      }
+      
+      tempDiv.innerHTML = `
+        <style>
+          @media print {
+            .page-break { page-break-before: always; }
+            .no-break { page-break-inside: avoid; break-inside: avoid; }
+            .avoid-break-after { page-break-after: avoid; }
+            .avoid-break-before { page-break-before: avoid; }
+            body { margin: 0; padding: 20px 0; }
+            * { box-sizing: border-box; }
+          }
+          .page-content {
+            margin-top: 20px;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+          }
+          .page-spacing {
+            margin-top: 20px;
+            margin-bottom: 20px;
+          }
+        </style>
+        <div style="text-align: center; margin-bottom: 2em; padding-bottom: 1em; border-bottom: 2px solid #e5e7eb; page-break-after: avoid;">
+          <h1 style="color: #2563eb; font-size: 2em; margin: 0 0 0.5em 0; font-weight: 600; page-break-after: avoid;">Chat Message Export</h1>
+          <div style="color: #6b7280; font-size: 0.9em;">Generated on ${new Date().toLocaleString()}</div>
+        </div>
+        <div class="page-content" style="max-width: 100%; word-wrap: break-word; line-height: 1.6; orphans: 3; widows: 3; margin-top: 20px; margin-bottom: 30px; padding-bottom: 20px;">
+          ${processMarkdown(content)}
+        </div>
+      `
+      
+      document.body.appendChild(tempDiv)
+      
+      // Convert to canvas
+      const canvas = await html2canvas(tempDiv, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff'
+      })
+      
+      // Remove temporary div
+      document.body.removeChild(tempDiv)
+      
+      // Create PDF with proper margins
+      const imgData = canvas.toDataURL('image/png')
+      const pdf = new jsPDF('p', 'mm', 'a4')
+      
+      // Set page margins (top, right, bottom, left)
+      const marginTop = 20
+      const marginBottom = 20
+      const marginLeft = 15
+      const marginRight = 15
+      
+      const imgWidth = 210 - marginLeft - marginRight // A4 width minus margins
+      const pageHeight = 295 - marginTop - marginBottom // A4 height minus margins
+      const imgHeight = (canvas.height * imgWidth) / canvas.width
+      let heightLeft = imgHeight
+      
+      let position = 0
+      
+      // Add first page with margins
+      pdf.addImage(imgData, 'PNG', marginLeft, marginTop + position, imgWidth, imgHeight)
+      heightLeft -= pageHeight
+      
+      // Add additional pages if needed with proper spacing
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight
+        pdf.addPage()
+        // Add some spacing at the top of new pages
+        pdf.addImage(imgData, 'PNG', marginLeft, marginTop + position + 10, imgWidth, imgHeight)
+        heightLeft -= pageHeight
+      }
+      
+      // Download the PDF
+      const fileName = `chat-message-${messageId}-${Date.now()}.pdf`
+      pdf.save(fileName)
+      
+    } catch (err) {
+      console.error('Failed to generate PDF: ', err)
+      setError('Failed to generate PDF')
+    } finally {
+      setGeneratingPDF(false)
+    }
+  }
+
   const regenerateFromEdit = async () => {
     if (!editInput.trim() || !agent || sending || !editingMessageId) return
     setError(null)
@@ -616,6 +906,85 @@ export default function AgentPlaygroundPage() {
       setSending(false)
     }
   }
+
+  // Load collections for plus modal
+  const loadCollections = async () => {
+    try {
+      setLoadingCollections(true)
+      const collectionsData = await apiClient.getKnowledgeBaseCollections()
+      setCollections(collectionsData)
+    } catch (err) {
+      console.error('Failed to load collections:', err)
+    } finally {
+      setLoadingCollections(false)
+    }
+  }
+
+  // Load files for plus modal
+  const loadFiles = async () => {
+    try {
+      setLoadingFiles(true)
+      const filesData = await apiClient.getFiles()
+      setFiles(filesData)
+    } catch (err) {
+      console.error('Failed to load files:', err)
+    } finally {
+      setLoadingFiles(false)
+    }
+  }
+
+  // Handle plus modal open
+  const handlePlusModalOpen = async () => {
+    setShowPlusModal(true)
+    setCurrentPage(1)
+    setSearchTerm('')
+    await Promise.all([loadCollections(), loadFiles()])
+  }
+
+  // Filter items based on search term
+  const getFilteredItems = () => {
+    const allItems = [...collections, ...files]
+    if (!searchTerm.trim()) return allItems
+    
+    return allItems.filter(item => {
+      const isCollection = 'document_count' in item
+      const searchLower = searchTerm.toLowerCase()
+      
+      if (isCollection) {
+        return item.name.toLowerCase().includes(searchLower) ||
+               (item.description && item.description.toLowerCase().includes(searchLower))
+      } else {
+        return item.original_name.toLowerCase().includes(searchLower) ||
+               (item.mime_type && item.mime_type.toLowerCase().includes(searchLower))
+      }
+    })
+  }
+
+  // Get paginated items
+  const getPaginatedItems = () => {
+    const filteredItems = getFilteredItems()
+    const startIndex = (currentPage - 1) * itemsPerPage
+    const endIndex = startIndex + itemsPerPage
+    return filteredItems.slice(startIndex, endIndex)
+  }
+
+  const filteredItems = getFilteredItems()
+  const totalItems = filteredItems.length
+  const totalPages = Math.ceil(totalItems / itemsPerPage)
+  const paginatedItems = getPaginatedItems()
+
+  // Update pagination when collections or files change
+  useEffect(() => {
+    const newTotalPages = Math.ceil(totalItems / itemsPerPage)
+    if (currentPage > newTotalPages && newTotalPages > 0) {
+      setCurrentPage(newTotalPages)
+    }
+  }, [collections.length, files.length, currentPage, itemsPerPage, totalItems])
+
+  // Reset to first page when search term changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm])
 
   if (loading) {
     return (
@@ -820,9 +1189,29 @@ export default function AgentPlaygroundPage() {
                               <button
                                 onClick={() => copyToClipboard(m.content, m.id)}
                                 className="p-1 rounded hover:bg-gray-100 transition-colors"
-                                title="Copy message"
+                                title={copiedMessageId === m.id ? "Copied!" : "Copy message"}
                               >
-                                <ClipboardIcon className="w-3 h-3 lg:w-4 lg:h-4 text-gray-500" />
+                                {copiedMessageId === m.id ? (
+                                  <CheckIcon className="w-3 h-3 lg:w-4 lg:h-4 text-green-500" />
+                                ) : (
+                                  <ClipboardIcon className="w-3 h-3 lg:w-4 lg:h-4 text-gray-500" />
+                                )}
+                              </button>
+                              <button
+                                onClick={() => humanizeText(m.content)}
+                                className="p-1 rounded hover:bg-gray-100 transition-colors"
+                                title="Humanize text"
+                                disabled={humanizingText}
+                              >
+                                <FaHeadSideVirus className={`w-3 h-3 lg:w-4 lg:h-4 ${humanizingText ? 'text-blue-500 animate-pulse' : 'text-gray-500'}`} />
+                              </button>
+                              <button
+                                onClick={() => generatePDF(m.content, m.id)}
+                                className="p-1 rounded hover:bg-gray-100 transition-colors"
+                                title="Download as PDF"
+                                disabled={generatingPDF}
+                              >
+                                <HiDocument className={`w-3 h-3 lg:w-4 lg:h-4 ${generatingPDF ? 'text-red-500 animate-pulse' : 'text-gray-500'}`} />
                               </button>
                               {m.role === 'user' && (
                                 <button
@@ -887,12 +1276,23 @@ export default function AgentPlaygroundPage() {
           <div className="sticky bottom-0 p-4 lg:p-6 bg-white/80 backdrop-blur-sm border-t border-gray-100 z-10">
             <div className="max-w-4xl mx-auto">
               <div className="relative">
+                {/* Plus icon on the left */}
+                <div className="absolute left-3 lg:left-4 top-1/2 transform -translate-y-1/2 z-10">
+                  <button
+                    onClick={handlePlusModalOpen}
+                    className="p-1.5 lg:p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                    title="Add attachment or tool"
+                  >
+                    <PlusIcon className="w-4 h-4 lg:w-5 lg:h-5 text-gray-500" />
+                  </button>
+                </div>
+                
                 <textarea
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={onKeyDown}
                   placeholder="Message..."
-                  className="w-full resize-none min-h-[52px] lg:min-h-[60px] max-h-40 rounded-2xl px-4 lg:px-5 py-3 lg:py-4 text-sm lg:text-base focus:outline-none border border-gray-200 focus:border-blue-400 transition-all duration-200 pr-32" 
+                  className="w-full resize-none min-h-[52px] lg:min-h-[60px] max-h-40 rounded-2xl pl-12 lg:pl-14 pr-32 py-3 lg:py-4 text-sm lg:text-base focus:outline-none border border-gray-200 focus:border-blue-400 transition-all duration-200" 
                   style={{ 
                     background: 'linear-gradient(180deg,#ffffff,#fafbfc)',
                     boxShadow: '0 2px 8px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06)'
@@ -1170,6 +1570,282 @@ export default function AgentPlaygroundPage() {
             </div>
           </div>
         </motion.aside>
+      )}
+
+      {/* Humanize Modal */}
+      {showHumanizeModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl p-6 w-full max-w-4xl mx-4 max-h-[80vh] overflow-hidden flex flex-col" 
+            style={{ boxShadow: '0 20px 60px rgba(99, 179, 237, 0.08)' }}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <FaHeadSideVirus className="w-5 h-5 text-blue-500" />
+                Humanized Text
+              </h3>
+              <button 
+                onClick={() => setShowHumanizeModal(false)}
+                className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto mb-4">
+              <div className="prose prose-sm lg:prose-base max-w-none">
+                <MarkdownRenderer content={humanizedText} />
+              </div>
+            </div>
+            
+            <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+              <div className="flex items-center gap-2 text-sm text-gray-500">
+                <span>Original length: {originalText.length} chars</span>
+                <span>•</span>
+                <span>Humanized length: {humanizedText.length} chars</span>
+              </div>
+              
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => {
+                    const blob = new Blob([humanizedText], { type: 'text/plain' })
+                    const url = URL.createObjectURL(blob)
+                    const a = document.createElement('a')
+                    a.href = url
+                    a.download = 'humanized-text.txt'
+                    document.body.appendChild(a)
+                    a.click()
+                    document.body.removeChild(a)
+                    URL.revokeObjectURL(url)
+                  }}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Download
+                </button>
+                
+                <button
+                  onClick={() => copyToClipboard(humanizedText, 'humanized')}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                >
+                  <ClipboardIcon className="w-4 h-4" />
+                  Copy Text
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Plus Modal */}
+      {showPlusModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            className="bg-white rounded-2xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-hidden"
+            style={{ boxShadow: '0 20px 60px rgba(99, 179, 237, 0.08)' }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <PlusIcon className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Add to Chat</h3>
+                  <p className="text-sm text-gray-600">Select collections or files to include</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowPlusModal(false)}
+                className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Search Bar */}
+            <div className="px-6 py-4 border-b border-gray-200">
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search collections and files..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="block w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-full text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                />
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  >
+                    <svg className="h-4 w-4 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {/* Items List */}
+              {paginatedItems.length > 0 && (
+                <div className="space-y-4">
+                  {paginatedItems.map((item, index) => {
+                    const isCollection = 'document_count' in item
+                    return (
+                      <div
+                        key={isCollection ? item.id : item.id}
+                        className={`p-4 border rounded-xl transition-all cursor-pointer ${
+                          isCollection 
+                            ? 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50' 
+                            : 'border-gray-200 hover:border-green-300 hover:bg-green-50/50'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-lg ${
+                              isCollection ? 'bg-blue-100' : 'bg-green-100'
+                            }`}>
+                              <svg className={`w-4 h-4 ${
+                                isCollection ? 'text-blue-600' : 'text-green-600'
+                              }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                {isCollection ? (
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                ) : (
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                )}
+                              </svg>
+                            </div>
+                            <div>
+                              <h5 className="font-medium text-gray-900">
+                                {isCollection ? item.name : item.original_name}
+                              </h5>
+                              <p className="text-sm text-gray-600">
+                                {isCollection 
+                                  ? `${item.document_count} documents` 
+                                  : `${(item.file_size / 1024).toFixed(1)} KB`
+                                }
+                              </p>
+                            </div>
+                          </div>
+                          <button className={`p-2 rounded-lg transition-colors ${
+                            isCollection 
+                              ? 'hover:bg-blue-100' 
+                              : 'hover:bg-green-100'
+                          }`}>
+                            <PlusIcon className={`w-4 h-4 ${
+                              isCollection ? 'text-blue-600' : 'text-green-600'
+                            }`} />
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Empty State */}
+              {paginatedItems.length === 0 && !loadingCollections && !loadingFiles && (
+                <div className="text-center py-12">
+                  {searchTerm ? (
+                    <>
+                      <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+                        <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                      </div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">No results found</h3>
+                      <p className="text-gray-600 mb-6">Try adjusting your search terms or browse all items</p>
+                      <button
+                        onClick={() => setSearchTerm('')}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        Clear Search
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+                        <PlusIcon className="w-8 h-8 text-gray-400" />
+                      </div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">No items available</h3>
+                      <p className="text-gray-600 mb-6">Create collections or upload files to get started</p>
+                      <div className="flex gap-3 justify-center">
+                        <Link
+                          href="/dashboard/knowledge-base"
+                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                          Knowledge Base
+                        </Link>
+                        <Link
+                          href="/dashboard/knowledge-base"
+                          className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                        >
+                          File Library
+                        </Link>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Loading State */}
+              {(loadingCollections || loadingFiles) && (
+                <div className="text-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600">Loading items...</p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer with Pagination */}
+            {totalPages > 1 && (
+              <div className="border-t border-gray-200 p-4">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-gray-600">
+                    {searchTerm ? (
+                      <>Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} results for "{searchTerm}"</>
+                    ) : (
+                      <>Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} items</>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                      disabled={currentPage === 1}
+                      className="px-3 py-1 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Previous
+                    </button>
+                    <span className="text-sm text-gray-600">
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <button
+                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-1 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </motion.div>
+        </div>
       )}
     </div>
   )
