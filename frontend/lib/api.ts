@@ -312,6 +312,18 @@ class ApiClient {
     return this.request<Agent>(`/agents/${id}`)
   }
 
+  async getAvailableModels(): Promise<{
+    models: Array<{
+      id: string
+      name: string
+      description: string
+      context_window: number
+      cost_per_1k_tokens: number
+    }>
+  }> {
+    return this.request('/agents/models')
+  }
+
   async createAgent(data: {
     name: string
     description?: string
@@ -757,6 +769,21 @@ class ApiClient {
     agent_name: string
   }> {
     return this.request(`/tools/${toolId}/agent-config?agent_id=${agentId}`)
+  }
+
+  // Google Suite tool execution
+  async executeGoogleSuiteTool(operation: string, params?: Record<string, any>): Promise<{
+    success: boolean
+    result?: any
+    error?: string
+  }> {
+    return this.request('/tools/google_suite_tool/execute', {
+      method: 'POST',
+      body: JSON.stringify({
+        operation,
+        ...params
+      })
+    })
   }
 
   // Knowledge Base methods

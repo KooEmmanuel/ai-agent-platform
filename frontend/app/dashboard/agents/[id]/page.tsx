@@ -20,6 +20,7 @@ import {
 import { Button } from '../../../../components/ui/Button'
 import { Input } from '../../../../components/ui/Input'
 import { Textarea } from '../../../../components/ui/Textarea'
+import { Select } from '../../../../components/ui/Select'
 import { Card, CardHeader, CardTitle, CardContent } from '../../../../components/ui/Card'
 import { apiClient } from '../../../../lib/api'
 
@@ -160,6 +161,13 @@ export default function AgentDetailPage() {
     is_active: true,
     context_config: getDefaultContextConfig()
   })
+  const [availableModels, setAvailableModels] = useState<Array<{
+    id: string
+    name: string
+    description: string
+    context_window: number
+    cost_per_1k_tokens: number
+  }>>([])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -227,6 +235,10 @@ export default function AgentDetailPage() {
         is_active: agentData.is_active,
         context_config: mergedContextConfig
       })
+
+      // Fetch available models
+      const modelsResponse = await apiClient.getAvailableModels()
+      setAvailableModels(modelsResponse.models || [])
     } catch (error) {
       console.error('❌ Error fetching agent:', error)
       console.error('❌ Error details:', {
@@ -576,10 +588,30 @@ export default function AgentDetailPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   AI Model
                 </label>
-                <Input
+                <Select
                   value={editForm.model}
                   onChange={(e) => setEditForm({ ...editForm, model: e.target.value })}
-                />
+                  className="shadow-[0_2px_8px_rgba(59,130,246,0.1)] border-0 focus:ring-2 focus:ring-blue-500"
+                >
+                  {availableModels.map((model) => (
+                    <option key={model.id} value={model.id}>
+                      {model.name} - {model.description}
+                    </option>
+                  ))}
+                </Select>
+                {editForm.model && (
+                  <div className="mt-2 text-sm text-gray-600">
+                    {(() => {
+                      const selectedModel = availableModels.find(m => m.id === editForm.model)
+                      return selectedModel ? (
+                        <div>
+                          <div>Context Window: {selectedModel.context_window.toLocaleString()} tokens</div>
+                          <div>Cost: ${selectedModel.cost_per_1k_tokens}/1K tokens</div>
+                        </div>
+                      ) : null
+                    })()}
+                  </div>
+                )}
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">

@@ -5,6 +5,7 @@ import React from 'react'
 import { FaTelegram, FaHubspot } from "react-icons/fa"
 import { FaSquareRss } from "react-icons/fa6"
 import { SiMongodb } from "react-icons/si"
+import { FcGoogle } from "react-icons/fc"
 import {
   // Search & Information
   MagnifyingGlassIcon,
@@ -405,6 +406,15 @@ export const TOOL_METADATA: Record<string, ToolMetadata> = {
     category: 'Automation',
     toolType: 'Function',
     brandColor: '#2E8B57'
+  },
+  google_suite_tool: {
+    displayName: 'Google Suite Integration',
+    icon: FcGoogle,
+    logo: 'https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/google.svg',
+    description: 'Comprehensive Google Suite integration. Access Google Calendar, Drive, and Gmail with OAuth2 authentication. Manage events, files, and emails seamlessly.',
+    category: 'Productivity',
+    toolType: 'Function',
+    brandColor: '#4285F4'
   }
 }
 

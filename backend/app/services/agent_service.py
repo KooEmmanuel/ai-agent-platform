@@ -33,6 +33,18 @@ class AgentService:
             self.openai_client = None
             logger.warning("OpenAI API key not configured")
 
+    def _get_max_tokens_for_model(self, model: str) -> int:
+        """Get appropriate max_tokens based on the model"""
+        model_max_tokens = {
+            "gpt-4o-mini": 4000,
+            "gpt-4o": 8000,
+            "gpt-4.1": 8000,
+            "gpt-5": 12000,
+            "o1": 6000,  # O1 models have different token limits
+            "o3": 10000
+        }
+        return model_max_tokens.get(model, 4000)  # Default to 4000 if model not found
+
     async def execute_agent_stream(
         self, 
         agent: Agent, 
@@ -68,13 +80,20 @@ class AgentService:
                 })
             
             # Make streaming API call
+            # Use agent's configured max_tokens if available, otherwise fall back to model defaults
+            if agent.context_config and 'max_tokens' in agent.context_config:
+                max_tokens = agent.context_config['max_tokens']
+                logger.info(f"🤖 Using model: {agent.model or 'gpt-4o-mini'} with configured max_tokens: {max_tokens}")
+            else:
+                max_tokens = self._get_max_tokens_for_model(agent.model or "gpt-4o-mini")
+                logger.info(f"🤖 Using model: {agent.model or 'gpt-4o-mini'} with default max_tokens: {max_tokens}")
             stream = await self.openai_client.chat.completions.create(
                 model=agent.model or "gpt-4o-mini",
                 messages=messages,
                 tools=tools if tools else None,
                 tool_choice="auto" if tools else None,
                 temperature=0.7,
-                max_tokens=1000,
+                max_tokens=max_tokens,
                 stream=True
             )
             
@@ -203,13 +222,20 @@ class AgentService:
                 })
             
             # Make API call
+            # Use agent's configured max_tokens if available, otherwise fall back to model defaults
+            if agent.context_config and 'max_tokens' in agent.context_config:
+                max_tokens = agent.context_config['max_tokens']
+                logger.info(f"🤖 Using model: {agent.model or 'gpt-4o-mini'} with configured max_tokens: {max_tokens}")
+            else:
+                max_tokens = self._get_max_tokens_for_model(agent.model or "gpt-4o-mini")
+                logger.info(f"🤖 Using model: {agent.model or 'gpt-4o-mini'} with default max_tokens: {max_tokens}")
             response = await self.openai_client.chat.completions.create(
                 model=agent.model or "gpt-4o-mini",
                 messages=messages,
                 tools=tools if tools else None,
                 tool_choice="auto" if tools else None,  # Let AI decide when to use tools
                 temperature=0.7,
-                max_tokens=1000
+                max_tokens=max_tokens
             )
             
             # Process response
@@ -340,23 +366,18 @@ class AgentService:
         
         # Add conversation history
         if conversation_history:
+            # Adding {len(conversation_history)} conversation history messages to context
             messages.extend(conversation_history)
+        else:
+            logger.warning("⚠️  No conversation history provided - agent will not have context from previous messages")
         
         # Add current user message
         messages.append({"role": "user", "content": user_message})
         
         # Log the messages being sent for debugging
-        logger.info(f"📤 System message length: {len(system_message)} characters")
-        logger.info(f"📤 User message: {user_message}")
-        logger.info(f"📤 Total messages: {len(messages)}")
+        # System message length: {len(system_message)} characters, Total messages: {len(messages)}
         
-        # Log agent information
-        logger.info(f"🤖 AGENT INFORMATION:")
-        logger.info(f"  Name: {agent.name}")
-        logger.info(f"  ID: {agent.id}")
-        logger.info(f"  Instructions: {agent.instructions[:200]}{'...' if len(agent.instructions) > 200 else ''}")
-        logger.info(f"  Available tools: {tool_names}")
-        logger.info(f"  System message preview: {system_message[:300]}{'...' if len(system_message) > 300 else ''}")
+        # Agent: {agent.name} (ID: {agent.id}) with {len(tools)} tools
         
         return messages
 
@@ -382,26 +403,21 @@ class AgentService:
             return []
         
         tools = []
-        logger.info(f"🔄 Processing {len(agent.tools)} tool configurations...")
+        # Processing tool configurations
         
         for i, tool_config in enumerate(agent.tools):
-            logger.info(f"🔍 Processing tool config {i+1}: {tool_config}")
             # Get tool details from database if tool_id is provided
             if isinstance(tool_config, dict) and tool_config.get('tool_id'):
-                logger.info(f"🔍 Looking up tool by tool_id: {tool_config['tool_id']}")
                 result = await self.db.execute(
                     select(Tool).where(Tool.id == tool_config['tool_id'])
                 )
                 tool = result.scalar_one_or_none()
-                if tool:
-                    logger.info(f"✅ Found tool: {tool.name} (ID: {tool.id})")
-                else:
+                if not tool:
                     logger.error(f"❌ Tool not found in database for tool_id: {tool_config['tool_id']}")
                 if tool:
                     # Get tool parameters from the tool registry
                     tool_class = tool_registry.get_tool_class(tool.name.lower())
                     if tool_class:
-                        logger.info(f"✅ Tool class found for {tool.name}: {tool_class.__name__}")
                         # Create temporary instance to get tool info
                         temp_config = tool.config.copy()
                         temp_config['name'] = tool.name
@@ -418,7 +434,6 @@ class AgentService:
                                 "parameters": self._get_tool_parameters(tool, tool_info)
                             }
                         })
-                        logger.info(f"✅ Added tool '{tool.name}' to agent's tool list")
                     else:
                         # Fallback to database config
                         tools.append({
@@ -434,51 +449,64 @@ class AgentService:
                 # Handle inline tool configuration
                 # Check if this is a tool with an 'id' field (new format)
                 if isinstance(tool_config, dict) and 'id' in tool_config:
-                    logger.info(f"🔍 Looking up tool by 'id' field: {tool_config['id']}")
-                    
                     # First try to get tool by ID
                     tool_data = json_tool_loader.get_tool_by_id(tool_config['id'])
-                    logger.info(f"🔍 JSON lookup result for tool ID {tool_config['id']}: {tool_data}")
                     
                     # Check if the found tool matches the expected name
                     expected_tool_name = tool_config.get('name')
                     if tool_data and expected_tool_name:
                         found_tool_name = tool_data.get('name')
                         if found_tool_name != expected_tool_name:
-                            logger.warning(f"⚠️ Tool ID {tool_config['id']} returned '{found_tool_name}' but expected '{expected_tool_name}'")
-                            logger.info(f"🔍 Trying to find expected tool by name: {expected_tool_name}")
                             tool_data_by_name = json_tool_loader.get_tool_by_name(expected_tool_name)
                             if tool_data_by_name:
-                                logger.info(f"✅ Found expected tool by name: {tool_data_by_name.get('name')}")
                                 tool_data = tool_data_by_name
-                            else:
-                                logger.warning(f"⚠️ Expected tool '{expected_tool_name}' not found by name, using ID result: {found_tool_name}")
                     
                     # If not found by ID, try to get by name from the tool_config
                     if not tool_data and 'name' in tool_config:
                         expected_tool_name = tool_config['name']
-                        logger.info(f"🔍 Tool not found by ID, trying to find by name: {expected_tool_name}")
                         tool_data = json_tool_loader.get_tool_by_name(expected_tool_name)
-                        logger.info(f"🔍 JSON lookup result for tool name '{expected_tool_name}': {tool_data}")
                     
                     if tool_data:
                         tool_name = tool_data.get('name')
                         tool_description = tool_data.get('description', '')
                         tool_config_data = tool_data.get('config', {})
                         
-                        logger.info(f"✅ Found tool in JSON: {tool_name} (ID: {tool_config['id']})")
-                        
                         # Try to get tool class from registry
                         tool_class = tool_registry.get_tool_class(tool_name.lower())
                         if tool_class:
-                            logger.info(f"✅ Tool class found for {tool_name}: {tool_class.__name__}")
                             # Create temporary instance to get tool info
                             # Merge base config with custom config for proper initialization
                             temp_config = tool_config_data.copy()
                             if 'custom_config' in tool_config:
-                                logger.info(f"🔧 Merging custom config for tool {tool_name}: {tool_config['custom_config']}")
                                 temp_config.update(tool_config['custom_config'])
                             temp_config['name'] = tool_name
+                            
+                            # Special handling for Google Suite tool - load stored tokens from database
+                            if tool_name.lower() == 'google_suite_tool':
+                                try:
+                                    from app.core.config import settings
+                                    result = await self.db.execute(
+                                        select(Tool).where(Tool.name == 'google_suite_tool')
+                                    )
+                                    stored_tool = result.scalar_one_or_none()
+                                    if stored_tool and stored_tool.config:
+                                        print(f"🔍 Agent Service - Loading stored Google Suite config with tokens")
+                                        print(f"🔍 Agent Service - Has access_token: {bool(stored_tool.config.get('access_token'))}")
+                                        print(f"🔍 Agent Service - Has refresh_token: {bool(stored_tool.config.get('refresh_token'))}")
+                                        temp_config.update(stored_tool.config)
+                                    else:
+                                        print(f"🔍 Agent Service - No stored Google Suite config found, using defaults")
+                                        # Ensure we have the correct OAuth settings
+                                        temp_config['client_id'] = settings.GOOGLE_CLIENT_ID
+                                        temp_config['client_secret'] = settings.GOOGLE_CLIENT_SECRET
+                                        temp_config['redirect_uri'] = 'http://localhost:3000/auth/google/callback'
+                                except Exception as e:
+                                    print(f"❌ Agent Service - Error loading Google Suite config: {e}")
+                                    # Fallback to default config
+                                    temp_config['client_id'] = settings.GOOGLE_CLIENT_ID
+                                    temp_config['client_secret'] = settings.GOOGLE_CLIENT_SECRET
+                                    temp_config['redirect_uri'] = 'http://localhost:3000/auth/google/callback'
+                            
                             temp_instance = tool_class(temp_config)
                             
                             # Get tool information
@@ -492,7 +520,6 @@ class AgentService:
                                     "parameters": self._get_tool_parameters_from_json(tool_config_data, tool_info)
                                 }
                             })
-                            logger.info(f"✅ Added tool '{tool_name}' (by ID/name with class) to agent's tool list")
                         else:
                             logger.warning(f"⚠️ Tool class not found for {tool_name}, using fallback")
                             tools.append({
@@ -521,7 +548,7 @@ class AgentService:
                 })
                 logger.info(f"✅ Added inline tool '{tool_name}' to agent's tool list")
         
-        logger.info(f"🎯 Final tool count for agent '{agent.name}': {len(tools)} tools")
+        # Final tool count: {len(tools)} tools
         return tools
 
     def _get_tool_parameters_from_json(self, tool_config: Dict[str, Any], tool_info: Dict[str, Any]) -> Dict[str, Any]:
@@ -530,12 +557,12 @@ class AgentService:
         if tool_config and 'parameters' in tool_config and isinstance(tool_config['parameters'], dict):
             json_params = tool_config['parameters']
             if json_params.get('type') == 'object' and 'properties' in json_params:
-                logger.info(f"Using JSON parameters: {json_params}")
+                # logger.info(f"Using JSON parameters: {json_params}")
                 return json_params
         
         # Fallback to tool_info parameters
         if tool_info and 'parameters' in tool_info:
-            logger.info(f"Using tool_info parameters: {tool_info['parameters']}")
+            # logger.info(f"Using tool_info parameters: {tool_info['parameters']}")
             return tool_info['parameters']
         
         # Create basic parameters structure
@@ -551,7 +578,7 @@ class AgentService:
         if tool.config and 'parameters' in tool.config and isinstance(tool.config['parameters'], dict):
             db_params = tool.config['parameters']
             if db_params.get('type') == 'object' and 'properties' in db_params:
-                logger.info(f"Using database parameters for {tool.name}: {db_params}")
+                # logger.info(f"Using database parameters for {tool.name}: {db_params}")
                 return db_params
         
         # Create parameters based on tool type and name
@@ -608,7 +635,7 @@ class AgentService:
                     'description': 'Email body content'
                 }
             })
-            required.extend(['to', 'subject', 'body'])
+            required.extend(['to', 'subject', 'body'])  
         else:
             # Generic fallback
             properties['input'] = {
@@ -653,8 +680,8 @@ class AgentService:
                 execution_time = time.time() - start_time
                 
                 # Log successful tool execution
-                logger.info(f"✅ Tool '{tool_name}' executed successfully")
-                logger.info(f"📤 Tool Result: {str(tool_result)[:200]}{'...' if len(str(tool_result)) > 200 else ''}")
+                # logger.info(f"✅ Tool '{tool_name}' executed successfully")
+                # logger.info(f"📤 Tool Result: {str(tool_result)[:200]}{'...' if len(str(tool_result)) > 200 else ''}")
                 
                 # Track tool usage
                 tool_usage_tracker.log_tool_execution(
@@ -672,10 +699,10 @@ class AgentService:
                 if isinstance(tool_result, dict):
                     sanitized_result = self._sanitize_tool_result_for_ai(tool_result)
                     content = json.dumps(sanitized_result)
-                    logger.info(f"📤 Sending sanitized tool result to AI: {content[:200]}...")
+                    # logger.info(f"📤 Sending sanitized tool result to AI: {content[:200]}...")
                 else:
                     content = str(tool_result)
-                    logger.info(f"📤 Sending string tool result to AI: {content[:200]}...")
+                    # logger.info(f"📤 Sending string tool result to AI: {content[:200]}...")
                 
                 messages.append({
                     "role": "tool",
@@ -705,7 +732,7 @@ class AgentService:
                 })
         
         if tools_used:
-            logger.info(f"🎯 Agent {agent.id} successfully used {len(tools_used)} tool(s): {', '.join(tools_used)}")
+            # logger.info(f"🎯 Agent {agent.id} successfully used {len(tools_used)} tool(s): {', '.join(tools_used)}")
             # Log session summary periodically (every 10 tool uses)
             if tool_usage_tracker.session_stats['total_tools_used'] % 10 == 0:
                 tool_usage_tracker.log_session_summary()
@@ -824,6 +851,47 @@ class AgentService:
                             logger.info(f"🔧 Merging custom config for tool {tool_name_from_json}: {agent_tool_config['custom_config']}")
                             merged_config.update(agent_tool_config['custom_config'])
                             break
+            
+            # Special handling for Google Suite tool - load stored tokens from database
+            if tool_name_from_json.lower() == 'google_suite_tool':
+                try:
+                    # Get all Google Suite tool records (there might be multiple)
+                    result = await self.db.execute(
+                        select(Tool).where(Tool.name == 'google_suite_tool')
+                    )
+                    stored_tools = result.scalars().all()
+                    
+                    if stored_tools:
+                        # Find the most recent one with tokens
+                        latest_tool = None
+                        for tool in stored_tools:
+                            if tool.config and (tool.config.get('access_token') or tool.config.get('refresh_token')):
+                                latest_tool = tool
+                                break
+                        
+                        if latest_tool:
+                            logger.info(f"🔍 Tool Execution - Loading stored Google Suite config with tokens")
+                            logger.info(f"🔍 Tool Execution - Has access_token: {bool(latest_tool.config.get('access_token'))}")
+                            logger.info(f"🔍 Tool Execution - Has refresh_token: {bool(latest_tool.config.get('refresh_token'))}")
+                            merged_config.update(latest_tool.config)
+                        else:
+                            logger.info(f"🔍 Tool Execution - No stored Google Suite config with tokens found, using defaults")
+                            # Ensure we have the correct OAuth settings
+                            merged_config['client_id'] = settings.GOOGLE_CLIENT_ID
+                            merged_config['client_secret'] = settings.GOOGLE_CLIENT_SECRET
+                            merged_config['redirect_uri'] = 'http://localhost:3000/auth/google/callback'
+                    else:
+                        logger.info(f"🔍 Tool Execution - No stored Google Suite config found, using defaults")
+                        # Ensure we have the correct OAuth settings
+                        merged_config['client_id'] = settings.GOOGLE_CLIENT_ID
+                        merged_config['client_secret'] = settings.GOOGLE_CLIENT_SECRET
+                        merged_config['redirect_uri'] = 'http://localhost:3000/auth/google/callback'
+                except Exception as e:
+                    logger.error(f"❌ Tool Execution - Error loading Google Suite config: {e}")
+                    # Fallback to default config
+                    merged_config['client_id'] = settings.GOOGLE_CLIENT_ID
+                    merged_config['client_secret'] = settings.GOOGLE_CLIENT_SECRET
+                    merged_config['redirect_uri'] = 'http://localhost:3000/auth/google/callback'
             
             logger.info(f"🔧 Final merged config for {tool_name_from_json}: {merged_config}")
             

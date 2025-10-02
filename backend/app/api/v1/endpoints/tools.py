@@ -17,6 +17,7 @@ from pathlib import Path
 
 from app.core.database import get_db, User, Tool, UserTool, Agent, SYSTEM_USER_ID
 from app.core.auth import get_current_user
+from app.core.config import settings
 from app.services.marketplace_tools_service import marketplace_tools_service
 from app.services.tool_registry import ToolRegistry
 from app.services.json_tool_loader import json_tool_loader
@@ -1516,6 +1517,58 @@ async def get_tool_config_schema(
                     'default': 'en'
                 }
             ])
+        
+        # Google Suite specific fields
+        elif 'google_suite' in tool_name.lower():
+            config_schema['config_fields'].extend([
+                {
+                    'name': 'auth_status',
+                    'type': 'select',
+                    'label': 'Authentication Status',
+                    'description': 'Current authentication status',
+                    'options': ['not_authenticated', 'authenticated', 'expired'],
+                    'default': 'not_authenticated',
+                    'readonly': True
+                },
+                {
+                    'name': 'auth_button',
+                    'type': 'button',
+                    'label': 'Authenticate with Google',
+                    'description': 'Click to authenticate with Google OAuth2',
+                    'action': 'authenticate',
+                    'button_type': 'primary'
+                },
+                {
+                    'name': 'check_auth_button',
+                    'type': 'button',
+                    'label': 'Check Authentication',
+                    'description': 'Check current authentication status',
+                    'action': 'check_auth',
+                    'button_type': 'secondary'
+                },
+                {
+                    'name': 'auth_url',
+                    'type': 'text',
+                    'label': 'Authentication URL',
+                    'description': 'Google OAuth2 authorization URL (auto-generated)',
+                    'readonly': True,
+                    'placeholder': 'Will be generated when you click Authenticate'
+                },
+                {
+                    'name': 'auth_code',
+                    'type': 'text',
+                    'label': 'Authorization Code',
+                    'description': 'Paste the authorization code from Google here',
+                    'placeholder': 'Paste the code from Google after authentication'
+                },
+                {
+                    'name': '_help',
+                    'type': 'info',
+                    'label': 'How to Authenticate',
+                    'description': '1. Click "Authenticate with Google" to get the authorization URL\n2. Open the URL in your browser and sign in to Google\n3. Copy the authorization code from the callback URL\n4. Paste the code in the "Authorization Code" field\n5. Click "Save Configuration" to complete authentication',
+                    'default': 'Follow the steps above to authenticate with Google'
+                }
+            ])
     
     elif tool_type == 'Webhook':
         # Slack integration specific fields
@@ -2051,4 +2104,192 @@ async def delete_tool_system_prompt(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete tool system prompt"
-        ) 
+        )
+
+class GoogleSuiteExecuteRequest(BaseModel):
+    operation: str
+    auth_code: Optional[str] = None
+    calendar_id: Optional[str] = None
+    event_title: Optional[str] = None
+    event_start: Optional[str] = None
+    event_end: Optional[str] = None
+    event_description: Optional[str] = None
+    attendees: Optional[List[str]] = None
+    file_name: Optional[str] = None
+    file_content: Optional[str] = None
+    file_id: Optional[str] = None
+    folder_id: Optional[str] = None
+    to_email: Optional[str] = None
+    subject: Optional[str] = None
+    body: Optional[str] = None
+    query: Optional[str] = None
+    max_results: Optional[int] = None
+
+@router.post("/google_suite_tool/execute")
+async def execute_google_suite_tool(
+    request: GoogleSuiteExecuteRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Execute Google Suite tool operations"""
+    try:
+        from marketplace_tools.google_suite_tool import GoogleSuiteTool
+        
+        # Get stored configuration from database
+        stored_config = {}
+        
+        # Try to get the tool configuration from the database
+        try:
+            result = await db.execute(
+                select(Tool).where(Tool.name == 'google_suite_tool')
+            )
+            tool_record = result.scalar_one_or_none()
+            if tool_record and tool_record.config:
+                stored_config = tool_record.config
+                print(f"🔍 API Debug - Retrieved config keys: {list(stored_config.keys())}")
+                print(f"🔍 API Debug - Has access_token: {bool(stored_config.get('access_token'))}")
+                print(f"🔍 API Debug - Has refresh_token: {bool(stored_config.get('refresh_token'))}")
+                print(f"🔍 API Debug - Auth status: {stored_config.get('auth_status', 'not_set')}")
+                print(f"🔍 API Debug - Full config: {stored_config}")
+            else:
+                print("🔍 API Debug - No tool record or config found")
+                print(f"🔍 API Debug - Tool record exists: {tool_record is not None}")
+                if tool_record:
+                    print(f"🔍 API Debug - Tool record config: {tool_record.config}")
+        except Exception as e:
+            logger.warning(f"Could not retrieve stored config: {e}")
+            print(f"🔍 API Debug - Exception retrieving config: {e}")
+        
+        # If no stored config found, initialize with basic OAuth settings
+        if not stored_config:
+            stored_config = {
+                'client_id': settings.GOOGLE_CLIENT_ID,
+                'client_secret': settings.GOOGLE_CLIENT_SECRET,
+                'redirect_uri': 'http://localhost:3000/auth/google/callback',
+                'scopes': [
+                    'https://www.googleapis.com/auth/calendar',
+                    'https://www.googleapis.com/auth/drive',
+                    'https://www.googleapis.com/auth/gmail.send',
+                    'https://www.googleapis.com/auth/gmail.readonly'
+                ]
+            }
+            print(f"🔍 API Debug - Initialized with env vars - client_id: {settings.GOOGLE_CLIENT_ID[:10] if settings.GOOGLE_CLIENT_ID else 'None'}...")
+            print(f"🔍 API Debug - Initialized with env vars - client_secret: {'***' if settings.GOOGLE_CLIENT_SECRET else 'None'}")
+        
+        # Override any environment variable placeholders with actual values
+        print(f"🔍 Environment Debug - settings.GOOGLE_CLIENT_ID: {settings.GOOGLE_CLIENT_ID}")
+        print(f"🔍 Environment Debug - settings.GOOGLE_CLIENT_SECRET: {'***' if settings.GOOGLE_CLIENT_SECRET else 'None'}")
+        
+        if stored_config.get('client_id') == '${GOOGLE_CLIENT_ID}' or not stored_config.get('client_id'):
+            stored_config['client_id'] = settings.GOOGLE_CLIENT_ID
+            print(f"🔍 Environment Debug - Overriding client_id with: {settings.GOOGLE_CLIENT_ID}")
+        if stored_config.get('client_secret') == '${GOOGLE_CLIENT_SECRET}' or not stored_config.get('client_secret'):
+            stored_config['client_secret'] = settings.GOOGLE_CLIENT_SECRET
+            print(f"🔍 Environment Debug - Overriding client_secret with: {'***' if settings.GOOGLE_CLIENT_SECRET else 'None'}")
+        
+        # Always ensure we have the correct OAuth settings
+        stored_config['client_id'] = settings.GOOGLE_CLIENT_ID
+        stored_config['client_secret'] = settings.GOOGLE_CLIENT_SECRET
+        stored_config['redirect_uri'] = 'http://localhost:3000/auth/google/callback'
+        stored_config['scopes'] = [
+            'https://www.googleapis.com/auth/calendar',
+            'https://www.googleapis.com/auth/drive',
+            'https://www.googleapis.com/auth/gmail.send',
+            'https://www.googleapis.com/auth/gmail.readonly'
+        ]
+        
+        print(f"🔍 Final Config Debug - client_id: {stored_config.get('client_id', 'None')[:10] if stored_config.get('client_id') else 'None'}...")
+        print(f"🔍 Final Config Debug - client_secret: {'***' if stored_config.get('client_secret') else 'None'}")
+        print(f"🔍 Final Config Debug - Has access_token: {bool(stored_config.get('access_token'))}")
+        print(f"🔍 Final Config Debug - Has refresh_token: {bool(stored_config.get('refresh_token'))}")
+        print(f"🔍 Final Config Debug - Auth status: {stored_config.get('auth_status', 'not_set')}")
+        
+        # Initialize the tool with stored config
+        tool = GoogleSuiteTool(stored_config)
+        
+        # Execute the operation
+        result = await tool.execute(
+            operation=request.operation,
+            auth_code=request.auth_code,
+            calendar_id=request.calendar_id,
+            event_title=request.event_title,
+            event_start=request.event_start,
+            event_end=request.event_end,
+            event_description=request.event_description,
+            attendees=request.attendees,
+            file_name=request.file_name,
+            file_content=request.file_content,
+            file_id=request.file_id,
+            folder_id=request.folder_id,
+            to_email=request.to_email,
+            subject=request.subject,
+            body=request.body,
+            query=request.query,
+            max_results=request.max_results
+        )
+        
+        # If authentication was successful, save the updated config to database
+        if request.operation == 'authenticate' and result.get('success'):
+            try:
+                print(f"🔍 Saving auth tokens - config keys: {list(tool.config.keys())}")
+                print(f"🔍 Saving auth tokens - has access_token: {bool(tool.config.get('access_token'))}")
+                print(f"🔍 Saving auth tokens - has refresh_token: {bool(tool.config.get('refresh_token'))}")
+                
+                # First, delete all existing google_suite_tool records to avoid duplicates
+                existing_tools = await db.execute(
+                    select(Tool).where(Tool.name == 'google_suite_tool')
+                )
+                existing_tools_list = existing_tools.scalars().all()
+                
+                for existing_tool in existing_tools_list:
+                    await db.delete(existing_tool)
+                    print(f"🗑️ Deleted existing Google Suite tool record: {existing_tool.id}")
+                
+                await db.commit()
+                print(f"🗑️ Cleared {len(existing_tools_list)} existing Google Suite tool records")
+                
+                # Convert datetime objects to ISO strings for JSON serialization
+                config_for_db = {}
+                for key, value in tool.config.items():
+                    if isinstance(value, datetime):
+                        config_for_db[key] = value.isoformat()
+                    else:
+                        config_for_db[key] = value
+                
+                print(f"🔍 Config for DB - keys: {list(config_for_db.keys())}")
+                print(f"🔍 Config for DB - has access_token: {bool(config_for_db.get('access_token'))}")
+                print(f"🔍 Config for DB - has refresh_token: {bool(config_for_db.get('refresh_token'))}")
+                
+                # Create a new tool record with the updated config
+                new_tool = Tool(
+                    user_id=current_user.id,
+                    name='google_suite_tool',
+                    description='Google Suite Integration Tool',
+                    category='Integration',
+                    tool_type='api',
+                    config=config_for_db,
+                    is_public=False,
+                    is_active=True
+                )
+                db.add(new_tool)
+                await db.commit()
+                await db.refresh(new_tool)
+                print("✅ Google Suite authentication tokens saved to new tool record")
+                logger.info("Google Suite authentication tokens saved to new tool record")
+                    
+            except Exception as e:
+                print(f"❌ Error saving authentication tokens: {e}")
+                logger.warning(f"Could not save authentication tokens: {e}")
+        
+        return {
+            "success": True,
+            "result": result
+        }
+        
+    except Exception as e:
+        logger.error(f"Error executing Google Suite tool: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "result": None
+        } 

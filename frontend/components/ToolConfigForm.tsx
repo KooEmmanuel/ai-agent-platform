@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { apiClient } from '../lib/api'
 
 interface ConfigField {
   name: string
@@ -16,6 +17,9 @@ interface ConfigField {
   accept?: string
   max_size?: string
   message?: string
+  readonly?: boolean
+  action?: string
+  button_type?: string
 }
 
 interface ToolConfigFormProps {
@@ -73,7 +77,40 @@ export default function ToolConfigForm({
     }))
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    console.log('🔍 Frontend Debug - tool_name:', configSchema.tool_name)
+    console.log('🔍 Frontend Debug - has auth_code:', !!config.auth_code)
+    console.log('🔍 Frontend Debug - auth_code value:', config.auth_code)
+    
+    // If this is Google Suite tool and we have an auth code, exchange it for tokens
+    if ((configSchema.tool_name?.toLowerCase().includes('google') || configSchema.tool_name === 'google_suite_tool') && config.auth_code) {
+      console.log('🔍 Frontend Debug - Triggering authentication flow')
+      try {
+        const result = await apiClient.executeGoogleSuiteTool('authenticate', {
+          auth_code: config.auth_code
+        })
+        
+        if (result.success && result.result?.success) {
+          // Update auth status to authenticated
+          setConfig(prev => ({
+            ...prev,
+            auth_status: 'authenticated',
+            auth_code: '', // Clear the auth code
+            access_token: result.result.access_token,
+            refresh_token: result.result.refresh_token
+          }))
+          alert('✅ Google authentication successful!')
+        } else {
+          alert('❌ Authentication failed: ' + (result.result?.error || result.error))
+          return
+        }
+      } catch (error) {
+        console.error('Authentication error:', error)
+        alert('❌ Authentication failed: ' + error)
+        return
+      }
+    }
+    
     onSave(config)
   }
 
@@ -91,10 +128,13 @@ export default function ToolConfigForm({
             type={field.sensitive ? 'password' : 'text'}
             value={value}
             onChange={(e) => handleFieldChange(field.name, e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className={`w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+              field.readonly ? 'bg-gray-100 cursor-not-allowed' : ''
+            }`}
             placeholder={field.description}
             required={field.required}
-            disabled={saving}
+            disabled={saving || field.readonly}
+            readOnly={field.readonly}
           />
         )
 
@@ -253,6 +293,87 @@ export default function ToolConfigForm({
                 </span>
               </div>
             </div>
+          </div>
+        )
+
+      case 'button':
+        const handleButtonClick = async () => {
+          if (field.action === 'authenticate') {
+            // Handle authentication button click
+            try {
+              const result = await apiClient.executeGoogleSuiteTool('get_auth_url')
+              if (result.success && result.result && result.result.auth_url) {
+                // Open auth URL in new tab
+                const authWindow = window.open(result.result.auth_url, '_blank', 'width=600,height=700')
+                // Update the auth_url field
+                handleFieldChange('auth_url', result.result.auth_url)
+                
+                // Listen for messages from the callback page
+                const handleMessage = (event: MessageEvent) => {
+                  if (event.data.type === 'GOOGLE_AUTH_SUCCESS') {
+                    console.log('✅ Google authentication successful!')
+                    // Close the auth window
+                    if (authWindow) {
+                      authWindow.close()
+                    }
+                    // Remove the event listener
+                    window.removeEventListener('message', handleMessage)
+                    // Refresh the auth status
+                    handleButtonClick() // This will trigger check_auth
+                  }
+                }
+                
+                window.addEventListener('message', handleMessage)
+                
+                // Clean up listener after 5 minutes
+                setTimeout(() => {
+                  window.removeEventListener('message', handleMessage)
+                }, 300000)
+                
+              } else {
+                const errorMsg = result.result?.message || result.error || 'Unknown error'
+                if (result.result?.setup_required) {
+                  alert(`🔧 Setup Required!\n\n${errorMsg}\n\nPlease follow the setup instructions and restart the backend server.`)
+                } else {
+                  alert('Failed to get authentication URL: ' + errorMsg)
+                }
+              }
+            } catch (error) {
+              console.error('Authentication error:', error)
+              alert('Failed to initiate authentication')
+            }
+          } else if (field.action === 'check_auth') {
+            // Handle check auth button click
+            try {
+              const result = await apiClient.executeGoogleSuiteTool('get_auth_status')
+              if (result.success && result.result && result.result.status) {
+                handleFieldChange('auth_status', result.result.status)
+                alert('Authentication status: ' + result.result.status)
+              } else {
+                alert('Failed to check authentication status: ' + (result.error || result.result?.error || 'Unknown error'))
+              }
+            } catch (error) {
+              console.error('Check auth error:', error)
+              alert('Failed to check authentication status')
+            }
+          }
+        }
+        
+        return (
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={handleButtonClick}
+              disabled={saving}
+              className={`w-full px-4 py-2 rounded-lg font-medium transition-colors ${
+                field.button_type === 'primary'
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white disabled:bg-blue-300'
+                  : 'bg-gray-200 hover:bg-gray-300 text-gray-700 disabled:bg-gray-100'
+              }`}
+            >
+              {field.label}
+            </button>
+            <p className="text-sm text-gray-600">{field.description}</p>
           </div>
         )
 

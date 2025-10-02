@@ -46,7 +46,8 @@ from marketplace_tools import (
     WebAutomationTool,
     RedditTool,
     RSSFeedTool,
-    TelegramTool
+    TelegramTool,
+    GoogleSuiteTool
 )
 
 logger = logging.getLogger(__name__)
@@ -116,6 +117,9 @@ class ToolRegistry:
             
             # Social messaging tools
             'telegram_tool': TelegramTool,
+            
+            # Google Suite integration
+            'google_suite_tool': GoogleSuiteTool,
         }
         
         # Tool name aliases for backward compatibility

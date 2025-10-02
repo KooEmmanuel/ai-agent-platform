@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
+// Simple toast notification without external dependency
 import {
   CpuChipIcon,
   WrenchScrewdriverIcon,
@@ -144,17 +145,43 @@ export default function CreateAgentPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  
+  // Toast notifications
+  const [toasts, setToasts] = useState<Array<{
+    id: string;
+    type: 'success' | 'error' | 'info' | 'warning';
+    title: string;
+    message?: string;
+  }>>([])
   const [userCredits, setUserCredits] = useState(0)
   const [availableTools, setAvailableTools] = useState<Tool[]>([])
   const [selectedTools, setSelectedTools] = useState<Tool[]>([])
   const [showDropdown, setShowDropdown] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
+  const [availableModels, setAvailableModels] = useState<Array<{
+    id: string
+    name: string
+    description: string
+    context_window: number
+    cost_per_1k_tokens: number
+  }>>([])
+
+  // Helper function to show toast
+  const showToast = (type: 'success' | 'error' | 'info' | 'warning', title: string, message?: string) => {
+    const id = Math.random().toString(36).substr(2, 9)
+    setToasts(prev => [...prev, { id, type, title, message }])
+    
+    // Auto-remove toast after 5 seconds
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id))
+    }, 5000)
+  }
 
   const [agentConfig, setAgentConfig] = useState<AgentConfig>({
     name: '',
     description: '',
     instructions: '',
-    model: 'gpt-4',
+    model: 'gpt-4o-mini',
     tools: [],
     context_config: getDefaultContextConfig()
   })
@@ -169,13 +196,15 @@ export default function CreateAgentPage() {
 
       apiClient.setToken(token)
       
-      const [creditsResponse, toolsResponse] = await Promise.all([
+      const [creditsResponse, toolsResponse, modelsResponse] = await Promise.all([
         apiClient.getCredits(),
-        apiClient.getTools()
+        apiClient.getTools(),
+        apiClient.getAvailableModels()
       ])
 
       setUserCredits(creditsResponse.available_credits)
       setAvailableTools(toolsResponse || [])
+      setAvailableModels(modelsResponse.models || [])
     } catch (error) {
       console.error('Error fetching initial data:', error)
       setError('Failed to load initial data')
@@ -316,7 +345,15 @@ export default function CreateAgentPage() {
       router.push(`/dashboard/agents/${newAgent.id}`)
     } catch (error) {
       console.error('Error creating agent:', error)
-      setError(error instanceof Error ? error.message : 'Failed to create agent')
+      
+      // Check if it's a 400 error (agent limit)
+      if (error instanceof Error && error.message.includes('HTTP 400')) {
+        showToast('warning', 'Agent Limit Reached', 'You have reached the maximum number of agents for your plan. Upgrade your plan to create more agents.')
+      } else {
+        const errorMessage = error instanceof Error ? error.message : 'Failed to create agent'
+        showToast('error', 'Failed to Create Agent', errorMessage)
+        setError(errorMessage)
+      }
     } finally {
       setLoading(false)
     }
@@ -455,17 +492,32 @@ export default function CreateAgentPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Model
+                    AI Model
                   </label>
                   <Select
                     value={agentConfig.model}
                     onChange={(e) => setAgentConfig({...agentConfig, model: e.target.value})}
                     className="shadow-[0_2px_8px_rgba(59,130,246,0.1)] border-0 focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="gpt-4">GPT-4</option>
-                    <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-                    <option value="claude-3">Claude-3</option>
+                    {availableModels.map((model) => (
+                      <option key={model.id} value={model.id}>
+                        {model.name} - {model.description}
+                      </option>
+                    ))}
                   </Select>
+                  {agentConfig.model && (
+                    <div className="mt-2 text-sm text-gray-600">
+                      {(() => {
+                        const selectedModel = availableModels.find(m => m.id === agentConfig.model)
+                        return selectedModel ? (
+                          <div>
+                            <div>Context Window: {selectedModel.context_window.toLocaleString()} tokens</div>
+                            <div>Cost: ${selectedModel.cost_per_1k_tokens}/1K tokens</div>
+                          </div>
+                        ) : null
+                      })()}
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -644,6 +696,34 @@ export default function CreateAgentPage() {
           </div>
         </div>
       </div>
+
+      {/* Toast Notifications */}
+      {toasts.map((toast) => (
+        <div
+          key={toast.id}
+          className={`fixed top-4 right-4 z-50 max-w-sm w-full bg-white rounded-lg shadow-lg border p-4 ${
+            toast.type === 'error' ? 'bg-red-50 border-red-200 text-red-800' :
+            toast.type === 'warning' ? 'bg-yellow-50 border-yellow-200 text-yellow-800' :
+            toast.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' :
+            'bg-blue-50 border-blue-200 text-blue-800'
+          }`}
+        >
+          <div className="flex items-start">
+            <div className="flex-1">
+              <p className="text-sm font-medium">{toast.title}</p>
+              {toast.message && (
+                <p className="mt-1 text-sm opacity-90">{toast.message}</p>
+              )}
+            </div>
+            <button
+              onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
+              className="ml-4 text-gray-400 hover:text-gray-600"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      ))}
     </div>
   )
 } 

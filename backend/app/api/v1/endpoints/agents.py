@@ -6,8 +6,9 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
+from enum import Enum
 
 from app.core.auth import get_current_user
 from app.core.database import get_db, User, Agent, Tool
@@ -16,11 +17,21 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+# Available AI models
+class AIModel(str, Enum):
+    GPT_4O_MINI = "gpt-4o-mini"
+    GPT_4O = "gpt-4o"
+    GPT_4_1 = "gpt-4.1"
+    GPT_5 = "gpt-5"
+    O1 = "o1"
+    O3 = "o3"
+
 # Pydantic models
 class AgentCreate(BaseModel):
     name: str
     description: Optional[str] = None
     instructions: str
+    model: AIModel = AIModel.GPT_4O_MINI  # Default to gpt-4o-mini
     tools: List[Dict[str, Any]] = []
     context_config: Optional[Dict[str, Any]] = None
 
@@ -28,6 +39,7 @@ class AgentUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     instructions: Optional[str] = None
+    model: Optional[AIModel] = None
     tools: Optional[List[Dict[str, Any]]] = None
     context_config: Optional[Dict[str, Any]] = None
     is_active: Optional[bool] = None
@@ -37,6 +49,7 @@ class AgentResponse(BaseModel):
     name: str
     description: Optional[str]
     instructions: str
+    model: str
     is_active: bool
     tools: List[Dict[str, Any]]
     context_config: Optional[Dict[str, Any]]
@@ -78,6 +91,7 @@ async def create_agent(
         name=agent_data.name,
         description=agent_data.description,
         instructions=agent_data.instructions,
+        model=agent_data.model,
         tools=agent_data.tools,
         context_config=agent_data.context_config or get_default_context_config()
     )
@@ -91,6 +105,7 @@ async def create_agent(
         name=new_agent.name,
         description=new_agent.description,
         instructions=new_agent.instructions,
+        model=new_agent.model,
         is_active=new_agent.is_active,
         tools=new_agent.tools or [],
         context_config=new_agent.context_config,
@@ -239,6 +254,56 @@ def get_default_context_config():
         }
     }
 
+@router.get("/models")
+async def get_available_models():
+    """Get list of available AI models"""
+    return {
+        "models": [
+            {
+                "id": "gpt-4o-mini",
+                "name": "GPT-4o Mini",
+                "description": "Fast and efficient model for most tasks",
+                "context_window": 128000,
+                "cost_per_1k_tokens": 0.00015
+            },
+            {
+                "id": "gpt-4o",
+                "name": "GPT-4o",
+                "description": "Advanced model with better reasoning and context",
+                "context_window": 128000,
+                "cost_per_1k_tokens": 0.005
+            },
+            {
+                "id": "gpt-4.1",
+                "name": "GPT-4.1",
+                "description": "Enhanced GPT-4 with improved capabilities",
+                "context_window": 128000,
+                "cost_per_1k_tokens": 0.01
+            },
+            {
+                "id": "gpt-5",
+                "name": "GPT-5",
+                "description": "Next-generation model with advanced reasoning",
+                "context_window": 200000,
+                "cost_per_1k_tokens": 0.02
+            },
+            {
+                "id": "o1",
+                "name": "O1",
+                "description": "Reasoning model optimized for complex problem solving",
+                "context_window": 128000,
+                "cost_per_1k_tokens": 0.015
+            },
+            {
+                "id": "o3",
+                "name": "O3",
+                "description": "Advanced reasoning model with enhanced capabilities",
+                "context_window": 200000,
+                "cost_per_1k_tokens": 0.03
+            }
+        ]
+    }
+
 @router.get("/test")
 async def test_agents_endpoint():
     """Test endpoint to verify the agents router is working"""
@@ -353,6 +418,7 @@ async def get_agent(
         name=agent.name,
         description=agent.description,
         instructions=agent.instructions,
+        model=agent.model,
         is_active=agent.is_active,
         tools=agent.tools or [],
         context_config=agent.context_config,
@@ -390,6 +456,8 @@ async def update_agent(
         agent.description = agent_data.description
     if agent_data.instructions is not None:
         agent.instructions = agent_data.instructions
+    if agent_data.model is not None:
+        agent.model = agent_data.model
     if agent_data.tools is not None:
         agent.tools = agent_data.tools
     if agent_data.context_config is not None:
@@ -405,6 +473,7 @@ async def update_agent(
         name=agent.name,
         description=agent.description,
         instructions=agent.instructions,
+        model=agent.model,
         is_active=agent.is_active,
         tools=agent.tools or [],
         context_config=agent.context_config,
@@ -539,6 +608,7 @@ async def add_tool_to_agent(
         name=agent.name,
         description=agent.description,
         instructions=agent.instructions,
+        model=agent.model,
         is_active=agent.is_active,
         tools=agent.tools or [],
         context_config=agent.context_config,
@@ -590,6 +660,7 @@ async def remove_tool_from_agent(
         name=agent.name,
         description=agent.description,
         instructions=agent.instructions,
+        model=agent.model,
         is_active=agent.is_active,
         tools=agent.tools or [],
         context_config=agent.context_config,
@@ -648,6 +719,7 @@ async def update_tool_config(
         name=agent.name,
         description=agent.description,
         instructions=agent.instructions,
+        model=agent.model,
         is_active=agent.is_active,
         tools=agent.tools or [],
         context_config=agent.context_config,

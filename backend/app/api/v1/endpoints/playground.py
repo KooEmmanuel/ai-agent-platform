@@ -10,7 +10,6 @@ from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 import asyncio
 import json
-import time
 
 from app.core.auth import get_current_user
 from app.core.database import get_db, User, Agent, Tool, Conversation, Message, Workspace
@@ -20,7 +19,7 @@ router = APIRouter()
 # Pydantic models
 class PlaygroundMessage(BaseModel):
     message: str
-    conversation_id: Optional[int] = None
+    session_id: Optional[str] = None
     workspace_id: Optional[int] = None
 
 class PlaygroundResponse(BaseModel):
@@ -47,7 +46,7 @@ async def chat_with_agent_stream(
     import time
     start_time = time.time()
     
-    print(f"📨 Received message data: workspace_id={message_data.workspace_id}, conversation_id={message_data.conversation_id}")
+    print(f"📨 Received message data: workspace_id={message_data.workspace_id}, session_id={message_data.session_id}")
     
     # Get agent
     result = await db.execute(
@@ -85,26 +84,22 @@ async def chat_with_agent_stream(
         )
     
     # Get or create conversation
-    conversation = None
+    session_id = message_data.session_id or f"playground_{agent_id}_{current_user.id}"
     
-    # If conversation_id is provided, use existing conversation
-    if message_data.conversation_id:
-        result = await db.execute(
-            select(Conversation).where(
-                Conversation.id == message_data.conversation_id,
-                Conversation.agent_id == agent_id,
-                Conversation.user_id == current_user.id
-            )
+    result = await db.execute(
+        select(Conversation).where(
+            Conversation.agent_id == agent_id,
+            Conversation.session_id == session_id
         )
-        conversation = result.scalar_one_or_none()
-        print(f"🔍 Looking for existing conversation {message_data.conversation_id}: {'found' if conversation else 'not found'}")
+    )
+    conversation = result.scalar_one_or_none()
     
     if not conversation:
         print(f"🆕 Creating new conversation with workspace_id: {message_data.workspace_id}")
         conversation = Conversation(
             agent_id=agent_id,
             user_id=current_user.id,
-            session_id=f"conversation_{int(time.time())}",
+            session_id=session_id,
             workspace_id=message_data.workspace_id,
             title=f"Playground Session - {agent.name}"
         )
@@ -127,6 +122,16 @@ async def chat_with_agent_stream(
     agent_service = AgentService(db)
     conversation_history = await agent_service.get_conversation_history(conversation.id)
     
+    # Log conversation history for debugging
+    print(f"📚 Conversation history loaded: {len(conversation_history)} messages")
+    for i, msg in enumerate(conversation_history):
+        print(f"   Message {i+1}: {msg['role']} - {msg['content'][:100]}...")
+    
+    if not conversation_history:
+        print("⚠️  No conversation history found - agent will not have context from previous messages")
+    else:
+        print(f"✅ Conversation context loaded with {len(conversation_history)} previous messages")
+    
     async def generate_stream():
         """Generate SSE stream for agent response"""
         full_response = ""
@@ -140,12 +145,12 @@ async def chat_with_agent_stream(
                 agent=agent,
                 user_message=message_data.message,
                 conversation_history=conversation_history,
-                session_id=f"conversation_{conversation.id}"
+                session_id=session_id
             ):
                 chunk_type = chunk.get("type")
                 content = chunk.get("content", "")
                 
-                print(f"📦 Playground stream chunk: {chunk_type} - {content[:50] if content else 'No content'}...")
+                # Removed chunking logs for cleaner output
                 
                 if chunk_type == "content":
                     full_response += content
@@ -158,9 +163,8 @@ async def chat_with_agent_stream(
                 
                 elif chunk_type == "complete":
                     tools_used = chunk.get("tools_used", [])
-                    print(f"✅ Playground stream completed with {len(tools_used)} tools used, full_response length: {len(full_response)}")
-                    # Send completion with the full response content and conversation_id
-                    yield f"data: {json.dumps({'type': 'complete', 'content': chunk.get('content', full_response), 'tools_used': tools_used, 'conversation_id': conversation.id})}\n\n"
+                    # Send completion with the full response content
+                    yield f"data: {json.dumps({'type': 'complete', 'content': chunk.get('content', full_response), 'tools_used': tools_used})}\n\n"
                     break
                 
                 elif chunk_type == "error":
@@ -193,12 +197,10 @@ async def chat_with_agent_stream(
                     for tool in tools_used:
                         credit_amount += CreditRates.TOOL_EXECUTION  # 5 credits per tool
                 
-                print(f"💰 Credit calculation: {credit_amount} credits for user {current_user.id}")
+                # Credit calculation: {credit_amount} credits for user {current_user.id}
                 
                 # Pre-flight credit check
-                print(f"🔍 Checking credit balance for user {current_user.id}...")
                 credit_check = await credit_manager.check_credit_balance(current_user.id, credit_amount)
-                print(f"💰 Credit check result: {credit_check}")
                 
                 if not credit_check['has_sufficient_credits']:
                     error_msg = f"Insufficient credits: Need {credit_check['required_credits']}, have {credit_check['available_credits']}"
@@ -207,7 +209,6 @@ async def chat_with_agent_stream(
                     return
                 
                 # Consume credits
-                print(f"💳 Consuming {credit_amount} credits for user {current_user.id}...")
                 credit_result = await credit_manager.consume_credits(
                     user_id=current_user.id,
                     amount=credit_amount,
@@ -216,7 +217,6 @@ async def chat_with_agent_stream(
                     conversation_id=conversation.id,
                     tool_used="ai_conversation"
                 )
-                print(f"💳 Credit consumption result: {credit_result}")
                 
                 # Check if credit consumption failed
                 if not credit_result['success']:
@@ -225,13 +225,11 @@ async def chat_with_agent_stream(
                     yield f"data: {json.dumps({'type': 'error', 'content': error_msg})}\n\n"
                     return
                 
-                print(f"💾 Committing assistant message to database...")
+                # Committing assistant message to database
                 await db.commit()
-                print(f"✅ Assistant message committed to database successfully")
                 
-                # Send metadata after completion (this won't break streaming since complete already returned)
                 execution_time = time.time() - start_time
-                yield f"data: {json.dumps({'type': 'metadata', 'execution_time': execution_time, 'session_id': f'conversation_{conversation.id}', 'conversation_id': conversation.id})}\n\n"
+                yield f"data: {json.dumps({'type': 'metadata', 'execution_time': execution_time, 'session_id': session_id, 'conversation_id': conversation.id})}\n\n"
             
         except Exception as e:
             print(f"❌ Playground streaming error: {str(e)}")
@@ -295,26 +293,22 @@ async def chat_with_agent(
         )
     
     # Get or create conversation
-    conversation = None
+    session_id = message_data.session_id or f"playground_{agent_id}_{current_user.id}"
     
-    # If conversation_id is provided, use existing conversation
-    if message_data.conversation_id:
-        result = await db.execute(
-            select(Conversation).where(
-                Conversation.id == message_data.conversation_id,
-                Conversation.agent_id == agent_id,
-                Conversation.user_id == current_user.id
-            )
+    result = await db.execute(
+        select(Conversation).where(
+            Conversation.agent_id == agent_id,
+            Conversation.session_id == session_id
         )
-        conversation = result.scalar_one_or_none()
-        print(f"🔍 Looking for existing conversation {message_data.conversation_id}: {'found' if conversation else 'not found'}")
+    )
+    conversation = result.scalar_one_or_none()
     
     if not conversation:
         print(f"🆕 Creating new conversation with workspace_id: {message_data.workspace_id}")
         conversation = Conversation(
             agent_id=agent_id,
             user_id=current_user.id,
-            session_id=f"conversation_{int(time.time())}",
+            session_id=session_id,
             workspace_id=message_data.workspace_id,
             title=f"Playground Session - {agent.name}"
         )
@@ -338,12 +332,22 @@ async def chat_with_agent(
     # Get conversation history for context
     conversation_history = await agent_service.get_conversation_history(conversation.id)
     
+    # Log conversation history for debugging
+    print(f"📚 Conversation history loaded: {len(conversation_history)} messages")
+    for i, msg in enumerate(conversation_history):
+        print(f"   Message {i+1}: {msg['role']} - {msg['content'][:100]}...")
+    
+    if not conversation_history:
+        print("⚠️  No conversation history found - agent will not have context from previous messages")
+    else:
+        print(f"✅ Conversation context loaded with {len(conversation_history)} previous messages")
+    
     # Execute the agent
     agent_response, tools_used, cost = await agent_service.execute_agent(
         agent=agent,
         user_message=message_data.message,
         conversation_history=conversation_history,
-        session_id=f"conversation_{conversation.id}"
+        session_id=session_id
     )
     
     # Save agent response
@@ -397,14 +401,12 @@ async def chat_with_agent(
     
     return PlaygroundResponse(
         response=agent_response,
-        session_id=f"conversation_{conversation.id}",
+        session_id=session_id,
         conversation_id=conversation.id,
         agent_id=str(agent_id),
         tools_used=tools_used,
         execution_time=execution_time
     )
-
-# Removed the create_conversation endpoint - conversations should only be created when messages are sent
 
 @router.get("/{agent_id}/conversations", response_model=List[ConversationHistory])
 async def get_playground_conversations(

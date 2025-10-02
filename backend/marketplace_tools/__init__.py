@@ -38,6 +38,7 @@ from .reddit_tool import RedditTool
 from .rss_feed_tool import RSSFeedTool
 from .telegram_tool import TelegramTool
 from .web_automation_tool import WebAutomationTool
+from .google_suite_tool import GoogleSuiteTool
 
 __all__ = [
     'WebSearchTool',
@@ -72,5 +73,6 @@ __all__ = [
     'RedditTool',
     'RSSFeedTool',
     'TelegramTool',
-    'WebAutomationTool'
+    'WebAutomationTool',
+    'GoogleSuiteTool'
 ] 
