@@ -289,7 +289,7 @@ class ApiClient {
 
   // Agents
   async getAgents(): Promise<Agent[]> {
-    return this.request<Agent[]>('/agents')
+    return this.request<Agent[]>('/agents/')
   }
 
   async getConversations(): Promise<Array<{
