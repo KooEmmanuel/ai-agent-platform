@@ -372,6 +372,7 @@ async def list_agents(
                 name=agent.name,
                 description=agent.description,
                 instructions=agent.instructions,
+                model=agent.model,
                 is_active=agent.is_active,
                 tools=agent.tools or [],
                 context_config=agent.context_config,
