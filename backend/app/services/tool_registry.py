@@ -43,7 +43,10 @@ from marketplace_tools import (
     MongoDBAdvancedTool,
     PDFGeneratorTool,
     WebsiteKnowledgeBaseTool,
-    WebAutomationTool
+    WebAutomationTool,
+    RedditTool,
+    RSSFeedTool,
+    TelegramTool
 )
 
 logger = logging.getLogger(__name__)
@@ -104,6 +107,15 @@ class ToolRegistry:
             
             # Web automation tools
             'web_automation': WebAutomationTool,
+            
+            # Social media tools
+            'reddit_tool': RedditTool,
+            
+            # RSS and news tools
+            'rss_feed_tool': RSSFeedTool,
+            
+            # Social messaging tools
+            'telegram_tool': TelegramTool,
         }
         
         # Tool name aliases for backward compatibility

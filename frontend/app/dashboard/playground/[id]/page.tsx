@@ -376,7 +376,7 @@ export default function AgentPlaygroundPage() {
         await apiClient.chatWithAgentStream(
           agent.id,
           userMsg.content,
-          currentConversationId, // Send current conversation ID directly
+          currentConversationId?.toString(), // Send current conversation ID directly
           (chunk) => {
             console.log('📦 Received chunk:', chunk)
             // Handle streaming chunks
@@ -483,7 +483,7 @@ export default function AgentPlaygroundPage() {
         )
       } else {
         // Use regular mode
-        const resp = await apiClient.chatWithAgent(agent.id, userMsg.content, currentConversationId)
+        const resp = await apiClient.chatWithAgent(agent.id, userMsg.content, currentConversationId?.toString())
         if (resp.conversation_id && !currentConversationId) {
             setCurrentConversationId(resp.conversation_id)
           console.log('💾 Set conversation ID:', resp.conversation_id)
@@ -597,7 +597,7 @@ export default function AgentPlaygroundPage() {
     setEditInput('')
 
     try {
-      const resp = await apiClient.chatWithAgent(agent.id, updatedUserMsg.content, currentConversationId)
+      const resp = await apiClient.chatWithAgent(agent.id, updatedUserMsg.content, currentConversationId?.toString())
       const aiMsg: ChatMessage = {
         id: `${Date.now()}_assistant`,
         role: 'assistant',
