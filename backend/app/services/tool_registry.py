@@ -47,7 +47,8 @@ from marketplace_tools import (
     RedditTool,
     RSSFeedTool,
     TelegramTool,
-    GoogleSuiteTool
+    GoogleSuiteTool,
+    YouTubeTranscriptTool
 )
 
 logger = logging.getLogger(__name__)
@@ -120,6 +121,9 @@ class ToolRegistry:
             
             # Google Suite integration
             'google_suite_tool': GoogleSuiteTool,
+            
+            # Content analysis tools
+            'youtube_transcript': YouTubeTranscriptTool,
         }
         
         # Tool name aliases for backward compatibility

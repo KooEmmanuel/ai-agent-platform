@@ -36,7 +36,7 @@ class WebSearchTool(BaseTool):
         self.max_results = config.get('max_results', 10)
         self.safe_search = config.get('safe_search', True)
         
-    async def execute(self, query: str, result_type: str = "web", max_results: Optional[int] = None) -> Dict[str, Any]:
+    async def execute(self, query: str, result_type: str = "web", max_results: Optional[int] = None, **kwargs) -> Dict[str, Any]:
         """
         Execute web search.
         

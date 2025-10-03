@@ -9,6 +9,29 @@ import rehypeExternalLinks from 'rehype-external-links'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { tomorrow } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
+// Function to extract YouTube video ID from various YouTube URL formats
+const extractYouTubeVideoId = (url: string): string | null => {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
+    /youtube\.com\/v\/([^&\n?#]+)/,
+    /youtube\.com\/embed\/([^&\n?#]+)/
+  ]
+  
+  for (const pattern of patterns) {
+    const match = url.match(pattern)
+    if (match) {
+      return match[1]
+    }
+  }
+  
+  return null
+}
+
+// Function to check if a URL is a YouTube URL
+const isYouTubeUrl = (url: string): boolean => {
+  return /youtube\.com|youtu\.be/.test(url)
+}
+
 type Props = {
   content: string
   className?: string
@@ -156,18 +179,52 @@ export default function MarkdownRenderer({ content, className = "" }: Props) {
             </td>
           ),
           
-          // Custom link styles
-          a: ({ children, href, ...props }) => (
-            <a 
-              href={href} 
-              target="_blank" 
-              rel="nofollow noopener noreferrer"
-              className="text-blue-600 underline hover:text-blue-800" 
-              {...props}
-            >
-              {children}
-            </a>
-          ),
+          // Custom link styles with YouTube video support
+          a: ({ children, href, ...props }) => {
+            // Check if this is a YouTube URL and extract video ID
+            if (href && isYouTubeUrl(href)) {
+              const videoId = extractYouTubeVideoId(href)
+              if (videoId) {
+                return (
+                  <div className="my-4 rounded-lg overflow-hidden shadow-sm border border-gray-200">
+                    <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                      <iframe
+                        src={`https://www.youtube.com/embed/${videoId}`}
+                        title="YouTube video player"
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowFullScreen
+                        className="absolute top-0 left-0 w-full h-full rounded-lg"
+                      />
+                    </div>
+                    <div className="p-2 text-sm text-gray-600 bg-gray-50">
+                      <a 
+                        href={href} 
+                        target="_blank" 
+                        rel="nofollow noopener noreferrer"
+                        className="text-blue-600 underline hover:text-blue-800"
+                      >
+                        Watch on YouTube
+                      </a>
+                    </div>
+                  </div>
+                )
+              }
+            }
+            
+            // Regular link rendering for non-YouTube URLs
+            return (
+              <a 
+                href={href} 
+                target="_blank" 
+                rel="nofollow noopener noreferrer"
+                className="text-blue-600 underline hover:text-blue-800" 
+                {...props}
+              >
+                {children}
+              </a>
+            )
+          },
           
           // Custom image styles
           img: ({ src, alt, ...props }) => (

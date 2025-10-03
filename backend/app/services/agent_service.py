@@ -76,7 +76,26 @@ class AgentService:
                 if not tools:
                     tools = []
                 tools.append({
-                    "type": "web_search"
+                    "type": "function",
+                    "function": {
+                        "name": "web_search",
+                        "description": "Search the web for current information. Use this when you need to find recent or real-time information about topics, news, current events, or any information that might have changed recently.",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "query": {
+                                    "type": "string",
+                                    "description": "The search query to look up on the web"
+                                },
+                                "max_results": {
+                                    "type": "integer",
+                                    "description": "Maximum number of results to return (default: 5)",
+                                    "default": 5
+                                }
+                            },
+                            "required": ["query"]
+                        }
+                    }
                 })
             
             # Make streaming API call
@@ -218,7 +237,26 @@ class AgentService:
                 if not tools:
                     tools = []
                 tools.append({
-                    "type": "web_search"
+                    "type": "function",
+                    "function": {
+                        "name": "web_search",
+                        "description": "Search the web for current information. Use this when you need to find recent or real-time information about topics, news, current events, or any information that might have changed recently.",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "query": {
+                                    "type": "string",
+                                    "description": "The search query to look up on the web"
+                                },
+                                "max_results": {
+                                    "type": "integer",
+                                    "description": "Maximum number of results to return (default: 5)",
+                                    "default": 5
+                                }
+                            },
+                            "required": ["query"]
+                        }
+                    }
                 })
             
             # Make API call
