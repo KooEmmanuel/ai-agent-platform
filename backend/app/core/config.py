@@ -27,10 +27,11 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: List[str] = [
         "http://localhost:3000",
         "http://localhost:3001",
-        "https://kwickbuild.vercel.app",  # Production frontend
-        "https://kwickbuild.com",  # Production frontend
+        "https://drixai.com",  # Production frontend
+        "https://www.drixai.com",  # Production frontend
+        "https://drixai.com",  # Production frontend
+        "https://www.drixai.com",  # Production frontend
         "https://kwickbuild.up.railway.app",  # Backend itself
-        "https://drixai.com"
 
         "https://ai-agent-platform-production.up.railway.app",  # Alternative backend URL
     ]
