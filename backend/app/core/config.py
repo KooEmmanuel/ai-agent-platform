@@ -30,6 +30,7 @@ class Settings(BaseSettings):
         "https://kwickbuild.vercel.app",  # Production frontend
         "https://kwickbuild.com",  # Production frontend
         "https://kwickbuild.up.railway.app",  # Backend itself
+        "https://drixai.com"
 
         "https://ai-agent-platform-production.up.railway.app",  # Alternative backend URL
     ]
