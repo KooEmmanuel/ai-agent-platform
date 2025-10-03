@@ -415,6 +415,15 @@ export const TOOL_METADATA: Record<string, ToolMetadata> = {
     category: 'Productivity',
     toolType: 'Function',
     brandColor: '#4285F4'
+  },
+  youtube_transcript: {
+    displayName: 'YouTube Transcript Extractor',
+    icon: VideoCameraIcon,
+    logo: 'https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/youtube.svg',
+    description: 'Extract transcripts from YouTube videos with support for multiple languages and output formats. Perfect for content analysis, accessibility, and AI training.',
+    category: 'Content Analysis',
+    toolType: 'Function',
+    brandColor: '#FF0000'
   }
 }
 

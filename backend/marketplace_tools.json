@@ -1,6 +1,6 @@
 {
   "exported_at": "2025-08-10T08:26:15.640269",
-  "total_tools": 35,
+  "total_tools": 36,
   "tools": [
     {
       "id": 1,
@@ -2083,6 +2083,48 @@
       "updated_at": "2025-01-24T00:00:00.000000",
       "user_id": 1,
       "cost": 20
+    },
+    {
+      "id": 36,
+      "name": "youtube_transcript",
+      "display_name": "YouTube Transcript Extractor",
+      "description": "Extract transcripts from YouTube videos with support for multiple languages and output formats. Perfect for content analysis, accessibility, and AI training.",
+      "category": "Content Analysis",
+      "tool_type": "Function",
+      "config": {
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "video_url": {
+              "type": "string",
+              "description": "YouTube video URL or video ID (e.g., 'https://www.youtube.com/watch?v=VIDEO_ID' or 'VIDEO_ID')"
+            },
+            "language": {
+              "type": "string",
+              "description": "Language code for transcript (e.g., 'en', 'es', 'fr'). Use 'auto' to get the first available transcript.",
+              "default": "en"
+            },
+            "include_timestamps": {
+              "type": "boolean",
+              "description": "Whether to include timestamp information in the output",
+              "default": true
+            },
+            "format_output": {
+              "type": "string",
+              "enum": ["json", "text", "srt"],
+              "description": "Output format for the transcript",
+              "default": "json"
+            }
+          },
+          "required": ["video_url"]
+        }
+      },
+      "is_public": true,
+      "is_active": true,
+      "created_at": "2025-01-24T00:00:00.000000",
+      "updated_at": "2025-01-24T00:00:00.000000",
+      "user_id": 1,
+      "cost": 5
     }
   ]
 }
