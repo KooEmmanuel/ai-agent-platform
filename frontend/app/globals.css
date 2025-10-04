@@ -5,6 +5,11 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Smooth scrolling for navigation */
+html {
+  scroll-behavior: smooth;
+}
+
 /* Basic prose styling for markdown rendering */
 .prose {
   color: #374151;

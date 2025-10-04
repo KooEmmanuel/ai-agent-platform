@@ -35,7 +35,7 @@ const platforms = [
     id: 'whatsapp',
     name: 'WhatsApp',
     icon: '💬',
-    description: 'Connect your agent to WhatsApp Business',
+    description: 'Connect your assistant to WhatsApp Business',
     status: 'available',
     color: 'bg-green-100 text-green-800'
   },
@@ -43,7 +43,7 @@ const platforms = [
     id: 'telegram',
     name: 'Telegram',
     icon: '📱',
-    description: 'Create a Telegram bot for your agent',
+    description: 'Create a Telegram bot for your assistant',
     status: 'available',
     color: 'bg-blue-100 text-blue-800'
   },
@@ -75,7 +75,7 @@ const platforms = [
     id: 'web',
     name: 'Web Widget',
     icon: '🌐',
-    description: 'Embed agent in your website',
+    description: 'Embed assistant in your website',
     status: 'available',
     color: 'bg-indigo-100 text-indigo-800'
   }
@@ -193,7 +193,7 @@ export default function IntegrationsPage() {
         <ChatBubbleLeftRightIcon className="mx-auto h-10 w-10 lg:h-12 lg:w-12 text-gray-400" />
         <h3 className="mt-2 text-sm font-medium text-gray-900">No integrations</h3>
         <p className="mt-1 text-xs lg:text-sm text-gray-500">
-          Get started by connecting your agents to external platforms.
+          Get started by connecting your assistants to external platforms.
         </p>
         <div className="mt-4 lg:mt-6">
           <Link
@@ -211,12 +211,12 @@ export default function IntegrationsPage() {
   return (
     <div className="space-y-4 lg:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
         <div className="min-w-0 flex-1">
           <h1 className="text-xl lg:text-2xl font-bold text-gray-900">Integrations</h1>
-          <p className="text-sm lg:text-base text-gray-600">Connect your agents to external platforms</p>
+          <p className="text-sm lg:text-base text-gray-600 mt-1">Connect your assistants to external platforms</p>
         </div>
-        <div className="flex space-x-2 lg:space-x-3">
+        <div className="flex items-center space-x-2 lg:space-x-3">
           {/* Desktop Buttons */}
           <div className="hidden lg:flex space-x-3">
             <Link
@@ -341,14 +341,14 @@ export default function IntegrationsPage() {
               transition={{ delay: index * 0.1 }}
               className="p-4 lg:p-6 hover:bg-gray-50 transition-colors"
             >
-              <div className="flex items-start justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between space-y-3 sm:space-y-0">
                 <div className="flex items-start space-x-3 lg:space-x-4 flex-1 min-w-0">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center space-x-2 mb-1">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2 space-y-1 sm:space-y-0 mb-1">
                       <h4 className="text-sm lg:text-lg font-medium text-gray-900 truncate">
                         {integration.platform} Integration
                       </h4>
-                      <span className={`inline-flex items-center px-2 py-0.5 lg:px-2.5 lg:py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${
+                      <span className={`inline-flex items-center px-2 py-0.5 lg:px-2.5 lg:py-0.5 rounded-full text-xs font-medium flex-shrink-0 w-fit ${
                         integration.is_active 
                           ? 'bg-green-100 text-green-800' 
                           : 'bg-gray-100 text-gray-800'
@@ -359,20 +359,16 @@ export default function IntegrationsPage() {
                     <p className="text-xs lg:text-sm text-gray-600 mb-2 line-clamp-2">
                       {getPlatformInfo(integration.platform).description}
                     </p>
-                    <div className="flex flex-col lg:flex-row lg:items-center lg:space-x-4 space-y-1 lg:space-y-0 text-xs lg:text-sm text-gray-500">
-                      <span>Agent ID: {integration.agent_id}</span>
-                      <span className="hidden lg:inline">•</span>
+                    <div className="flex flex-col space-y-1 text-xs lg:text-sm text-gray-500">
+                      <span>Assistant ID: {integration.agent_id}</span>
                       <span>Created: {formatDate(integration.created_at)}</span>
                       {integration.updated_at && (
-                        <>
-                          <span className="hidden lg:inline">•</span>
-                          <span>Updated: {formatDate(integration.updated_at)}</span>
-                        </>
+                        <span>Updated: {formatDate(integration.updated_at)}</span>
                       )}
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center space-x-1 lg:space-x-2 flex-shrink-0">
+                <div className="flex items-center justify-end space-x-1 lg:space-x-2 flex-shrink-0">
                   <button
                     onClick={() => handleToggleIntegration(integration.id.toString())}
                     className={`p-1.5 lg:p-2 rounded-lg transition-colors ${

@@ -60,8 +60,8 @@ export default function PlaygroundPage() {
       <div className="space-y-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">AI Agent Playground</h1>
-            <p className="text-gray-600">Select an agent to test</p>
+            <h1 className="text-2xl font-bold text-gray-900">AI Assistant Testing</h1>
+            <p className="text-gray-600">Select an assistant to test</p>
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -82,8 +82,8 @@ export default function PlaygroundPage() {
       <div className="space-y-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">AI Agent Playground</h1>
-            <p className="text-gray-600">Select an agent to test</p>
+            <h1 className="text-2xl font-bold text-gray-900">AI Assistant Testing</h1>
+            <p className="text-gray-600">Select an assistant to test</p>
           </div>
         </div>
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -96,10 +96,10 @@ export default function PlaygroundPage() {
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Mobile-First Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">AI Agent Playground</h1>
-          <p className="text-sm sm:text-base text-gray-600">Select an agent to test and interact with</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">AI Assistant Testing</h1>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">Select an assistant to test and interact with</p>
         </div>
         {/* Desktop Create Button */}
         <Link
@@ -179,8 +179,8 @@ export default function PlaygroundPage() {
           <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <CpuChipIcon className="w-8 h-8 text-gray-400" />
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No agents found</h3>
-          <p className="text-gray-600 mb-6">Create your first AI agent to start testing in the playground.</p>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No assistants found</h3>
+          <p className="text-gray-600 mb-6">Create your first AI assistant to start testing.</p>
           <Link
             href="/dashboard/agents/create"
             className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
@@ -239,7 +239,7 @@ export default function PlaygroundPage() {
                   </div>
                 </div>
                 
-                <div className="flex space-x-3">
+                <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
                   <Link
                     href={`/dashboard/playground/${agent.id}`}
                     className={`flex-1 inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
@@ -253,11 +253,11 @@ export default function PlaygroundPage() {
                     })}
                   >
                     <PlayIcon className="w-4 h-4 mr-2" />
-                    {agent.is_active ? 'Test Agent' : 'Inactive'}
+                    {agent.is_active ? 'Test Assistant' : 'Inactive'}
                   </Link>
                   <Link
                     href={`/dashboard/agents/${agent.id}`}
-                    className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                    className="inline-flex items-center justify-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
                   >
                     Configure
                   </Link>
@@ -277,11 +277,11 @@ export default function PlaygroundPage() {
       >
         <h3 className="text-lg font-semibold text-blue-900 mb-2">How to use the playground</h3>
         <ul className="text-sm text-blue-800 space-y-1">
-          <li>• Select an active agent from the list above</li>
-          <li>• Click "Test Agent" to start a conversation</li>
-          <li>• Your agent will use its configured tools and knowledge</li>
-          <li>• Test different queries to see how your agent responds</li>
-          <li>• Use this to refine your agent's behavior and tools</li>
+          <li>• Select an active assistant from the list above</li>
+          <li>• Click "Test Assistant" to start a conversation</li>
+          <li>• Your assistant will use its configured capabilities and knowledge</li>
+          <li>• Test different queries to see how your assistant responds</li>
+          <li>• Use this to refine your assistant's behavior and capabilities</li>
         </ul>
       </motion.div>
 

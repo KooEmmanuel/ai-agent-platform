@@ -30,7 +30,6 @@ import { initializeApiClient } from '../../lib/api'
 const navigation = [
   { name: 'Overview', href: '/dashboard', icon: HomeIcon },
   { name: 'Agents', href: '/dashboard/agents', icon: CpuChipIcon },
-  { name: 'Workbench', href: '/dashboard/workbench', icon: BeakerIcon },
   { name: 'Tools', href: '/dashboard/tools', icon: WrenchScrewdriverIcon },
   { name: 'Knowledge Base', href: '/dashboard/knowledge-base', icon: DocumentTextIcon },
   { name: 'Integrations', href: '/dashboard/integrations', icon: ChatBubbleLeftRightIcon },
@@ -48,6 +47,7 @@ export default function DashboardLayout({
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [desktopSidebarVisible, setDesktopSidebarVisible] = useState(true)
   const [user, setUser] = useState<any>(null)
+  const [activeSection, setActiveSection] = useState<string>('')
   const pathname = usePathname()
 
   useEffect(() => {
@@ -85,6 +85,33 @@ export default function DashboardLayout({
     return () => document.removeEventListener('keydown', handleKeydown)
   }, [sidebarOpen, desktopSidebarVisible])
 
+  // Scroll-based navigation highlighting
+  useEffect(() => {
+    const handleScroll = () => {
+      const sections = document.querySelectorAll('[data-section]')
+      const scrollPosition = window.scrollY + 100
+
+      for (let i = sections.length - 1; i >= 0; i--) {
+        const section = sections[i] as HTMLElement
+        const sectionTop = section.offsetTop
+        const sectionHeight = section.offsetHeight
+
+        if (scrollPosition >= sectionTop && scrollPosition < sectionTop + sectionHeight) {
+          setActiveSection(section.dataset.section || '')
+          break
+        }
+      }
+    }
+
+    // Set initial active section based on pathname
+    setActiveSection(pathname)
+
+    window.addEventListener('scroll', handleScroll)
+    handleScroll() // Call once to set initial state
+
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [pathname])
+
   const handleLogout = async () => {
     try {
       await signOut()
@@ -93,6 +120,19 @@ export default function DashboardLayout({
     } catch (error) {
       console.error('Logout error:', error)
       alert('Logout failed. Please try again.')
+    }
+  }
+
+  const handleNavClick = (href: string) => {
+    // Close mobile sidebar
+    setSidebarOpen(false)
+    
+    // If it's a hash link, scroll to section smoothly
+    if (href.includes('#')) {
+      const element = document.querySelector(href)
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
     }
   }
 
@@ -128,21 +168,23 @@ export default function DashboardLayout({
           </div>
           <nav className="flex-1 space-y-1 px-2 py-4 ml-2">
             {navigation.map((item) => {
-              const isActive = pathname === item.href
+              const isActive = pathname === item.href || activeSection === item.href
               return (
                 <Link
                   key={item.name}
                   href={item.href}
                   className={`group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${
                     isActive
-                      ? 'bg-blue-50 text-blue-700 shadow-sm'
+                      ? 'bg-blue-50 text-blue-700 shadow-sm border-l-4 border-blue-500'
                       : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                   }`}
-                  onClick={() => setSidebarOpen(false)}
+                  onClick={() => handleNavClick(item.href)}
                 >
                   <item.icon className="mr-3 h-4 w-4 flex-shrink-0" />
                   <span className="font-medium">{item.name}</span>
-
+                  {isActive && (
+                    <div className="ml-auto w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                  )}
                 </Link>
               )
             })}
@@ -208,20 +250,28 @@ export default function DashboardLayout({
           </div>
           <nav className={`flex-1 space-y-1 py-4 ${desktopSidebarVisible ? 'px-2 ml-2' : 'px-0'}`}>
             {navigation.map((item) => {
-              const isActive = pathname === item.href
+              const isActive = pathname === item.href || activeSection === item.href
               return (
                 <Link
                   key={item.name}
                   href={item.href}
                   className={`group flex items-center py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${
                     isActive
-                      ? 'bg-blue-50 text-blue-700 shadow-sm'
+                      ? 'bg-blue-50 text-blue-700 shadow-sm border-l-4 border-blue-500'
                       : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                   } ${desktopSidebarVisible ? 'px-3' : 'px-0 justify-center'}`}
                   title={desktopSidebarVisible ? item.name : item.name}
+                  onClick={() => handleNavClick(item.href)}
                 >
                   <item.icon className={`h-5 w-5 flex-shrink-0 ${desktopSidebarVisible ? 'mr-3' : ''}`} />
-                  {desktopSidebarVisible && <span className="font-medium">{item.name}</span>}
+                  {desktopSidebarVisible && (
+                    <>
+                      <span className="font-medium">{item.name}</span>
+                      {isActive && (
+                        <div className="ml-auto w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                      )}
+                    </>
+                  )}
                 </Link>
               )
             })}

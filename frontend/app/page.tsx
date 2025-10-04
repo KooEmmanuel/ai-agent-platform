@@ -120,8 +120,78 @@ export default function LandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [pricingPlans, setPricingPlans] = useState<Plan[]>([])
-  const [pricingLoading, setPricingLoading] = useState(true)
+  // Static pricing plans - no need to fetch from API
+  const pricingPlans: Plan[] = [
+    {
+      id: 1,
+      name: 'free',
+      display_name: 'Free Plan',
+      description: 'Perfect for free users',
+      price: 0,
+      currency: 'USD',
+      monthly_credits: 5000,
+      max_agents: 3,
+      max_custom_tools: 0,
+      features: [
+        'Up to 3 AI agents',
+        'All marketplace tools',
+        'Basic integrations',
+        'Community support',
+        '5,000 credits/month'
+      ],
+      support_level: 'community',
+      custom_branding: false,
+      api_access: false,
+      is_current: false
+    },
+    {
+      id: 2,
+      name: 'starter',
+      display_name: 'Starter Plan',
+      description: 'Perfect for starter users',
+      price: 29,
+      currency: 'USD',
+      monthly_credits: 10000,
+      max_agents: 10,
+      max_custom_tools: 5,
+      features: [
+        'Up to 10 AI agents',
+        'All marketplace tools',
+        'Custom tool creation (5 tools)',
+        'Remove branding',
+        'Email support',
+        '10,000 credits/month'
+      ],
+      support_level: 'email',
+      custom_branding: true,
+      api_access: false,
+      is_current: false
+    },
+    {
+      id: 3,
+      name: 'pro',
+      display_name: 'Pro Plan',
+      description: 'Perfect for pro users',
+      price: 99,
+      currency: 'USD',
+      monthly_credits: 50000,
+      max_agents: -1,
+      max_custom_tools: -1,
+      features: [
+        'Unlimited AI agents',
+        'All marketplace tools',
+        'Unlimited custom tools',
+        'API access',
+        'Priority support',
+        'Advanced analytics',
+        '50,000 credits/month'
+      ],
+      support_level: 'priority',
+      custom_branding: true,
+      api_access: true,
+      is_current: false
+    }
+  ]
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -132,9 +202,6 @@ export default function LandingPage() {
     return () => unsubscribe()
   }, [])
 
-  useEffect(() => {
-    fetchPricingPlans()
-  }, [])
 
   const renderAuthButtons = () => {
     if (loading) {
@@ -240,88 +307,6 @@ export default function LandingPage() {
     }
   ]
 
-  // Use Next.js API routes instead of direct backend calls
-  
-
-  const fetchPricingPlans = async () => {
-    try {
-      const plans = await apiClient.getBillingPlans()
-      setPricingPlans(plans)
-    } catch (error) {
-      console.error('Error fetching pricing plans:', error)
-      // Fallback to static plans if API fails
-      setPricingPlans([
-          {
-            id: 1,
-            name: 'free',
-            display_name: 'Starter',
-            description: 'Perfect for getting started',
-            price: 0,
-            currency: 'USD',
-            monthly_credits: 1000,
-            max_agents: 3,
-            max_custom_tools: 10,
-            features: [
-              '3 AI Agents',
-              '10 Tools',
-              '1,000 API calls/month',
-              'Basic Integrations',
-              'Community Support'
-            ],
-            support_level: 'community',
-            custom_branding: false,
-            api_access: false,
-            is_current: false
-          },
-          {
-            id: 2,
-            name: 'pro',
-            display_name: 'Pro',
-            description: 'For growing teams',
-            price: 29,
-            currency: 'USD',
-            monthly_credits: 50000,
-            max_agents: -1,
-            max_custom_tools: -1,
-            features: [
-              'Unlimited AI Agents',
-              'Unlimited Tools',
-              '50,000 API calls/month',
-              'All Integrations',
-              'Priority Support',
-              'Advanced Analytics'
-            ],
-            support_level: 'priority',
-            custom_branding: true,
-            api_access: true,
-            is_current: false
-          },
-          {
-            id: 3,
-            name: 'enterprise',
-            display_name: 'Enterprise',
-            description: 'For large organizations',
-            price: -1,
-            currency: 'USD',
-            monthly_credits: -1,
-            max_agents: -1,
-            max_custom_tools: -1,
-            features: [
-              'Everything in Pro',
-              'Custom Rate Limits',
-              'Dedicated Support',
-              'SLA Guarantee',
-              'Custom Integrations',
-              'On-premise Deployment'
-            ],
-            support_level: 'dedicated',
-            custom_branding: true,
-            api_access: true,
-            is_current: false
-          }
-        ])
-    }
-  }
 
   return (
     <div className="min-h-screen bg-white">
@@ -409,28 +394,7 @@ export default function LandingPage() {
           </motion.div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {pricingLoading ? (
-              // Loading skeleton
-              Array.from({ length: 3 }).map((_, index) => (
-                <div key={index} className="bg-white p-8 rounded-xl shadow-sm border-2 border-gray-200 animate-pulse">
-                  <div className="text-center mb-6">
-                    <div className="h-8 bg-gray-200 rounded mb-2"></div>
-                    <div className="h-12 bg-gray-200 rounded mb-2"></div>
-                    <div className="h-4 bg-gray-200 rounded"></div>
-                  </div>
-                  <div className="space-y-3 mb-8">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <div key={i} className="flex items-center">
-                        <div className="w-5 h-5 bg-gray-200 rounded mr-3"></div>
-                        <div className="h-4 bg-gray-200 rounded flex-1"></div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="h-12 bg-gray-200 rounded"></div>
-                </div>
-              ))
-            ) : (
-              pricingPlans.map((plan, index) => (
+            {pricingPlans.map((plan, index) => (
                 <motion.div
                   key={plan.id}
                   initial={{ opacity: 0, y: 20 }}
@@ -478,11 +442,10 @@ export default function LandingPage() {
                         : 'bg-gray-900 text-white hover:bg-gray-800'
                     }`}
                   >
-                    {plan.name === 'enterprise' ? 'Contact Sales' : plan.name === 'free' ? 'Get Started' : 'Start Free Trial'}
+                    {plan.name === 'free' ? 'Get Started' : 'Start Free Trial'}
                   </Link>
                 </motion.div>
-              ))
-            )}
+              ))}
           </div>
         </div>
       </section>
