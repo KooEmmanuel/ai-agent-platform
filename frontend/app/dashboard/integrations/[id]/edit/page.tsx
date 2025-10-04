@@ -80,6 +80,7 @@ export default function EditIntegrationPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
+  const [showAdvanced, setShowAdvanced] = useState(false)
   const [form, setForm] = useState<IntegrationForm>({
     config: {},
     webhook_url: '',
@@ -448,6 +449,104 @@ export default function EditIntegrationPage() {
               When active, the integration will process incoming messages
             </p>
           </div>
+
+          {/* Advanced Options for Web Widget */}
+          {integration.platform === 'web' && (
+            <div className="border-t border-gray-200 pt-4">
+              <button
+                onClick={() => setShowAdvanced(!showAdvanced)}
+                className="flex items-center justify-between w-full text-left"
+              >
+                <div>
+                  <h4 className="text-sm font-medium text-gray-900">Advanced Options</h4>
+                  <p className="text-xs text-gray-500">Customize widget appearance and colors</p>
+                </div>
+                <svg
+                  className={`w-5 h-5 text-gray-400 transition-transform ${showAdvanced ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              
+              {showAdvanced && (
+                <div className="mt-4 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Button Icon Color */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Button Icon Color
+                      </label>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="color"
+                          value={form.config.button_icon_color || '#000000'}
+                          onChange={(e) => updateConfigField('button_icon_color', e.target.value)}
+                          className="w-8 h-8 border border-gray-300 rounded cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          value={form.config.button_icon_color || '#000000'}
+                          onChange={(e) => updateConfigField('button_icon_color', e.target.value)}
+                          className="flex-1 px-3 py-2 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="#000000"
+                        />
+                      </div>
+                      <p className="mt-1 text-xs text-gray-500">Eyes and main elements</p>
+                    </div>
+
+                    {/* Button Stroke Color */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Button Stroke Color
+                      </label>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="color"
+                          value={form.config.button_stroke_color || '#000000'}
+                          onChange={(e) => updateConfigField('button_stroke_color', e.target.value)}
+                          className="w-8 h-8 border border-gray-300 rounded cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          value={form.config.button_stroke_color || '#000000'}
+                          onChange={(e) => updateConfigField('button_stroke_color', e.target.value)}
+                          className="flex-1 px-3 py-2 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="#000000"
+                        />
+                      </div>
+                      <p className="mt-1 text-xs text-gray-500">Outlines and strokes</p>
+                    </div>
+
+                    {/* Button Fill Color */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Button Fill Color
+                      </label>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="color"
+                          value={form.config.button_fill_color || '#3B82F6'}
+                          onChange={(e) => updateConfigField('button_fill_color', e.target.value)}
+                          className="w-8 h-8 border border-gray-300 rounded cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          value={form.config.button_fill_color || '#3B82F6'}
+                          onChange={(e) => updateConfigField('button_fill_color', e.target.value)}
+                          className="flex-1 px-3 py-2 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="#3B82F6"
+                        />
+                      </div>
+                      <p className="mt-1 text-xs text-gray-500">Microphone and headset</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Configuration Fields */}
           <div>

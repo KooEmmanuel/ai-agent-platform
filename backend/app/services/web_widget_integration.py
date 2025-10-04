@@ -392,6 +392,11 @@ class WebWidgetIntegrationService:
         widget_name = widget_config.get('widget_name', 'AI Assistant')
         avatar_url = widget_config.get('avatar_url', '')
         
+        # Color customization options for the animated button
+        button_icon_color = widget_config.get('button_icon_color', 'black')
+        button_stroke_color = widget_config.get('button_stroke_color', 'black')
+        button_fill_color = widget_config.get('button_fill_color', '#3B82F6')
+        
         # Pre-calculate position values
         position_parts = position.split('-')
         position_vertical = position_parts[0] if len(position_parts) > 0 else 'bottom'
@@ -435,35 +440,86 @@ class WebWidgetIntegrationService:
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     `;
     
-    // Widget button with improved design
+    // Widget button with animated AI assistant design
     const widgetButton = document.createElement('div');
     widgetButton.style.cssText = `
-        width: 64px;
-        height: 64px;
-        background: linear-gradient(135deg, {theme_color} 0%, {theme_color}dd 100%);
-        border-radius: 50%;
+        width: 100px;
+        height: 100px;
         cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
-        box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3);
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        border: 3px solid rgba(255, 255, 255, 0.2);
     `;
     widgetButton.innerHTML = `
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="white">
-            <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
+        <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 200 200">
+          <!-- Head circle -->
+          <circle cx="100" cy="100" r="70" fill="none" stroke="{button_stroke_color}" stroke-width="4" />
+
+          <!-- Eyes -->
+          <circle cx="90" cy="95" r="4" fill="{button_icon_color}"/>
+          <circle cx="120" cy="95" r="4" fill="{button_icon_color}"/>
+
+          <!-- Glasses frames -->
+          <!-- Left lens -->
+          <circle cx="90" cy="95" r="12" fill="none" stroke="{button_stroke_color}" stroke-width="2"/>
+          <!-- Right lens -->
+          <circle cx="120" cy="95" r="12" fill="none" stroke="{button_stroke_color}" stroke-width="2"/>
+          <!-- Bridge -->
+          <line x1="102" y1="95" x2="108" y2="95" stroke="{button_stroke_color}" stroke-width="2"/>
+          <!-- Glasses arms -->
+          <line x1="78" y1="95" x2="65" y2="90" stroke="{button_stroke_color}" stroke-width="2"/>
+          <line x1="132" y1="95" x2="145" y2="90" stroke="{button_stroke_color}" stroke-width="2"/>
+
+          <!-- Eyebrows (animated up/down) -->
+          <path d="M80 80 Q90 75 100 80" stroke="{button_stroke_color}" stroke-width="3" fill="none" stroke-linecap="round">
+            <animateTransform attributeName="transform" type="translate" values="0,0; 0,-3; 0,0" dur="2s" repeatCount="indefinite"/>
+          </path>
+          <path d="M110 80 Q120 75 130 80" stroke="{button_stroke_color}" stroke-width="3" fill="none" stroke-linecap="round">
+            <animateTransform attributeName="transform" type="translate" values="0,0; 0,-3; 0,0" dur="2s" repeatCount="indefinite"/>
+          </path>
+
+          <!-- Nose (shorter and pointing right) -->
+          <path d="M95 100 L112 115 L100 125" fill="none" stroke="{button_stroke_color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <animateTransform attributeName="transform" type="rotate" values="0 95 115; 5 95 115; -5 95 115; 0 95 115" dur="4s" repeatCount="indefinite"/>
+          </path>
+
+          <!-- Animated Smile -->
+          <path d="M85 135 Q100 150 115 135" stroke="{button_stroke_color}" stroke-width="3" fill="none" stroke-linecap="round">
+            <animate attributeName="d" 
+              values="M85 135 Q100 150 115 135; M85 130 Q100 145 115 130; M85 140 Q100 155 115 140; M85 135 Q100 150 115 135" 
+              dur="4s" 
+              repeatCount="indefinite"/>
+          </path>
+
+          <!-- Headset band (left) -->
+          <path d="M140 35 C100 15, 40 25, 30 60" fill="none" stroke="{button_stroke_color}" stroke-width="4"/>
+
+          <!-- Connector to earcup (left side) -->
+          <path d="M40 60 C25 80, 25 110, 40 125" fill="none" stroke="{button_stroke_color}" stroke-width="4"/>
+
+          <!-- Earcup (left side) -->
+          <ellipse cx="30" cy="115" rx="18" ry="26" fill="{button_fill_color}" stroke="{button_stroke_color}" stroke-width="3">
+            <animate attributeName="rx" values="18;20;18" dur="2s" repeatCount="indefinite"/>
+            <animate attributeName="ry" values="26;28;26" dur="2s" repeatCount="indefinite"/>
+          </ellipse>
+
+          <!-- Microphone stem -->
+          <path d="M60 140 C75 150, 90 155, 100 160" fill="none" stroke="{button_stroke_color}" stroke-width="3"/>
+
+          <!-- Microphone bubble (pulsing) -->
+          <circle cx="110" cy="162" r="8" fill="{button_fill_color}" stroke="{button_stroke_color}" stroke-width="3">
+            <animate attributeName="r" values="8;10;8" dur="1.5s" repeatCount="indefinite"/>
+          </circle>
         </svg>
     `;
     
     // Hover effects for button
     widgetButton.addEventListener('mouseenter', () => {{
         widgetButton.style.transform = 'scale(1.1)';
-        widgetButton.style.boxShadow = '0 6px 25px rgba(59, 130, 246, 0.4)';
     }});
     widgetButton.addEventListener('mouseleave', () => {{
         widgetButton.style.transform = 'scale(1)';
-        widgetButton.style.boxShadow = '0 4px 20px rgba(59, 130, 246, 0.3)';
     }});
     
     // Modern chat window with playground styling
@@ -561,39 +617,46 @@ class WebWidgetIntegrationService:
         background: white;
     `;
     chatInput.innerHTML = `
-        <div style="display: flex; gap: 12px; align-items: flex-end;">
+        <div style="position: relative; display: flex; align-items: flex-start;">
             <textarea id="chat-message-input" placeholder="Type your message..." 
                    style="
-                       flex: 1; 
-                       padding: 12px 16px; 
-                       border: 1px solid #E5E7EB; 
-                       border-radius: 12px; 
+                       width: 100%; 
+                       padding: 12px 50px 12px 12px; 
+                       border: 1px solid #D1D5DB; 
+                       border-radius: 8px; 
                        outline: none;
                        resize: none;
-                       min-height: 20px;
+                       min-height: 80px;
                        max-height: 120px;
                        font-family: inherit;
                        font-size: 14px;
                        line-height: 1.4;
-                       transition: border-color 0.2s;
+                       background: white;
+                       transition: all 0.2s;
                    " 
-                   rows="1"
-                   oninput="this.style.height='20px'; this.style.height=Math.min(this.scrollHeight, 120)+'px';"
-                   onfocus="this.style.borderColor='{theme_color}'"
-                   onblur="this.style.borderColor='#E5E7EB'"
+                   rows="3"
+                   oninput="this.style.height='80px'; this.style.height=Math.min(this.scrollHeight, 120)+'px';"
+                   onfocus="this.style.borderColor='{theme_color}'; this.style.boxShadow='0 0 0 2px rgba(59, 130, 246, 0.2)'"
+                   onblur="this.style.borderColor='#D1D5DB'; this.style.boxShadow='none'"
             ></textarea>
             <button id="send-message" style="
+                position: absolute;
+                right: 8px;
+                bottom: 8px;
                 background: {theme_color}; 
                 color: white; 
                 border: none; 
-                padding: 12px 20px; 
-                border-radius: 12px; 
+                width: 36px;
+                height: 36px;
+                border-radius: 50%; 
                 cursor: pointer;
                 font-weight: 500;
                 transition: all 0.2s;
-                min-width: 60px;
-            " onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(59,130,246,0.3)'" 
-               onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            " onmouseover="this.style.transform='scale(1.1)'; this.style.boxShadow='0 4px 12px rgba(59,130,246,0.3)'" 
+               onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
                 </svg>
@@ -615,7 +678,7 @@ class WebWidgetIntegrationService:
     poweredByFooter.innerHTML = `
         <span style="display: flex; align-items: center; justify-content: center; gap: 4px;">
             Powered by 
-            <span style="color: {theme_color}; font-weight: 600;">KwickBuild</span>
+            <span style="color: {theme_color}; font-weight: 600;">Drixai</span>
         </span>
     `;
     
@@ -625,7 +688,11 @@ class WebWidgetIntegrationService:
     chatWindow.appendChild(chatInput);
     chatWindow.appendChild(poweredByFooter);
     
-    // Add event listener for Enter key after the elements are created
+    widgetContainer.appendChild(widgetButton);
+    widgetContainer.appendChild(chatWindow);
+    document.body.appendChild(widgetContainer);
+    
+    // Add event listener for Enter key after the widget is attached to DOM
     const textarea = document.getElementById('chat-message-input');
     if (textarea) {{
         textarea.addEventListener('keydown', (event) => {{
@@ -635,10 +702,6 @@ class WebWidgetIntegrationService:
             }}
         }});
     }}
-    
-    widgetContainer.appendChild(widgetButton);
-    widgetContainer.appendChild(chatWindow);
-    document.body.appendChild(widgetContainer);
     
     // Widget functionality with smooth animations
     let isOpen = false;
@@ -1054,6 +1117,18 @@ class WebWidgetIntegrationService:
 </script>
 """
         
+        # Helper function to escape JavaScript strings
+        def escape_js_string(text):
+            if not text:
+                return ''
+            return (text
+                .replace('\\', '\\\\')  # Escape backslashes first
+                .replace("'", "\\'")    # Escape single quotes
+                .replace('"', '\\"')   # Escape double quotes
+                .replace('\n', '\\n')   # Escape newlines
+                .replace('\r', '\\r')   # Escape carriage returns
+                .replace('\t', '\\t'))  # Escape tabs
+        
         # Format the script with the configuration values
         script = script_template.format(
             widget_id=widget_id,
@@ -1063,9 +1138,12 @@ class WebWidgetIntegrationService:
             position=position,
             position_vertical=position_vertical,
             position_horizontal=position_horizontal,
-            greeting_message=greeting_message,
-            widget_name=widget_name,
-            avatar_url=avatar_url
+            greeting_message=escape_js_string(greeting_message),
+            widget_name=escape_js_string(widget_name),
+            avatar_url=escape_js_string(avatar_url),
+            button_icon_color=button_icon_color,
+            button_stroke_color=button_stroke_color,
+            button_fill_color=button_fill_color
         )
         
         return script.strip()

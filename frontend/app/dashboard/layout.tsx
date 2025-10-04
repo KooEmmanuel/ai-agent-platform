@@ -17,8 +17,10 @@ import {
   ChartBarIcon,
   CreditCardIcon,
   ArrowRightOnRectangleIcon,
-  DocumentTextIcon
+  DocumentTextIcon,
+  BeakerIcon
 } from '@heroicons/react/24/outline'
+import { LuPanelLeftClose, LuPanelRightClose } from "react-icons/lu"
 import { LogOut } from 'lucide-react'
 import { signOut, auth } from '../../lib/firebase'
 import { onAuthStateChanged } from 'firebase/auth'
@@ -28,6 +30,7 @@ import { initializeApiClient } from '../../lib/api'
 const navigation = [
   { name: 'Overview', href: '/dashboard', icon: HomeIcon },
   { name: 'Agents', href: '/dashboard/agents', icon: CpuChipIcon },
+  { name: 'Workbench', href: '/dashboard/workbench', icon: BeakerIcon },
   { name: 'Tools', href: '/dashboard/tools', icon: WrenchScrewdriverIcon },
   { name: 'Knowledge Base', href: '/dashboard/knowledge-base', icon: DocumentTextIcon },
   { name: 'Integrations', href: '/dashboard/integrations', icon: ChatBubbleLeftRightIcon },
@@ -43,6 +46,7 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [desktopSidebarVisible, setDesktopSidebarVisible] = useState(true)
   const [user, setUser] = useState<any>(null)
   const pathname = usePathname()
 
@@ -64,15 +68,22 @@ export default function DashboardLayout({
   }, [])
 
   useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
+    const handleKeydown = (e: KeyboardEvent) => {
+      // Close mobile sidebar with Escape
       if (e.key === 'Escape' && sidebarOpen) {
         setSidebarOpen(false)
       }
+      
+      // Toggle desktop sidebar with Ctrl/Cmd + B
+      if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+        e.preventDefault()
+        setDesktopSidebarVisible(!desktopSidebarVisible)
+      }
     }
 
-    document.addEventListener('keydown', handleEscape)
-    return () => document.removeEventListener('keydown', handleEscape)
-  }, [sidebarOpen])
+    document.addEventListener('keydown', handleKeydown)
+    return () => document.removeEventListener('keydown', handleKeydown)
+  }, [sidebarOpen, desktopSidebarVisible])
 
   const handleLogout = async () => {
     try {
@@ -106,7 +117,7 @@ export default function DashboardLayout({
         >
           <div className="flex h-20 items-center justify-between px-4 overflow-visible">
             <Link href="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity w-full">
-              <DrixaiLogo width={160} height={50} />
+                <DrixaiLogo width={160} height={50} />
             </Link>
             <button
               onClick={() => setSidebarOpen(false)}
@@ -165,63 +176,109 @@ export default function DashboardLayout({
       </div>
 
       {/* Desktop sidebar */}
-      <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-72 lg:flex-col">
-        <div className="flex flex-col flex-grow bg-white m-4 rounded-2xl shadow-[0_2px_8px_rgba(59,130,246,0.08)]">
-          <div className="flex h-20 items-center px-4 overflow-visible">
-            <Link href="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity w-full">
-              <DrixaiLogo width={160} height={50} />
-            </Link>
+      <div className={`hidden lg:fixed lg:inset-y-0 lg:flex lg:flex-col transition-all duration-300 ease-in-out ${
+        desktopSidebarVisible ? 'lg:w-72' : 'lg:w-20'
+      }`}>
+        <div className={`flex flex-col flex-grow bg-white m-4 rounded-2xl shadow-[0_2px_8px_rgba(59,130,246,0.08)] transition-all duration-300 ease-in-out overflow-hidden`}>
+          <div className={`flex items-center px-4 overflow-visible ${desktopSidebarVisible ? 'h-20' : 'h-16'}`}>
+            {desktopSidebarVisible ? (
+              <>
+                <Link href="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity flex-1">
+                  <DrixaiLogo width={160} height={50} />
+                </Link>
+                <button
+                  onClick={() => setDesktopSidebarVisible(false)}
+                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Collapse sidebar (Ctrl+B)"
+                >
+                  <LuPanelLeftClose className="w-4 h-4" />
+                </button>
+              </>
+            ) : (
+              <div className="flex flex-col items-center space-y-4 w-full">
+                <button
+                  onClick={() => setDesktopSidebarVisible(true)}
+                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Expand sidebar (Ctrl+B)"
+                >
+                  <LuPanelRightClose className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </div>
-          <nav className="flex-1 space-y-1 px-2 py-4 ml-2">
+          <nav className={`flex-1 space-y-1 py-4 ${desktopSidebarVisible ? 'px-2 ml-2' : 'px-0'}`}>
             {navigation.map((item) => {
               const isActive = pathname === item.href
               return (
                 <Link
                   key={item.name}
                   href={item.href}
-                  className={`group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${
+                  className={`group flex items-center py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${
                     isActive
                       ? 'bg-blue-50 text-blue-700 shadow-sm'
                       : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
+                  } ${desktopSidebarVisible ? 'px-3' : 'px-0 justify-center'}`}
+                  title={desktopSidebarVisible ? item.name : item.name}
                 >
-                  <item.icon className="mr-3 h-4 w-4 flex-shrink-0" />
-                  <span className="font-medium">{item.name}</span>
-
+                  <item.icon className={`h-5 w-5 flex-shrink-0 ${desktopSidebarVisible ? 'mr-3' : ''}`} />
+                  {desktopSidebarVisible && <span className="font-medium">{item.name}</span>}
                 </Link>
               )
             })}
           </nav>
-          <div className="border-t border-gray-100 p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
+          <div className={`border-t border-gray-100 ${desktopSidebarVisible ? 'p-4' : 'p-2'}`}>
+            {desktopSidebarVisible ? (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  {user?.photoURL ? (
+                    <img 
+                      src={user.photoURL} 
+                      alt="Profile" 
+                      className="w-7 h-7 rounded-full object-cover"
+                    />
+                  ) : (
+                    <UserCircleIcon className="w-7 h-7 text-gray-400" />
+                  )}
+                  <span className="text-xs font-medium text-gray-700">
+                    {user?.displayName || 'User'}
+                  </span>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 border border-gray-200 rounded-full transition-colors"
+                  title="Logout"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center space-y-3">
                 {user?.photoURL ? (
                   <img 
                     src={user.photoURL} 
                     alt="Profile" 
-                    className="w-7 h-7 rounded-full object-cover"
+                    className="w-8 h-8 rounded-full object-cover"
                   />
                 ) : (
-                  <UserCircleIcon className="w-7 h-7 text-gray-400" />
+                  <UserCircleIcon className="w-8 h-8 text-gray-400" />
                 )}
-                <span className="text-xs font-medium text-gray-700">
-                  {user?.displayName || 'User'}
-                </span>
+                <button
+                  onClick={handleLogout}
+                  className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 border border-gray-200 rounded-full transition-colors"
+                  title="Logout"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
               </div>
-              <button
-                onClick={handleLogout}
-                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 border border-gray-200 rounded-full transition-colors"
-                title="Logout"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
-            </div>
+            )}
           </div>
         </div>
       </div>
 
       {/* Main content */}
-      <div className="lg:pl-72">
+      <div className={`transition-all duration-300 ease-in-out ${
+        desktopSidebarVisible ? 'lg:pl-72' : 'lg:pl-24'
+      }`}>
         {/* Mobile header with hamburger menu */}
         <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white border-b border-gray-200 px-4 py-3">
           <div className="flex items-center justify-between">
@@ -239,6 +296,10 @@ export default function DashboardLayout({
             <div className="w-10"></div> {/* Spacer for centering */}
           </div>
         </div>
+
+
+
+
 
         {/* Page content */}
         <main className="flex-1 lg:pt-0 pt-16">

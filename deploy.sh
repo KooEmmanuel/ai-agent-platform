@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Railway Deployment Script for Kwickbuild AI Agent Platform
+# Railway Deployment Script for Drixai AI Agent Platform
 # This script helps optimize the deployment process
 
-echo "🚀 Starting Railway Deployment for Kwickbuild AI Agent Platform"
+echo "🚀 Starting Railway Deployment for Drixai AI Agent Platform"
 
 # Check if we're in the right directory
 if [ ! -f "railway.json" ]; then

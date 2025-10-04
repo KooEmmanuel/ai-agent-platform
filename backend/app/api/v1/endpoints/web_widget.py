@@ -49,6 +49,22 @@ class WidgetConfig(BaseModel):
     position: Optional[str] = "bottom-right"
     greeting_message: Optional[str] = "Hi! How can I help you today?"
 
+@router.options("/message")
+async def handle_widget_message_options():
+    """
+    Handle CORS preflight for web widget message endpoint
+    """
+    from fastapi.responses import Response
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            "Access-Control-Max-Age": "86400"
+        }
+    )
+
 @router.post("/message")
 async def handle_widget_message(
     message_data: WidgetMessage,
@@ -79,6 +95,22 @@ async def handle_widget_message(
     except Exception as e:
         print(f"Widget message error: {e}")
         raise HTTPException(status_code=500, detail="Failed to process message")
+
+@router.options("/message/stream")
+async def handle_widget_message_stream_options():
+    """
+    Handle CORS preflight for web widget streaming endpoint
+    """
+    from fastapi.responses import Response
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            "Access-Control-Max-Age": "86400"
+        }
+    )
 
 @router.post("/message/stream")
 async def handle_widget_message_stream(

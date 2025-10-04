@@ -32,8 +32,9 @@ class Settings(BaseSettings):
         "https://drixai.com",  # Production frontend
         "https://www.drixai.com",  # Production frontend
         "https://kwickbuild.up.railway.app",  # Backend itself
-
+        "https://kwickbuild.vercel.app",
         "https://ai-agent-platform-production.up.railway.app",  # Alternative backend URL
+        "*"  # Allow all origins for web widget integration
     ]
     
     # External APIs
