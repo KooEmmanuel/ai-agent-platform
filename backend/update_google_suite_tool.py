@@ -24,7 +24,7 @@ async def update_google_suite_tool():
                 updated_config = {
                     'client_id': '${GOOGLE_CLIENT_ID}',
                     'client_secret': '${GOOGLE_CLIENT_SECRET}',
-                    'redirect_uri': 'http://localhost:3000/auth/google/callback',
+                    'redirect_uri': '${GOOGLE_CALLBACK_URL}',
                     'scopes': [
                         'https://www.googleapis.com/auth/calendar',
                         'https://www.googleapis.com/auth/drive',

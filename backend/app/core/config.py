@@ -45,6 +45,7 @@ class Settings(BaseSettings):
     # Google OAuth
     GOOGLE_CLIENT_ID: Optional[str] = None
     GOOGLE_CLIENT_SECRET: Optional[str] = None
+    GOOGLE_CALLBACK_URL: Optional[str] = None
     
     # WhatsApp Integration
     WHATSAPP_ACCESS_TOKEN: Optional[str] = None

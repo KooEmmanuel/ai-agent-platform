@@ -26,7 +26,7 @@ class GoogleSuiteTool:
         # Get credentials from settings (which loads from .env) or config
         self.client_id = settings.GOOGLE_CLIENT_ID or config.get('client_id', '')
         self.client_secret = settings.GOOGLE_CLIENT_SECRET or config.get('client_secret', '')
-        self.redirect_uri = config.get('redirect_uri', 'http://localhost:3000/auth/google/callback')
+        self.redirect_uri = settings.GOOGLE_CALLBACK_URL or config.get('redirect_uri', 'http://localhost:3000/auth/google/callback')
         
         # Only validate credentials if we have meaningful config data
         # (empty config usually means schema request)

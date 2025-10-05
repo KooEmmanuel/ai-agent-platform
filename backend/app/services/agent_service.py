@@ -537,13 +537,13 @@ class AgentService:
                                         # Ensure we have the correct OAuth settings
                                         temp_config['client_id'] = settings.GOOGLE_CLIENT_ID
                                         temp_config['client_secret'] = settings.GOOGLE_CLIENT_SECRET
-                                        temp_config['redirect_uri'] = 'http://localhost:3000/auth/google/callback'
+                                        temp_config['redirect_uri'] = settings.GOOGLE_CALLBACK_URL
                                 except Exception as e:
                                     print(f"❌ Agent Service - Error loading Google Suite config: {e}")
                                     # Fallback to default config
                                     temp_config['client_id'] = settings.GOOGLE_CLIENT_ID
                                     temp_config['client_secret'] = settings.GOOGLE_CLIENT_SECRET
-                                    temp_config['redirect_uri'] = 'http://localhost:3000/auth/google/callback'
+                                    temp_config['redirect_uri'] = settings.GOOGLE_CALLBACK_URL
                             
                             temp_instance = tool_class(temp_config)
                             
@@ -917,19 +917,19 @@ class AgentService:
                             # Ensure we have the correct OAuth settings
                             merged_config['client_id'] = settings.GOOGLE_CLIENT_ID
                             merged_config['client_secret'] = settings.GOOGLE_CLIENT_SECRET
-                            merged_config['redirect_uri'] = 'http://localhost:3000/auth/google/callback'
+                            merged_config['redirect_uri'] = '${GOOGLE_CALLBACK_URL}'
                     else:
                         logger.info(f"🔍 Tool Execution - No stored Google Suite config found, using defaults")
                         # Ensure we have the correct OAuth settings
                         merged_config['client_id'] = settings.GOOGLE_CLIENT_ID
                         merged_config['client_secret'] = settings.GOOGLE_CLIENT_SECRET
-                        merged_config['redirect_uri'] = 'http://localhost:3000/auth/google/callback'
+                        merged_config['redirect_uri'] = '${GOOGLE_CALLBACK_URL}'
                 except Exception as e:
                     logger.error(f"❌ Tool Execution - Error loading Google Suite config: {e}")
                     # Fallback to default config
                     merged_config['client_id'] = settings.GOOGLE_CLIENT_ID
                     merged_config['client_secret'] = settings.GOOGLE_CLIENT_SECRET
-                    merged_config['redirect_uri'] = 'http://localhost:3000/auth/google/callback'
+                    merged_config['redirect_uri'] = '${GOOGLE_CALLBACK_URL}'
             
             logger.info(f"🔧 Final merged config for {tool_name_from_json}: {merged_config}")
             
