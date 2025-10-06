@@ -43,6 +43,11 @@ export default function AdminLayout({
   const router = useRouter()
 
   useEffect(() => {
+    // Skip authentication check for login page
+    if (pathname === '/admin/login') {
+      return
+    }
+    
     // Check if admin is logged in
     const adminToken = localStorage.getItem('admin_token')
     const adminUserData = localStorage.getItem('admin_user')
@@ -53,12 +58,37 @@ export default function AdminLayout({
     }
     
     try {
-      setAdminUser(JSON.parse(adminUserData))
+      const userData = JSON.parse(adminUserData)
+      
+      // Check if token is expired (basic JWT decode without verification)
+      try {
+        const tokenPayload = JSON.parse(atob(adminToken.split('.')[1]))
+        const currentTime = Math.floor(Date.now() / 1000)
+        
+        if (tokenPayload.exp && tokenPayload.exp < currentTime) {
+          console.log('Admin token expired, redirecting to login')
+          localStorage.removeItem('admin_token')
+          localStorage.removeItem('admin_user')
+          router.push('/admin/login')
+          return
+        }
+      } catch (tokenError) {
+        console.error('Error decoding admin token:', tokenError)
+        localStorage.removeItem('admin_token')
+        localStorage.removeItem('admin_user')
+        router.push('/admin/login')
+        return
+      }
+      
+      setAdminUser(userData)
     } catch (error) {
       console.error('Error parsing admin user data:', error)
+      // Clear invalid data and redirect
+      localStorage.removeItem('admin_token')
+      localStorage.removeItem('admin_user')
       router.push('/admin/login')
     }
-  }, [router])
+  }, [router, pathname])
 
   useEffect(() => {
     const handleKeydown = (e: KeyboardEvent) => {
@@ -91,6 +121,11 @@ export default function AdminLayout({
     if (pathname === href) {
       window.scrollTo({ top: 0, behavior: 'smooth' })
     }
+  }
+
+  // Don't show loading state for login page
+  if (pathname === '/admin/login') {
+    return <>{children}</>
   }
 
   if (!adminUser) {
