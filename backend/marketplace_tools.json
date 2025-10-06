@@ -6,7 +6,7 @@
       "id": 1,
       "name": "web_search",
       "display_name": "Web Search",
-      "description": "Search the web for current information using OpenAI's reliable web search. Use this when you need to find recent or real-time information about topics, news, current events, or any information that might have changed recently.",
+      "description": "Comprehensive web search tool with advanced business discovery capabilities. Use this tool to find current information, news, and real-time data. NEW FEATURES: 1) SOCIAL MEDIA BUSINESS SEARCH - Find business accounts on TikTok, Instagram, Facebook, Twitter, LinkedIn, and YouTube. Use queries like 'barber shop tiktok' or 'restaurant instagram' to discover business social media accounts. 2) BUSINESS DIRECTORY SEARCH - Search across Yelp, Google Business, Vagaro, Yellow Pages, and 15+ other business directories. Use queries like 'salon yelp' or 'gym google business' to find business listings with contact info, hours, reviews, and booking capabilities. Set result_type='social_media' to access these new business discovery features.",
       "category": "Search",
       "tool_type": "API",
       "config": {
@@ -19,15 +19,16 @@
           "properties": {
             "query": {
               "type": "string",
-              "description": "Search query"
+              "description": "Search query. For business discovery, use format 'business_type platform' (e.g., 'barber shop tiktok', 'restaurant yelp')"
             },
             "result_type": {
               "type": "string",
-              "description": "Type of results",
+              "description": "Type of results. Use 'social_media' for business discovery (social media accounts + business directories)",
               "enum": [
                 "web",
                 "news",
-                "images"
+                "images",
+                "social_media"
               ],
               "default": "web"
             },
@@ -39,7 +40,24 @@
           },
           "required": [
             "query"
-          ]
+          ],
+          "examples": {
+            "social_media_business_search": {
+              "query": "barber shop tiktok",
+              "result_type": "social_media",
+              "max_results": 5
+            },
+            "business_directory_search": {
+              "query": "restaurant yelp",
+              "result_type": "social_media", 
+              "max_results": 3
+            },
+            "cross_platform_business_search": {
+              "query": "coffee shop",
+              "result_type": "social_media",
+              "max_results": 10
+            }
+          }
         }
       },
       "is_public": true,

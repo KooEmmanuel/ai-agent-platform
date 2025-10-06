@@ -20,13 +20,24 @@ logger = logging.getLogger(__name__)
 
 class WebSearchTool(BaseTool):
     """
-    Web Search Tool using DuckDuckGo API.
+    Enhanced Web Search Tool with Advanced Business Discovery Capabilities.
     
     Features:
     - Web search with DuckDuckGo
     - Result filtering and formatting
     - Safe search options
-    - Multiple result types (web, news, images)
+    - Multiple result types (web, news, images, social_media)
+    
+    NEW BUSINESS DISCOVERY FEATURES:
+    - Social Media Business Search: Find business accounts on TikTok, Instagram, Facebook, Twitter, LinkedIn, YouTube
+    - Business Directory Search: Search across Yelp, Google Business, Vagaro, Yellow Pages, and 15+ other platforms
+    - Business Intelligence: Extract contact info, hours, reviews, booking capabilities
+    - Cross-platform Discovery: Find businesses across social media and directory platforms
+    
+    Usage Examples:
+    - "barber shop tiktok" (result_type="social_media") - Find TikTok business accounts
+    - "restaurant yelp" (result_type="social_media") - Find Yelp business listings
+    - "coffee shop" (result_type="social_media") - Cross-platform business discovery
     """
     
     def __init__(self, config: Dict[str, Any]):
@@ -38,15 +49,23 @@ class WebSearchTool(BaseTool):
         
     async def execute(self, query: str, result_type: str = "web", max_results: Optional[int] = None, **kwargs) -> Dict[str, Any]:
         """
-        Execute web search.
+        Execute web search with enhanced business discovery capabilities.
         
         Args:
-            query: Search query
-            result_type: Type of results (web, news, images)
+            query: Search query. For business discovery, use format 'business_type platform' 
+                   (e.g., 'barber shop tiktok', 'restaurant yelp', 'coffee shop')
+            result_type: Type of results:
+                - 'web': General web search
+                - 'news': News articles
+                - 'images': Image search
+                - 'social_media': Business discovery (social media accounts + business directories)
             max_results: Maximum number of results to return
             
         Returns:
-            Search results with metadata
+            Search results with metadata. For social_media type, includes:
+            - Social media business accounts (TikTok, Instagram, Facebook, Twitter, LinkedIn, YouTube)
+            - Business directory listings (Yelp, Google Business, Vagaro, Yellow Pages, etc.)
+            - Business intelligence (contact info, hours, reviews, booking capabilities)
         """
         if not query or not query.strip():
             return self._format_error("Search query is required")
@@ -60,6 +79,8 @@ class WebSearchTool(BaseTool):
                 results = await self._search_news(query, max_results)
             elif result_type == "images":
                 results = await self._search_images(query, max_results)
+            elif result_type == "social_media":
+                results = await self._search_social_media(query, max_results, **kwargs)
             else:
                 return self._format_error(f"Unsupported result type: {result_type}")
             
@@ -395,6 +416,495 @@ class WebSearchTool(BaseTool):
             if len(results) < max_results:
                 results.append(source)
     
+    async def _search_social_media(self, query: str, max_results: int, **kwargs) -> List[Dict[str, Any]]:
+        """
+        Search for social media business accounts and business directory listings.
+        
+        Args:
+            query: Search query (e.g., "barber shop tiktok", "restaurant instagram")
+            max_results: Maximum number of results to return
+            
+        Returns:
+            List of social media and business directory results
+        """
+        try:
+            # Parse the query to extract business type and platform
+            business_type, platform = self._parse_social_media_query(query)
+            
+            # Search for social media accounts using web search
+            social_query = f"{business_type} {platform} account business"
+            web_results = await self._search_web_html(social_query, max_results * 2)
+            
+            social_results = []
+            for result in web_results[:max_results]:
+                # Check if result is likely a social media account
+                if self._is_social_media_result(result, platform):
+                    social_result = self._format_social_media_result(result, platform, business_type)
+                    if social_result:
+                        social_results.append(social_result)
+            
+            # If we don't have enough results, try platform-specific searches
+            if len(social_results) < max_results:
+                platform_results = await self._search_platform_specific(business_type, platform, max_results - len(social_results))
+                social_results.extend(platform_results)
+            
+            # Also search business directories if we need more results
+            if len(social_results) < max_results:
+                business_directory_results = await self._search_business_directories(business_type, max_results - len(social_results))
+                social_results.extend(business_directory_results)
+            
+            return social_results[:max_results]
+            
+        except Exception as e:
+            logger.error(f"Social media search failed: {str(e)}")
+            return [{
+                'title': 'Social Media Search Error',
+                'url': '',
+                'snippet': f'Unable to search for social media accounts for "{query}" at the moment. Please try again later.',
+                'type': 'social_media',
+                'platform': 'unknown'
+            }]
+    
+    def _parse_social_media_query(self, query: str) -> tuple[str, str]:
+        """
+        Parse social media search query to extract business type and platform.
+        
+        Args:
+            query: Search query
+            
+        Returns:
+            Tuple of (business_type, platform)
+        """
+        query_lower = query.lower()
+        
+        # Detect platform
+        platform = "any"
+        if "tiktok" in query_lower:
+            platform = "tiktok"
+        elif "instagram" in query_lower or "ig" in query_lower:
+            platform = "instagram"
+        elif "facebook" in query_lower or "fb" in query_lower:
+            platform = "facebook"
+        elif "twitter" in query_lower or "x.com" in query_lower:
+            platform = "twitter"
+        elif "linkedin" in query_lower:
+            platform = "linkedin"
+        elif "youtube" in query_lower or "yt" in query_lower:
+            platform = "youtube"
+        
+        # Extract business type by removing platform keywords
+        business_type = query
+        platform_keywords = ["tiktok", "instagram", "ig", "facebook", "fb", "twitter", "x.com", "linkedin", "youtube", "yt"]
+        for keyword in platform_keywords:
+            business_type = business_type.replace(keyword, "").strip()
+        
+        # Clean up common words
+        business_type = business_type.replace("account", "").replace("page", "").replace("profile", "").strip()
+        
+        return business_type, platform
+    
+    def _is_social_media_result(self, result: Dict[str, Any], platform: str) -> bool:
+        """
+        Check if a search result is likely a social media account.
+        
+        Args:
+            result: Search result dictionary
+            title: Result title
+            url: Result URL
+            snippet: Result snippet
+            
+        Returns:
+            True if result appears to be a social media account
+        """
+        title = result.get('title', '').lower()
+        url = result.get('url', '').lower()
+        snippet = result.get('snippet', '').lower()
+        
+        # Platform-specific URL patterns
+        platform_patterns = {
+            'tiktok': ['tiktok.com', '@'],
+            'instagram': ['instagram.com', '@'],
+            'facebook': ['facebook.com', 'fb.com'],
+            'twitter': ['twitter.com', 'x.com', '@'],
+            'linkedin': ['linkedin.com'],
+            'youtube': ['youtube.com', 'youtu.be']
+        }
+        
+        # Check URL patterns
+        if platform != "any":
+            patterns = platform_patterns.get(platform, [])
+            if any(pattern in url for pattern in patterns):
+                return True
+        
+        # Check for social media indicators in title/snippet
+        social_indicators = ['@', 'follow', 'followers', 'posts', 'videos', 'photos', 'profile', 'page', 'account']
+        content = f"{title} {snippet}"
+        
+        return any(indicator in content for indicator in social_indicators)
+    
+    def _format_social_media_result(self, result: Dict[str, Any], platform: str, business_type: str) -> Optional[Dict[str, Any]]:
+        """
+        Format a search result as a social media account result.
+        
+        Args:
+            result: Original search result
+            platform: Detected platform
+            business_type: Type of business
+            
+        Returns:
+            Formatted social media result or None
+        """
+        try:
+            title = result.get('title', '')
+            url = result.get('url', '')
+            snippet = result.get('snippet', '')
+            
+            # Extract username/handle if possible
+            username = self._extract_username(url, platform)
+            
+            # Determine platform from URL if not specified
+            detected_platform = self._detect_platform_from_url(url)
+            if detected_platform and platform == "any":
+                platform = detected_platform
+            
+            # Create social media result
+            social_result = {
+                'title': title,
+                'url': url,
+                'snippet': snippet,
+                'type': 'social_media',
+                'platform': platform,
+                'business_type': business_type,
+                'username': username,
+                'is_business_account': self._is_likely_business_account(title, snippet),
+                'engagement_indicators': self._extract_engagement_indicators(snippet)
+            }
+            
+            return social_result
+            
+        except Exception as e:
+            logger.debug(f"Error formatting social media result: {str(e)}")
+            return None
+    
+    def _extract_username(self, url: str, platform: str) -> Optional[str]:
+        """Extract username/handle from social media URL."""
+        try:
+            if platform == "instagram" and "instagram.com" in url:
+                # Extract from instagram.com/username
+                parts = url.split("instagram.com/")
+                if len(parts) > 1:
+                    username = parts[1].split("/")[0].split("?")[0]
+                    return f"@{username}"
+            
+            elif platform == "tiktok" and "tiktok.com" in url:
+                # Extract from tiktok.com/@username
+                if "/@" in url:
+                    username = url.split("/@")[1].split("/")[0].split("?")[0]
+                    return f"@{username}"
+            
+            elif platform == "twitter" and ("twitter.com" in url or "x.com" in url):
+                # Extract from twitter.com/username or x.com/username
+                domain = "twitter.com" if "twitter.com" in url else "x.com"
+                parts = url.split(f"{domain}/")
+                if len(parts) > 1:
+                    username = parts[1].split("/")[0].split("?")[0]
+                    return f"@{username}"
+            
+            elif platform == "facebook" and "facebook.com" in url:
+                # Extract from facebook.com/username
+                parts = url.split("facebook.com/")
+                if len(parts) > 1:
+                    username = parts[1].split("/")[0].split("?")[0]
+                    return username
+            
+            elif platform == "linkedin" and "linkedin.com" in url:
+                # Extract from linkedin.com/in/username
+                if "/in/" in url:
+                    username = url.split("/in/")[1].split("/")[0].split("?")[0]
+                    return username
+            
+            elif platform == "youtube" and ("youtube.com" in url or "youtu.be" in url):
+                # Extract from youtube.com/c/username or youtube.com/@username
+                if "/c/" in url:
+                    username = url.split("/c/")[1].split("/")[0].split("?")[0]
+                    return username
+                elif "/@" in url:
+                    username = url.split("/@")[1].split("/")[0].split("?")[0]
+                    return f"@{username}"
+            
+            return None
+            
+        except Exception:
+            return None
+    
+    def _detect_platform_from_url(self, url: str) -> Optional[str]:
+        """Detect social media platform from URL."""
+        url_lower = url.lower()
+        
+        if "tiktok.com" in url_lower:
+            return "tiktok"
+        elif "instagram.com" in url_lower:
+            return "instagram"
+        elif "facebook.com" in url_lower or "fb.com" in url_lower:
+            return "facebook"
+        elif "twitter.com" in url_lower or "x.com" in url_lower:
+            return "twitter"
+        elif "linkedin.com" in url_lower:
+            return "linkedin"
+        elif "youtube.com" in url_lower or "youtu.be" in url_lower:
+            return "youtube"
+        
+        return None
+    
+    def _is_likely_business_account(self, title: str, snippet: str) -> bool:
+        """Determine if account is likely a business account."""
+        content = f"{title} {snippet}".lower()
+        
+        business_indicators = [
+            'business', 'shop', 'store', 'restaurant', 'cafe', 'bar', 'salon', 'barber',
+            'clinic', 'office', 'company', 'services', 'professional', 'official',
+            'contact', 'book', 'appointment', 'order', 'menu', 'hours', 'location'
+        ]
+        
+        return any(indicator in content for indicator in business_indicators)
+    
+    def _extract_engagement_indicators(self, snippet: str) -> Dict[str, Any]:
+        """Extract engagement indicators from snippet."""
+        snippet_lower = snippet.lower()
+        
+        indicators = {
+            'has_followers': 'followers' in snippet_lower,
+            'has_posts': any(word in snippet_lower for word in ['posts', 'videos', 'photos']),
+            'has_engagement': any(word in snippet_lower for word in ['likes', 'comments', 'shares', 'views']),
+            'mentions_contact': any(word in snippet_lower for word in ['contact', 'call', 'email', 'phone'])
+        }
+        
+        return indicators
+    
+    async def _search_platform_specific(self, business_type: str, platform: str, max_results: int) -> List[Dict[str, Any]]:
+        """
+        Search for platform-specific business accounts.
+        
+        Args:
+            business_type: Type of business
+            platform: Social media platform
+            max_results: Maximum results to return
+            
+        Returns:
+            List of platform-specific results
+        """
+        try:
+            # Create platform-specific search queries
+            platform_queries = {
+                'tiktok': f"{business_type} tiktok business account",
+                'instagram': f"{business_type} instagram business page",
+                'facebook': f"{business_type} facebook business page",
+                'twitter': f"{business_type} twitter business account",
+                'linkedin': f"{business_type} linkedin business page",
+                'youtube': f"{business_type} youtube business channel"
+            }
+            
+            query = platform_queries.get(platform, f"{business_type} {platform} business")
+            results = await self._search_web_html(query, max_results)
+            
+            platform_results = []
+            for result in results:
+                if self._is_social_media_result(result, platform):
+                    formatted_result = self._format_social_media_result(result, platform, business_type)
+                    if formatted_result:
+                        platform_results.append(formatted_result)
+            
+            return platform_results
+            
+        except Exception as e:
+            logger.error(f"Platform-specific search failed: {str(e)}")
+            return []
+    
+    async def _search_business_directories(self, business_type: str, max_results: int) -> List[Dict[str, Any]]:
+        """
+        Search business directories like Yelp, Google Business, Vagaro, etc.
+        
+        Args:
+            business_type: Type of business to search for
+            max_results: Maximum results to return
+            
+        Returns:
+            List of business directory results
+        """
+        try:
+            # Create business directory search queries
+            directory_queries = [
+                f"{business_type} yelp",
+                f"{business_type} google business",
+                f"{business_type} vagaro",
+                f"{business_type} yellow pages",
+                f"{business_type} business listings",
+                f"{business_type} local business"
+            ]
+            
+            all_results = []
+            
+            for query in directory_queries:
+                try:
+                    results = await self._search_web_html(query, max_results // len(directory_queries) + 1)
+                    
+                    for result in results:
+                        if self._is_business_directory_result(result):
+                            directory_result = self._format_business_directory_result(result, business_type)
+                            if directory_result:
+                                all_results.append(directory_result)
+                                
+                except Exception as e:
+                    logger.debug(f"Directory search failed for '{query}': {str(e)}")
+                    continue
+            
+            return all_results[:max_results]
+            
+        except Exception as e:
+            logger.error(f"Business directory search failed: {str(e)}")
+            return []
+    
+    def _is_business_directory_result(self, result: Dict[str, Any]) -> bool:
+        """
+        Check if a search result is from a business directory.
+        
+        Args:
+            result: Search result dictionary
+            
+        Returns:
+            True if result appears to be from a business directory
+        """
+        title = result.get('title', '').lower()
+        url = result.get('url', '').lower()
+        snippet = result.get('snippet', '').lower()
+        
+        # Business directory URL patterns
+        directory_patterns = [
+            'yelp.com', 'google.com/maps', 'vagaro.com', 'yellowpages.com',
+            'yellowpages.ca', 'superpages.com', 'whitepages.com', 'manta.com',
+            'local.com', 'citysearch.com', 'foursquare.com', 'tripadvisor.com',
+            'zomato.com', 'opentable.com', 'resy.com', 'booker.com',
+            'mindbodyonline.com', 'acuityscheduling.com', 'squareup.com'
+        ]
+        
+        # Check URL patterns
+        if any(pattern in url for pattern in directory_patterns):
+            return True
+        
+        # Check for business directory indicators in content
+        directory_indicators = [
+            'reviews', 'rating', 'stars', 'hours', 'phone', 'address',
+            'location', 'directions', 'menu', 'book', 'reserve', 'appointment',
+            'services', 'pricing', 'photos', 'contact', 'website'
+        ]
+        
+        content = f"{title} {snippet}"
+        return any(indicator in content for indicator in directory_indicators)
+    
+    def _format_business_directory_result(self, result: Dict[str, Any], business_type: str) -> Optional[Dict[str, Any]]:
+        """
+        Format a search result as a business directory result.
+        
+        Args:
+            result: Original search result
+            business_type: Type of business
+            
+        Returns:
+            Formatted business directory result or None
+        """
+        try:
+            title = result.get('title', '')
+            url = result.get('url', '')
+            snippet = result.get('snippet', '')
+            
+            # Detect directory platform
+            directory_platform = self._detect_directory_platform(url)
+            
+            # Extract business information
+            business_info = self._extract_business_info(title, snippet)
+            
+            # Create business directory result
+            directory_result = {
+                'title': title,
+                'url': url,
+                'snippet': snippet,
+                'type': 'business_directory',
+                'platform': directory_platform,
+                'business_type': business_type,
+                'business_info': business_info,
+                'has_reviews': 'review' in snippet.lower() or 'rating' in snippet.lower(),
+                'has_contact': any(word in snippet.lower() for word in ['phone', 'call', 'contact', 'email']),
+                'has_location': any(word in snippet.lower() for word in ['address', 'location', 'directions', 'map']),
+                'has_hours': 'hours' in snippet.lower() or 'open' in snippet.lower()
+            }
+            
+            return directory_result
+            
+        except Exception as e:
+            logger.debug(f"Error formatting business directory result: {str(e)}")
+            return None
+    
+    def _detect_directory_platform(self, url: str) -> str:
+        """Detect business directory platform from URL."""
+        url_lower = url.lower()
+        
+        if 'yelp.com' in url_lower:
+            return 'yelp'
+        elif 'google.com/maps' in url_lower or 'maps.google.com' in url_lower:
+            return 'google_business'
+        elif 'vagaro.com' in url_lower:
+            return 'vagaro'
+        elif 'yellowpages.com' in url_lower or 'yellowpages.ca' in url_lower:
+            return 'yellow_pages'
+        elif 'superpages.com' in url_lower:
+            return 'superpages'
+        elif 'whitepages.com' in url_lower:
+            return 'whitepages'
+        elif 'manta.com' in url_lower:
+            return 'manta'
+        elif 'local.com' in url_lower:
+            return 'local'
+        elif 'citysearch.com' in url_lower:
+            return 'citysearch'
+        elif 'foursquare.com' in url_lower:
+            return 'foursquare'
+        elif 'tripadvisor.com' in url_lower:
+            return 'tripadvisor'
+        elif 'zomato.com' in url_lower:
+            return 'zomato'
+        elif 'opentable.com' in url_lower:
+            return 'opentable'
+        elif 'resy.com' in url_lower:
+            return 'resy'
+        elif 'booker.com' in url_lower:
+            return 'booker'
+        elif 'mindbodyonline.com' in url_lower:
+            return 'mindbody'
+        elif 'acuityscheduling.com' in url_lower:
+            return 'acuity'
+        elif 'squareup.com' in url_lower:
+            return 'square'
+        else:
+            return 'business_directory'
+    
+    def _extract_business_info(self, title: str, snippet: str) -> Dict[str, Any]:
+        """Extract business information from title and snippet."""
+        content = f"{title} {snippet}".lower()
+        
+        business_info = {
+            'has_phone': any(word in content for word in ['phone', 'call', 'tel:']),
+            'has_address': any(word in content for word in ['address', 'street', 'avenue', 'road', 'blvd']),
+            'has_hours': any(word in content for word in ['hours', 'open', 'closed', 'monday', 'tuesday']),
+            'has_website': any(word in content for word in ['website', 'www.', 'http']),
+            'has_reviews': any(word in content for word in ['review', 'rating', 'stars']),
+            'has_menu': any(word in content for word in ['menu', 'pricing', 'price']),
+            'has_booking': any(word in content for word in ['book', 'reserve', 'appointment', 'schedule']),
+            'has_photos': any(word in content for word in ['photo', 'image', 'picture']),
+            'has_directions': any(word in content for word in ['directions', 'map', 'location'])
+        }
+        
+        return business_info
+    
     async def search_suggestions(self, query: str) -> Dict[str, Any]:
         """
         Get search suggestions for a query.
@@ -505,12 +1015,55 @@ class WebSearchTool(BaseTool):
                 'Web search',
                 'News search', 
                 'Image search',
+                'Social media business search',
+                'Business directory search',
                 'Search suggestions',
                 'Safe search filtering'
             ],
             'parameters': {
                 'query': 'Search query (required)',
-                'result_type': 'Type of results (web, news, images)',
+                'result_type': 'Type of results (web, news, images, social_media)',
                 'max_results': 'Maximum number of results to return'
+            },
+            'social_media_search': {
+                'supported_platforms': ['tiktok', 'instagram', 'facebook', 'twitter', 'linkedin', 'youtube'],
+                'example_queries': [
+                    'barber shop tiktok',
+                    'restaurant instagram',
+                    'coffee shop facebook',
+                    'salon twitter',
+                    'gym linkedin',
+                    'bakery youtube'
+                ],
+                'features': [
+                    'Business account detection',
+                    'Username extraction',
+                    'Engagement indicators',
+                    'Platform-specific search',
+                    'Cross-platform discovery'
+                ]
+            },
+            'business_directory_search': {
+                'supported_platforms': [
+                    'yelp', 'google_business', 'vagaro', 'yellow_pages',
+                    'superpages', 'whitepages', 'manta', 'local',
+                    'citysearch', 'foursquare', 'tripadvisor', 'zomato',
+                    'opentable', 'resy', 'booker', 'mindbody', 'acuity', 'square'
+                ],
+                'example_queries': [
+                    'barber shop yelp',
+                    'restaurant google business',
+                    'salon vagaro',
+                    'gym yellow pages',
+                    'coffee shop local business'
+                ],
+                'features': [
+                    'Business directory detection',
+                    'Contact information extraction',
+                    'Review and rating indicators',
+                    'Location and hours detection',
+                    'Booking and appointment detection',
+                    'Menu and pricing information'
+                ]
             }
         } 
