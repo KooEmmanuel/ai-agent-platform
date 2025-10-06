@@ -13,6 +13,8 @@ pydantic-settings==2.1.0
 python-dotenv==1.0.0
 loguru==0.7.2
 httpx==0.25.2
+brotli==1.1.0
+tavily-python==0.3.0
 
 # Reddit API
 praw==7.7.1
