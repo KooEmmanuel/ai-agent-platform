@@ -40,24 +40,7 @@
           },
           "required": [
             "query"
-          ],
-          "examples": {
-            "social_media_business_search": {
-              "query": "barber shop tiktok",
-              "result_type": "social_media",
-              "max_results": 5
-            },
-            "business_directory_search": {
-              "query": "restaurant yelp",
-              "result_type": "social_media", 
-              "max_results": 3
-            },
-            "cross_platform_business_search": {
-              "query": "coffee shop",
-              "result_type": "social_media",
-              "max_results": 10
-            }
-          }
+          ]
         }
       },
       "is_public": true,

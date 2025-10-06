@@ -57,6 +57,7 @@ export default function AgentPlaygroundPage() {
   
   // Conversation state
   const [currentConversationId, setCurrentConversationId] = useState<number | null>(null)
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
   const [conversations, setConversations] = useState<any[]>([])
   const [loadingConversations, setLoadingConversations] = useState(false)
   const [loadingConversation, setLoadingConversation] = useState(false)
@@ -73,7 +74,16 @@ export default function AgentPlaygroundPage() {
   const [editInput, setEditInput] = useState('')
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
   const [creatingConversation, setCreatingConversation] = useState(false)
+  const [creatingConversationWorkspace, setCreatingConversationWorkspace] = useState<number | undefined>(undefined)
   const [showPlusDropdown, setShowPlusDropdown] = useState(false)
+  const [renamingConversationId, setRenamingConversationId] = useState<number | null>(null)
+  const [renameInput, setRenameInput] = useState('')
+  const [showRenameDropdown, setShowRenameDropdown] = useState<number | null>(null)
+
+  // Spinner component
+  const Spinner = () => (
+    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+  )
   const [workspacesCollapsed, setWorkspacesCollapsed] = useState(false)
   const [triggerWorkspaceCreate, setTriggerWorkspaceCreate] = useState(false)
   const [showHumanizeModal, setShowHumanizeModal] = useState(false)
@@ -113,6 +123,7 @@ export default function AgentPlaygroundPage() {
     console.log('🧹 Clearing current conversation for workspace switch')
     setMessages([])
     setCurrentConversationId(null)
+    setCurrentSessionId(null)
     
     console.log('✅ Workspace context set - ready for new conversation in workspace:', workspaceId)
   }
@@ -123,15 +134,122 @@ export default function AgentPlaygroundPage() {
     loadConversations(agent, workspace.id)
   }
 
+  const createNewConversation = async (workspaceId: number | undefined) => {
+    if (!agent) return
+    
+    try {
+      setCreatingConversation(true)
+      setCreatingConversationWorkspace(workspaceId)
+      console.log('🆕 Creating new conversation immediately in workspace:', workspaceId)
+      console.log('🔍 Current selectedWorkspaceId:', selectedWorkspaceId)
+      console.log('🔍 WorkspaceId parameter:', workspaceId)
+      
+      // Create a new conversation by sending a message
+      // The backend will create the conversation and return the conversation_id and session_id
+      const resp = await apiClient.chatWithAgent(
+        agent.id, 
+        "New conversation", 
+        null, // No session_id for new conversation
+        undefined, // No collections
+        workspaceId
+      )
+      
+      if (resp.conversation_id) {
+        setCurrentConversationId(resp.conversation_id)
+        setCurrentSessionId(resp.session_id)
+        setSelectedWorkspaceId(workspaceId)
+        
+        // Add the "New conversation" message and AI response to the chat
+        const userMsg: ChatMessage = {
+          id: `${Date.now()}_user`,
+          role: 'user',
+          content: 'New conversation',
+          created_at: new Date().toISOString(),
+        }
+        
+        const aiMsg: ChatMessage = {
+          id: `${Date.now()}_assistant`,
+          role: 'assistant',
+          content: resp.response,
+          created_at: new Date().toISOString(),
+        }
+        
+        setMessages([userMsg, aiMsg])
+        
+        console.log('✅ New conversation created:', {
+          conversationId: resp.conversation_id,
+          sessionId: resp.session_id,
+          workspaceId: workspaceId
+        })
+        
+        // Refresh the conversation list to show the new conversation
+        console.log('🔄 Refreshing conversation list for workspace:', workspaceId)
+        await loadConversations(agent, workspaceId)
+        console.log('✅ Conversation list refreshed')
+      }
+    } catch (error) {
+      console.error('❌ Error creating new conversation:', error)
+      setError('Failed to create new conversation')
+    } finally {
+      setCreatingConversation(false)
+      setCreatingConversationWorkspace(undefined)
+    }
+  }
+
   const handleNewChat = (workspaceId: number) => {
     // Clear current conversation and set the workspace
     setCurrentConversationId(null)
+    setCurrentSessionId(null)
     setMessages([])
     setSelectedWorkspaceId(workspaceId)
     setCreatingConversation(false) // Reset to false since we're ready for new chat
     
     // Load conversations for this workspace
     loadConversations(agent, workspaceId)
+  }
+
+  const startRenameConversation = (conversationId: number, currentTitle: string) => {
+    setRenamingConversationId(conversationId)
+    setRenameInput(currentTitle)
+    setShowRenameDropdown(null)
+  }
+
+  const cancelRenameConversation = () => {
+    setRenamingConversationId(null)
+    setRenameInput('')
+  }
+
+  const saveRenameConversation = async () => {
+    if (!renamingConversationId || !renameInput.trim()) return
+    
+    try {
+      // Call API to rename conversation
+      await apiClient.renameConversation(renamingConversationId, renameInput.trim())
+      
+      // Update the conversation in the local state
+      setConversations(prev => prev.map(conv => 
+        conv.id === renamingConversationId 
+          ? { ...conv, title: renameInput.trim() }
+          : conv
+      ))
+      
+      console.log('✅ Conversation renamed:', renamingConversationId, 'to:', renameInput.trim())
+      
+      // Refresh the conversation list to get the updated title from the database
+      if (agent) {
+        console.log('🔄 Refreshing conversation list after rename...')
+        console.log('🔍 Using workspace ID for refresh:', selectedWorkspaceId)
+        await loadConversations(agent, selectedWorkspaceId)
+        console.log('✅ Conversation list refreshed after rename')
+      }
+      
+      // Clear rename state
+      setRenamingConversationId(null)
+      setRenameInput('')
+    } catch (error) {
+      console.error('❌ Error renaming conversation:', error)
+      setError('Failed to rename conversation')
+    }
   }
 
 
@@ -153,9 +271,11 @@ export default function AgentPlaygroundPage() {
       console.log('✅ Loaded conversations:', conversationsData.length)
       console.log('📂 Conversation details:', conversationsData.map(c => ({ 
         id: c.id, 
+        title: c.title, 
         messageCount: c.messages?.length || 0,
         workspaceId: c.workspace_id || 'null' 
       })))
+      console.log('🔍 Current selectedWorkspaceId when loading:', selectedWorkspaceId)
       
       // Debug: Log the actual conversation objects
       if (conversationsData.length > 0) {
@@ -181,6 +301,7 @@ export default function AgentPlaygroundPage() {
       // Clear state on error
       setMessages([])
       setCurrentConversationId(null)
+    setCurrentSessionId(null)
     }
   }
 
@@ -203,11 +324,13 @@ export default function AgentPlaygroundPage() {
       
       setMessages(chatMessages)
       setCurrentConversationId(parseInt(conversationId))
+      setCurrentSessionId(conversationData.session_id)
       
       console.log('✅ Loaded conversation:', {
         conversationId,
         messageCount: chatMessages.length,
-        currentConversationId: parseInt(conversationId)
+        currentConversationId: parseInt(conversationId),
+        sessionId: conversationData.session_id
       })
       
       // Close sidebar on mobile
@@ -239,6 +362,7 @@ export default function AgentPlaygroundPage() {
       if (currentConversationId === parseInt(conversationId)) {
         setMessages([])
         setCurrentConversationId(null)
+    setCurrentSessionId(null)
       }
       
       console.log('✅ Conversation deleted successfully')
@@ -333,11 +457,17 @@ export default function AgentPlaygroundPage() {
           setShowPlusDropdown(false)
         }
       }
+      if (showRenameDropdown !== null) {
+        const target = event.target as Element
+        if (!target.closest('.relative')) {
+          setShowRenameDropdown(null)
+        }
+      }
     }
 
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [showPlusDropdown])
+  }, [showPlusDropdown, showRenameDropdown])
 
   // Reset workspace create trigger after it's been used
   useEffect(() => {
@@ -353,6 +483,7 @@ export default function AgentPlaygroundPage() {
     console.log('📋 Message details:', {
       content: input.trim(),
       currentConversationId: currentConversationId,
+      currentSessionId: currentSessionId,
       agentId: agent.id,
       agentName: agent.name,
       selectedWorkspaceId: selectedWorkspaceId,
@@ -396,7 +527,7 @@ export default function AgentPlaygroundPage() {
         await apiClient.chatWithAgentStream(
           agent.id,
           userMsg.content,
-          currentConversationId?.toString(), // Send current conversation ID directly
+          currentSessionId, // Send current session ID for conversation continuation
           (chunk) => {
             console.log('📦 Received chunk:', chunk)
             // Handle streaming chunks
@@ -504,7 +635,7 @@ export default function AgentPlaygroundPage() {
         )
       } else {
         // Use regular mode
-        const resp = await apiClient.chatWithAgent(agent.id, userMsg.content, currentConversationId?.toString(), selectedCollections.length > 0 ? selectedCollections : undefined)
+        const resp = await apiClient.chatWithAgent(agent.id, userMsg.content, currentSessionId, selectedCollections.length > 0 ? selectedCollections : undefined, selectedWorkspaceId)
         if (resp.conversation_id && !currentConversationId) {
             setCurrentConversationId(resp.conversation_id)
           console.log('💾 Set conversation ID:', resp.conversation_id)
@@ -692,7 +823,7 @@ export default function AgentPlaygroundPage() {
       tempDiv.style.orphans = '3'
       tempDiv.style.widows = '3'
       tempDiv.style.marginBottom = '20px' // Extra margin at bottom
-      // Enhanced markdown processing
+      // Enhanced markdown processing with proper list handling
       const processMarkdown = (text: string) => {
         let processed = text
         
@@ -714,22 +845,71 @@ export default function AgentPlaygroundPage() {
         // Blockquotes with page break handling
         processed = processed.replace(/^> (.*$)/gim, '<blockquote style="border-left: 4px solid #3b82f6; margin: 1em 0; padding-left: 1em; color: #6b7280; font-style: italic; page-break-inside: avoid; break-inside: avoid;">$1</blockquote>')
         
-        // Lists with page break handling
-        processed = processed.replace(/^\* (.*$)/gim, '<li style="margin-bottom: 0.5em; list-style-type: disc; page-break-inside: avoid; break-inside: avoid;">$1</li>')
-        processed = processed.replace(/^- (.*$)/gim, '<li style="margin-bottom: 0.5em; list-style-type: disc; page-break-inside: avoid; break-inside: avoid;">$1</li>')
-        processed = processed.replace(/^\d+\. (.*$)/gim, '<li style="margin-bottom: 0.5em; list-style-type: decimal; page-break-inside: avoid; break-inside: avoid;">$1</li>')
+        // Process ordered lists first (numbered lists)
+        const lines = processed.split('\n')
+        let inOrderedList = false
+        let orderedListItems = []
+        let result = []
         
-        // Wrap consecutive list items in ul/ol with page break handling
-        processed = processed.replace(/(<li[^>]*>.*<\/li>)/g, (match, p1, offset, string) => {
-          const before = string.substring(0, offset)
-          const after = string.substring(offset + match.length)
-          const isFirst = !before.match(/<li[^>]*>.*<\/li>[\s\S]*$/)
-          const isLast = !after.match(/^[\s\S]*<li[^>]*>.*<\/li>/)
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i]
+          const orderedMatch = line.match(/^(\d+)\.\s+(.*)$/)
           
-          if (isFirst) return `<ul style="margin: 1em 0; padding-left: 2em; page-break-inside: avoid; break-inside: avoid;">${match}`
-          if (isLast) return `${match}</ul>`
-          return match
-        })
+          if (orderedMatch) {
+            if (!inOrderedList) {
+              // Start new ordered list
+              inOrderedList = true
+              orderedListItems = []
+            }
+            orderedListItems.push(orderedMatch[2])
+          } else {
+            // End of ordered list, process it
+            if (inOrderedList) {
+              result.push(`<ol style="margin: 1em 0; padding-left: 2em; page-break-inside: avoid; break-inside: avoid;">`)
+              orderedListItems.forEach(item => {
+                result.push(`<li style="margin-bottom: 0.5em; page-break-inside: avoid; break-inside: avoid;">${item}</li>`)
+              })
+              result.push(`</ol>`)
+              inOrderedList = false
+              orderedListItems = []
+            }
+            
+            // Process unordered lists
+            if (line.match(/^[\*\-\+]\s+(.*)$/)) {
+              const unorderedMatch = line.match(/^[\*\-\+]\s+(.*)$/)
+              if (unorderedMatch) {
+                result.push(`<ul style="margin: 1em 0; padding-left: 2em; page-break-inside: avoid; break-inside: avoid;">`)
+                result.push(`<li style="margin-bottom: 0.5em; page-break-inside: avoid; break-inside: avoid;">${unorderedMatch[1]}</li>`)
+                
+                // Check for consecutive unordered list items
+                let j = i + 1
+                while (j < lines.length && lines[j].match(/^[\*\-\+]\s+(.*)$/)) {
+                  const nextMatch = lines[j].match(/^[\*\-\+]\s+(.*)$/)
+                  if (nextMatch) {
+                    result.push(`<li style="margin-bottom: 0.5em; page-break-inside: avoid; break-inside: avoid;">${nextMatch[1]}</li>`)
+                  }
+                  j++
+                }
+                result.push(`</ul>`)
+                i = j - 1 // Skip processed lines
+                continue
+              }
+            } else {
+              result.push(line)
+            }
+          }
+        }
+        
+        // Handle any remaining ordered list
+        if (inOrderedList) {
+          result.push(`<ol style="margin: 1em 0; padding-left: 2em; page-break-inside: avoid; break-inside: avoid;">`)
+          orderedListItems.forEach(item => {
+            result.push(`<li style="margin-bottom: 0.5em; page-break-inside: avoid; break-inside: avoid;">${item}</li>`)
+          })
+          result.push(`</ol>`)
+        }
+        
+        processed = result.join('\n')
         
         // Links
         processed = processed.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color: #3b82f6; text-decoration: none;">$1</a>')
@@ -791,20 +971,45 @@ export default function AgentPlaygroundPage() {
           }
           .page-content {
             margin-top: 20px;
-            margin-bottom: 30px;
+            margin-bottom: 50px; /* Extra space for footer */
             padding-bottom: 20px;
           }
           .page-spacing {
             margin-top: 20px;
             margin-bottom: 20px;
           }
+          .footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 40px;
+            background: white;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+            font-size: 0.8em;
+            color: #6b7280;
+            z-index: 1000;
+          }
+          .page-number {
+            font-weight: 500;
+          }
+          .generated-date {
+            font-style: italic;
+          }
         </style>
         <div style="text-align: center; margin-bottom: 2em; padding-bottom: 1em; border-bottom: 2px solid #e5e7eb; page-break-after: avoid;">
           <h1 style="color: #2563eb; font-size: 2em; margin: 0 0 0.5em 0; font-weight: 600; page-break-after: avoid;">Chat Message Export</h1>
-          <div style="color: #6b7280; font-size: 0.9em;">Generated on ${new Date().toLocaleString()}</div>
         </div>
-        <div class="page-content" style="max-width: 100%; word-wrap: break-word; line-height: 1.6; orphans: 3; widows: 3; margin-top: 20px; margin-bottom: 30px; padding-bottom: 20px;">
+        <div class="page-content" style="max-width: 100%; word-wrap: break-word; line-height: 1.6; orphans: 3; widows: 3; margin-top: 20px; margin-bottom: 50px; padding-bottom: 20px;">
           ${processMarkdown(content)}
+        </div>
+        <div class="footer">
+          <div class="generated-date">Generated on ${new Date().toLocaleString()}</div>
+          <div class="page-number">Page <span class="page-number"></span></div>
         </div>
       `
       
@@ -840,15 +1045,31 @@ export default function AgentPlaygroundPage() {
       
       // Add first page with margins
       pdf.addImage(imgData, 'PNG', marginLeft, marginTop + position, imgWidth, imgHeight)
+      
+      // Add page number to first page
+      pdf.setFontSize(10)
+      pdf.setTextColor(100, 100, 100)
+      pdf.text('Page 1', 210 - marginRight - 20, 295 - marginBottom + 15)
+      pdf.text(`Generated on ${new Date().toLocaleString()}`, marginLeft, 295 - marginBottom + 15)
+      
       heightLeft -= pageHeight
+      let pageNumber = 2
       
       // Add additional pages if needed with proper spacing
       while (heightLeft >= 0) {
         position = heightLeft - imgHeight
         pdf.addPage()
+        
+        // Add page number to each page
+        pdf.setFontSize(10)
+        pdf.setTextColor(100, 100, 100)
+        pdf.text(`Page ${pageNumber}`, 210 - marginRight - 20, 295 - marginBottom + 15)
+        pdf.text(`Generated on ${new Date().toLocaleString()}`, marginLeft, 295 - marginBottom + 15)
+        
         // Add some spacing at the top of new pages
         pdf.addImage(imgData, 'PNG', marginLeft, marginTop + position + 10, imgWidth, imgHeight)
         heightLeft -= pageHeight
+        pageNumber++
       }
       
       // Download the PDF
@@ -890,7 +1111,7 @@ export default function AgentPlaygroundPage() {
     setEditInput('')
 
     try {
-      const resp = await apiClient.chatWithAgent(agent.id, updatedUserMsg.content, currentConversationId?.toString())
+      const resp = await apiClient.chatWithAgent(agent.id, updatedUserMsg.content, currentSessionId, undefined, selectedWorkspaceId)
       const aiMsg: ChatMessage = {
         id: `${Date.now()}_assistant`,
         role: 'assistant',
@@ -1127,9 +1348,24 @@ export default function AgentPlaygroundPage() {
                 <div className="text-xl lg:text-2xl font-semibold mb-2 text-gray-700">Welcome to {agent.name}!</div>
                 <div className="text-sm lg:text-base text-gray-500 max-w-md mx-auto">I'm here to help you. Start a conversation to see how I can assist you with your tasks.</div>
               </div>
-            )}
-            
-            {messages.map((m) => (
+              )}
+
+              {/* Creating Conversation Loading Overlay */}
+              {creatingConversation && (
+                <div className="flex items-center justify-center py-8">
+                  <div className="flex items-center gap-3 text-gray-600">
+                    <Spinner />
+                    <span className="text-sm">
+                      {creatingConversationWorkspace 
+                        ? `Creating new conversation in workspace...` 
+                        : 'Creating new conversation...'
+                      }
+                    </span>
+                  </div>
+                </div>
+              )}
+              
+              {messages.map((m) => (
               <motion.div 
                 key={m.id} 
                 initial={{ opacity: 0, y: 6 }} 
@@ -1485,19 +1721,21 @@ export default function AgentPlaygroundPage() {
                 {showPlusDropdown && (
                   <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
                     <div className="py-1">
-                      <button
-                        onClick={() => {
-                          setShowPlusDropdown(false)
-                          setCurrentConversationId(null)
-                          setMessages([])
-                          setError(null)
-                          setCreatingConversation(false)
-                        }}
-                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
-                      >
-                        <HiOutlinePencilAlt className="w-4 h-4" />
-                        New Chat
-                      </button>
+                        <button
+                          onClick={() => {
+                            setShowPlusDropdown(false)
+                            createNewConversation(selectedWorkspaceId || undefined)
+                          }}
+                          disabled={creatingConversation}
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {creatingConversation ? (
+                            <Spinner />
+                          ) : (
+                            <HiOutlinePencilAlt className="w-4 h-4" />
+                          )}
+                          {creatingConversation ? 'Creating...' : 'New Chat'}
+                        </button>
                       <button
                         onClick={() => {
                           setShowPlusDropdown(false)
@@ -1539,14 +1777,15 @@ export default function AgentPlaygroundPage() {
               {/* Workspace Manager - Collapsible */}
               {!workspacesCollapsed && (
                 <div className="max-h-48 overflow-y-auto mb-3">
-                  <WorkspaceManager
-                    agentId={agentId}
-                    selectedWorkspaceId={selectedWorkspaceId}
-                    onWorkspaceSelect={handleWorkspaceSelect}
-                    onWorkspaceCreate={handleWorkspaceCreate}
-                    onNewChat={handleNewChat}
-                    triggerCreate={triggerWorkspaceCreate}
-                  />
+                   <WorkspaceManager
+                     agentId={agentId}
+                     selectedWorkspaceId={selectedWorkspaceId}
+                     onWorkspaceSelect={handleWorkspaceSelect}
+                     onWorkspaceCreate={handleWorkspaceCreate}
+                     onNewChat={createNewConversation}
+                     triggerCreate={triggerWorkspaceCreate}
+                     creatingConversation={creatingConversation}
+                   />
                 </div>
               )}
 
@@ -1561,29 +1800,89 @@ export default function AgentPlaygroundPage() {
                 <div className="space-y-1">
                   {conversations.filter(c => !c.workspace_id).slice(0, 5).map((conversation) => {
                     const isActive = currentConversationId === parseInt(conversation.id)
+                    const isRenaming = renamingConversationId === parseInt(conversation.id)
                     return (
-                      <button
-                        key={conversation.id}
-                        onClick={() => loadConversation(conversation.id)}
-                        className={`w-full flex items-center gap-2 p-2 rounded-md text-left transition-colors ${
-                          isActive 
-                            ? 'bg-blue-100 border border-blue-200'
-                            : 'hover:bg-gray-100 border border-transparent'
-                        }`}
-                      >
-                        <div className="w-2 h-2 bg-gray-400 rounded-full flex-shrink-0"></div>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-xs font-medium text-gray-700 truncate">
-                            {loadingConversation && isActive ? (
-                            <span className="text-blue-600">Loading...</span>
-                          ) : (
-                            conversation.messages?.length > 0 
-                                ? conversation.messages[0].content.substring(0, 20) + '...' 
-                              : 'Empty conversation'
-                          )}
-                        </div>
-                        </div>
-                        </button>
+                      <div key={conversation.id} className="relative group">
+                        {isRenaming ? (
+                          <div className="flex items-center gap-2 p-2 rounded-md bg-white border border-blue-200">
+                            <input
+                              type="text"
+                              value={renameInput}
+                              onChange={(e) => setRenameInput(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') saveRenameConversation()
+                                if (e.key === 'Escape') cancelRenameConversation()
+                              }}
+                              className="flex-1 text-xs font-medium text-gray-700 bg-transparent border-none outline-none"
+                              autoFocus
+                            />
+                            <div className="flex gap-1">
+                              <button
+                                onClick={saveRenameConversation}
+                                className="p-1 text-green-600 hover:bg-green-100 rounded"
+                                title="Save"
+                              >
+                                ✓
+                              </button>
+                              <button
+                                onClick={cancelRenameConversation}
+                                className="p-1 text-red-600 hover:bg-red-100 rounded"
+                                title="Cancel"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => loadConversation(conversation.id)}
+                            className={`w-full flex items-center gap-2 p-2 rounded-md text-left transition-colors ${
+                              isActive 
+                                ? 'bg-blue-100 border border-blue-200'
+                                : 'hover:bg-gray-100 border border-transparent'
+                            }`}
+                          >
+                            <div className="w-2 h-2 bg-gray-400 rounded-full flex-shrink-0"></div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs font-medium text-gray-700 truncate">
+                                {loadingConversation && isActive ? (
+                                <span className="text-blue-600">Loading...</span>
+                              ) : (
+                                conversation.title || (conversation.messages?.length > 0 
+                                    ? conversation.messages[0].content.substring(0, 20) + '...' 
+                                  : 'Empty conversation')
+                              )}
+                            </div>
+                            </div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setShowRenameDropdown(showRenameDropdown === parseInt(conversation.id) ? null : parseInt(conversation.id))
+                              }}
+                              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-200 rounded transition-all"
+                              title="Rename conversation"
+                            >
+                              <svg className="w-3 h-3 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                              </svg>
+                            </button>
+                          </button>
+                        )}
+                        
+                        {/* Rename dropdown */}
+                        {showRenameDropdown === parseInt(conversation.id) && (
+                          <div className="absolute right-0 top-full mt-1 w-32 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+                            <button
+                              onClick={() => {
+                                startRenameConversation(parseInt(conversation.id), conversation.title || (conversation.messages?.length > 0 ? conversation.messages[0].content.substring(0, 20) + '...' : 'Empty conversation'))
+                              }}
+                              className="w-full px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-100"
+                            >
+                              Rename
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     )
                   })}
                 </div>

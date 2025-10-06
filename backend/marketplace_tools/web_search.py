@@ -1021,49 +1021,24 @@ class WebSearchTool(BaseTool):
                 'Safe search filtering'
             ],
             'parameters': {
-                'query': 'Search query (required)',
-                'result_type': 'Type of results (web, news, images, social_media)',
-                'max_results': 'Maximum number of results to return'
-            },
-            'social_media_search': {
-                'supported_platforms': ['tiktok', 'instagram', 'facebook', 'twitter', 'linkedin', 'youtube'],
-                'example_queries': [
-                    'barber shop tiktok',
-                    'restaurant instagram',
-                    'coffee shop facebook',
-                    'salon twitter',
-                    'gym linkedin',
-                    'bakery youtube'
-                ],
-                'features': [
-                    'Business account detection',
-                    'Username extraction',
-                    'Engagement indicators',
-                    'Platform-specific search',
-                    'Cross-platform discovery'
-                ]
-            },
-            'business_directory_search': {
-                'supported_platforms': [
-                    'yelp', 'google_business', 'vagaro', 'yellow_pages',
-                    'superpages', 'whitepages', 'manta', 'local',
-                    'citysearch', 'foursquare', 'tripadvisor', 'zomato',
-                    'opentable', 'resy', 'booker', 'mindbody', 'acuity', 'square'
-                ],
-                'example_queries': [
-                    'barber shop yelp',
-                    'restaurant google business',
-                    'salon vagaro',
-                    'gym yellow pages',
-                    'coffee shop local business'
-                ],
-                'features': [
-                    'Business directory detection',
-                    'Contact information extraction',
-                    'Review and rating indicators',
-                    'Location and hours detection',
-                    'Booking and appointment detection',
-                    'Menu and pricing information'
-                ]
+                'type': 'object',
+                'properties': {
+                    'query': {
+                        'type': 'string',
+                        'description': 'Search query. For business discovery, use format "business_type platform" (e.g., "barber shop tiktok", "restaurant yelp")'
+                    },
+                    'result_type': {
+                        'type': 'string',
+                        'description': 'Type of results. Use "social_media" for business discovery (social media accounts + business directories)',
+                        'enum': ['web', 'news', 'images', 'social_media'],
+                        'default': 'web'
+                    },
+                    'max_results': {
+                        'type': 'integer',
+                        'description': 'Maximum number of results to return',
+                        'default': 10
+                    }
+                },
+                'required': ['query']
             }
         } 

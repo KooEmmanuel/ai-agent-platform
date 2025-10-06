@@ -59,6 +59,7 @@ export interface Integration {
 
 export interface Conversation {
   id: number
+  title?: string
   messages: Array<{
     role: 'user' | 'assistant'
     content: string
@@ -492,11 +493,12 @@ class ApiClient {
     agent_id: number,
     message: string,
     session_id?: string,
-    collections?: string[]
+    collections?: string[],
+    workspace_id?: number
   ): Promise<PlaygroundResponse> {
     return this.request<PlaygroundResponse>(`/playground/${agent_id}/chat`, {
       method: 'POST',
-      body: JSON.stringify({ message, session_id, collections }),
+      body: JSON.stringify({ message, session_id, collections, workspace_id }),
     })
   }
 
@@ -644,6 +646,13 @@ class ApiClient {
   async deleteConversation(agent_id: number, conversation_id: number): Promise<{ message: string }> {
     return this.request(`/playground/${agent_id}/conversations/${conversation_id}`, {
       method: 'DELETE'
+    })
+  }
+
+  async renameConversation(conversation_id: number, new_title: string): Promise<{ message: string }> {
+    return this.request(`/playground/conversations/${conversation_id}/rename`, {
+      method: 'PATCH',
+      body: JSON.stringify({ title: new_title })
     })
   }
 

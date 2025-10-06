@@ -32,6 +32,7 @@ class PlaygroundResponse(BaseModel):
 
 class ConversationHistory(BaseModel):
     id: str
+    title: Optional[str] = None
     messages: List[Dict[str, Any]]
     created_at: str
 
@@ -47,6 +48,10 @@ async def chat_with_agent_stream(
     start_time = time.time()
     
     print(f"📨 Received message data: workspace_id={message_data.workspace_id}, session_id={message_data.session_id}")
+    print(f"🔍 Message data workspace_id type: {type(message_data.workspace_id)}")
+    print(f"🔍 Message data workspace_id value: {repr(message_data.workspace_id)}")
+    print(f"🔍 Message data workspace_id is None: {message_data.workspace_id is None}")
+    print(f"🔍 Message data workspace_id == 4: {message_data.workspace_id == 4}")
     
     # Get agent
     result = await db.execute(
@@ -89,7 +94,8 @@ async def chat_with_agent_stream(
     result = await db.execute(
         select(Conversation).where(
             Conversation.agent_id == agent_id,
-            Conversation.session_id == session_id
+            Conversation.session_id == session_id,
+            Conversation.workspace_id == message_data.workspace_id
         )
     )
     conversation = result.scalar_one_or_none()
@@ -257,6 +263,10 @@ async def chat_with_agent(
     import time
     start_time = time.time()
     
+    print(f"🔍 Received message_data: {message_data}")
+    print(f"🔍 workspace_id from request: {message_data.workspace_id}")
+    print(f"🔍 workspace_id type: {type(message_data.workspace_id)}")
+    
     # Get agent
     result = await db.execute(
         select(Agent).where(
@@ -298,7 +308,8 @@ async def chat_with_agent(
     result = await db.execute(
         select(Conversation).where(
             Conversation.agent_id == agent_id,
-            Conversation.session_id == session_id
+            Conversation.session_id == session_id,
+            Conversation.workspace_id == message_data.workspace_id
         )
     )
     conversation = result.scalar_one_or_none()
@@ -475,6 +486,7 @@ async def get_playground_conversations(
         
         conversation_histories.append(ConversationHistory(
             id=str(conv.id),
+            title=conv.title,
             messages=[
                 {
                     "role": msg.role,
@@ -887,4 +899,40 @@ async def delete_workspace(
     await db.delete(workspace)
     await db.commit()
     
-    return {"message": "Workspace deleted successfully"} 
+    return {"message": "Workspace deleted successfully"}
+
+@router.patch("/conversations/{conversation_id}/rename")
+async def rename_conversation(
+    conversation_id: int,
+    title_data: dict,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Rename a conversation"""
+    new_title = title_data.get("title")
+    if not new_title or not new_title.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Title is required"
+        )
+    
+    # Get conversation
+    result = await db.execute(
+        select(Conversation).where(
+            Conversation.id == conversation_id,
+            Conversation.user_id == current_user.id
+        )
+    )
+    conversation = result.scalar_one_or_none()
+    
+    if not conversation:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Conversation not found"
+        )
+    
+    # Update title
+    conversation.title = new_title.strip()
+    await db.commit()
+    
+    return {"message": "Conversation renamed successfully"} 

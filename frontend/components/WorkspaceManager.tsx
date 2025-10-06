@@ -5,13 +5,19 @@ import { FolderIcon, FolderOpenIcon, PencilIcon, TrashIcon, ChatBubbleLeftRightI
 import { HiPencilAlt } from "react-icons/hi"
 import { apiClient, Workspace } from '../lib/api'
 
+// Spinner component
+const Spinner = () => (
+  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
+)
+
 interface WorkspaceManagerProps {
   agentId: number
   selectedWorkspaceId?: number
   onWorkspaceSelect: (workspaceId: number | undefined) => void
   onWorkspaceCreate: (workspace: Workspace) => void
-  onNewChat: (workspaceId: number) => void
+  onNewChat: (workspaceId: number | undefined) => void
   triggerCreate?: boolean
+  creatingConversation?: boolean
 }
 
 export default function WorkspaceManager({
@@ -20,7 +26,8 @@ export default function WorkspaceManager({
   onWorkspaceSelect,
   onWorkspaceCreate,
   onNewChat,
-  triggerCreate
+  triggerCreate,
+  creatingConversation = false
 }: WorkspaceManagerProps) {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const [loading, setLoading] = useState(true)
@@ -181,10 +188,15 @@ export default function WorkspaceManager({
             <div className="flex items-center gap-0.5 flex-shrink-0">
               <button
                 onClick={() => onNewChat(workspace.id)}
-                className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                disabled={creatingConversation}
+                className="p-1 text-gray-400 hover:text-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title="New chat in this workspace"
               >
-                <ChatBubbleLeftRightIcon className="w-3 h-3" />
+                {creatingConversation ? (
+                  <Spinner />
+                ) : (
+                  <ChatBubbleLeftRightIcon className="w-3 h-3" />
+                )}
               </button>
               <button
                 onClick={() => startEdit(workspace)}

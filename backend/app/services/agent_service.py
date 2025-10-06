@@ -612,7 +612,14 @@ class AgentService:
     
     def _get_tool_parameters(self, tool: Tool, tool_info: Dict[str, Any]) -> Dict[str, Any]:
         """Get tool parameters for OpenAI function calling (legacy database method)"""
-        # Check if we have parameters in the database config first
+        # Check if we have parameters in the tool_info first (from get_tool_info method)
+        if tool_info and 'parameters' in tool_info and isinstance(tool_info['parameters'], dict):
+            tool_params = tool_info['parameters']
+            if tool_params.get('type') == 'object' and 'properties' in tool_params:
+                # logger.info(f"Using tool_info parameters for {tool.name}: {tool_params}")
+                return tool_params
+        
+        # Fallback to database config
         if tool.config and 'parameters' in tool.config and isinstance(tool.config['parameters'], dict):
             db_params = tool.config['parameters']
             if db_params.get('type') == 'object' and 'properties' in db_params:

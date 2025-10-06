@@ -280,10 +280,14 @@ class PDFGeneratorTool:
                     elements.append(Paragraph(text, styles["Normal"]))
                     elements.append(Spacer(1, 6))
             elif element.name in ['ul', 'ol']:
-                for li in element.find_all('li'):
+                list_items = element.find_all('li')
+                for i, li in enumerate(list_items, 1):
                     text = li.get_text().strip()
                     if text:
-                        bullet = "• " if element.name == 'ul' else "1. "
+                        if element.name == 'ul':
+                            bullet = "• "
+                        else:  # ol - ordered list
+                            bullet = f"{i}. "
                         elements.append(Paragraph(bullet + text, styles["Normal"]))
                 elements.append(Spacer(1, 6))
             elif element.name == 'blockquote':
@@ -303,16 +307,15 @@ class PDFGeneratorTool:
         """Create header and footer for the document"""
         canvas_obj.saveState()
         
-        # Header
-        canvas_obj.setFont("Helvetica", 10)
-        canvas_obj.setFillColor(colors.grey)
-        canvas_obj.drawRightString(doc.width + doc.leftMargin, doc.height + doc.topMargin - 20, 
-                                 f"Generated on {datetime.now().strftime('%Y-%m-%d %H:%M')}")
-        
-        # Footer
+        # Footer with date and page number
         canvas_obj.setFont("Helvetica", 8)
         canvas_obj.setFillColor(colors.grey)
-        canvas_obj.drawCentredString(doc.width/2, 20, f"Page {doc.page}")
+        
+        # Date on the left
+        canvas_obj.drawString(doc.leftMargin, 20, f"Generated on {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+        
+        # Page number on the right
+        canvas_obj.drawRightString(doc.width + doc.leftMargin, 20, f"Page {doc.page}")
         
         canvas_obj.restoreState()
 
