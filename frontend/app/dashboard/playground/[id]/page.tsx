@@ -1880,6 +1880,15 @@ export default function AgentPlaygroundPage() {
                             >
                               Rename
                             </button>
+                            <button
+                              onClick={() => {
+                                setShowRenameDropdown(null)
+                                deleteConversation(conversation.id, new MouseEvent('click'))
+                              }}
+                              className="w-full px-3 py-2 text-left text-xs text-red-600 hover:bg-red-50"
+                            >
+                              Delete
+                            </button>
                           </div>
                         )}
                       </div>
