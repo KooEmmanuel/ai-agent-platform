@@ -41,15 +41,86 @@ export default function RegisterPage() {
     e.preventDefault()
     setIsLoading(true)
     
-    // TODO: Implement registration logic
-    console.log('Registration attempt:', formData)
-    
-    // Simulate API call
-    setTimeout(() => {
+    // Validate passwords match
+    if (formData.password !== formData.confirmPassword) {
+      showToast({
+        type: 'error',
+        title: 'Password mismatch',
+        message: 'Passwords do not match. Please try again.',
+        duration: 4000
+      })
       setIsLoading(false)
-      // Redirect to dashboard
-      window.location.href = '/dashboard'
-    }, 2000)
+      return
+    }
+    
+    try {
+      console.log('Registration attempt:', formData)
+      
+      // Call the backend registration API
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+      const response = await fetch(`${apiBaseUrl}/api/v1/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          full_name: formData.fullName,
+          email: formData.email,
+          password: formData.password
+        })
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        
+        // Store the token and user data
+        localStorage.setItem('auth_token', data.access_token)
+        localStorage.setItem('user', JSON.stringify(data.user))
+        
+        showToast({
+          type: 'success',
+          title: 'Registration successful!',
+          message: 'Welcome! Redirecting to dashboard...',
+          duration: 2000
+        })
+        
+        setTimeout(() => {
+          window.location.href = '/dashboard'
+        }, 2000)
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        const errorMessage = errorData.detail || 'Registration failed'
+        
+        // Handle specific error cases
+        let title = 'Registration failed'
+        let message = errorMessage
+        
+        if (errorMessage.includes('Email already registered')) {
+          title = 'Email already exists'
+          message = 'An account with this email already exists. Please use Google sign-in or try a different email.'
+        } else if (errorMessage.includes('temporarily unavailable')) {
+          title = 'Registration unavailable'
+          message = 'Email registration is temporarily unavailable. Please use Google sign-in for now.'
+        }
+        
+        showToast({
+          type: 'error',
+          title: title,
+          message: message,
+          duration: 4000
+        })
+      }
+    } catch (error) {
+      console.error('Registration error:', error)
+      showToast({
+        type: 'error',
+        title: 'Registration failed',
+        message: 'Please check your connection and try again.',
+        duration: 4000
+      })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleGoogleSignup = async () => {

@@ -207,11 +207,14 @@ class User(Base):
     __tablename__ = "users"
     
     id = Column(Integer, primary_key=True, index=True)
-    firebase_uid = Column(String, unique=True, index=True)
+    firebase_uid = Column(String, unique=True, index=True, nullable=True)
     email = Column(String, unique=True, index=True)
     name = Column(String)
+    hashed_password = Column(String, nullable=True)
     picture = Column(String, nullable=True)
     is_verified = Column(Boolean, default=False)
+    reset_token = Column(String, nullable=True)
+    reset_token_expires = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
     
@@ -231,6 +234,60 @@ class User(Base):
     subscription = relationship("UserSubscription", back_populates="user", uselist=False)
     billing_history = relationship("BillingHistory", back_populates="user")
     knowledge_base_collections = relationship("KnowledgeBaseCollection", back_populates="user")
+    support_tickets = relationship("SupportTicket", back_populates="user")
+
+class Admin(Base):
+    __tablename__ = "admins"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, unique=True, index=True)
+    name = Column(String)
+    hashed_password = Column(String)
+    is_super_admin = Column(Boolean, default=False)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    last_login = Column(DateTime, nullable=True)
+
+class SupportTicket(Base):
+    __tablename__ = "support_tickets"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    user_email = Column(String, nullable=False)  # Store email even if user is deleted
+    user_name = Column(String, nullable=True)
+    subject = Column(String, nullable=False)
+    description = Column(Text, nullable=False)
+    category = Column(String, nullable=False)  # 'auth', 'billing', 'technical', 'general'
+    priority = Column(String, default='medium')  # 'low', 'medium', 'high', 'urgent'
+    status = Column(String, default='open')  # 'open', 'in_progress', 'resolved', 'closed'
+    assigned_to = Column(Integer, ForeignKey("admins.id"), nullable=True)
+    admin_notes = Column(Text, nullable=True)
+    resolution = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    resolved_at = Column(DateTime, nullable=True)
+    
+    # Relationships
+    user = relationship("User", back_populates="support_tickets")
+    assigned_admin = relationship("Admin", foreign_keys=[assigned_to])
+    messages = relationship("SupportMessage", back_populates="ticket")
+
+class SupportMessage(Base):
+    __tablename__ = "support_messages"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    ticket_id = Column(Integer, ForeignKey("support_tickets.id"), nullable=False)
+    sender_type = Column(String, nullable=False)  # 'user', 'admin'
+    sender_id = Column(Integer, nullable=True)  # user_id or admin_id
+    sender_name = Column(String, nullable=False)
+    sender_email = Column(String, nullable=False)
+    message = Column(Text, nullable=False)
+    is_internal = Column(Boolean, default=False)  # Internal admin notes
+    created_at = Column(DateTime, default=func.now())
+    
+    # Relationships
+    ticket = relationship("SupportTicket", back_populates="messages")
 
 class UserCredits(Base):
     __tablename__ = "user_credits"

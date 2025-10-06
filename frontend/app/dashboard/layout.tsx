@@ -18,7 +18,8 @@ import {
   CreditCardIcon,
   ArrowRightOnRectangleIcon,
   DocumentTextIcon,
-  BeakerIcon
+  BeakerIcon,
+  ShieldCheckIcon
 } from '@heroicons/react/24/outline'
 import { LuPanelLeftClose, LuPanelRightClose } from "react-icons/lu"
 import { LogOut } from 'lucide-react'
@@ -36,6 +37,7 @@ const navigation = [
   { name: 'Playground', href: '/dashboard/playground', icon: SparklesIcon },
   { name: 'Analytics', href: '/dashboard/analytics', icon: ChartBarIcon },
   { name: 'Billing', href: '/dashboard/billing', icon: CreditCardIcon },
+  { name: 'Admin', href: '/admin', icon: ShieldCheckIcon },
   { name: 'Settings', href: '/dashboard/settings', icon: Cog6ToothIcon },
 ]
 

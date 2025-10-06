@@ -38,15 +38,76 @@ export default function LoginPage() {
     e.preventDefault()
     setIsLoading(true)
     
-    // TODO: Implement login logic
-    console.log('Login attempt:', formData)
-    
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      console.log('Login attempt:', formData)
+      
+      // Call the backend login API
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+      const response = await fetch(`${apiBaseUrl}/api/v1/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password
+        })
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        
+        // Store the token and user data
+        localStorage.setItem('auth_token', data.access_token)
+        localStorage.setItem('user', JSON.stringify(data.user))
+        
+        showToast({
+          type: 'success',
+          title: 'Login successful!',
+          message: 'Welcome back! Redirecting to dashboard...',
+          duration: 2000
+        })
+        
+        setTimeout(() => {
+          window.location.href = '/dashboard'
+        }, 2000)
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        const errorMessage = errorData.detail || 'Login failed'
+        
+        // Handle specific error cases
+        let title = 'Login failed'
+        let message = errorMessage
+        
+        if (errorMessage.includes('Google sign-in')) {
+          title = 'Use Google Sign-In'
+          message = 'This account was created with Google. Please use the "Continue with Google" button.'
+        } else if (errorMessage.includes('User not found')) {
+          title = 'Account not found'
+          message = 'No account found with this email. Please check your email or create a new account.'
+        } else if (errorMessage.includes('Invalid email or password')) {
+          title = 'Invalid credentials'
+          message = 'Please check your email and password and try again.'
+        }
+        
+        showToast({
+          type: 'error',
+          title: title,
+          message: message,
+          duration: 4000
+        })
+      }
+    } catch (error) {
+      console.error('Login error:', error)
+      showToast({
+        type: 'error',
+        title: 'Login failed',
+        message: 'Please check your connection and try again.',
+        duration: 4000
+      })
+    } finally {
       setIsLoading(false)
-      // Redirect to dashboard
-      window.location.href = '/dashboard'
-    }, 2000)
+    }
   }
 
   const handleGoogleLogin = async () => {
@@ -216,10 +277,17 @@ export default function LoginPage() {
               </label>
             </div>
 
-            <div className="text-sm">
-              <Link href="/auth/forgot-password" className="font-medium text-blue-600 hover:text-blue-500">
-                Forgot your password?
-              </Link>
+            <div className="flex items-center justify-between">
+              <div className="text-sm">
+                <Link href="/auth/forgot-password" className="font-medium text-blue-600 hover:text-blue-500">
+                  Forgot your password?
+                </Link>
+              </div>
+              <div className="text-sm">
+                <Link href="/auth/help" className="font-medium text-gray-600 hover:text-gray-500">
+                  Need help?
+                </Link>
+              </div>
             </div>
           </div>
 
