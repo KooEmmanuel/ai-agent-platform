@@ -142,7 +142,7 @@ class WebSearchTool(BaseTool):
                 
                 results.append(formatted_result)
             
-            return results
+                return results
             
         except Exception as e:
             logger.error(f"Tavily search failed: {str(e)}")
@@ -172,7 +172,7 @@ class WebSearchTool(BaseTool):
             return 'yelp'
         elif 'google.com/maps' in url_lower:
             return 'google_maps'
-        else:
+                else:
             return 'web'
     
     def _is_business_account(self, title: str, content: str, query: str) -> bool:
@@ -235,4 +235,4 @@ class WebSearchTool(BaseTool):
                 },
                 'required': ['query']
             }
-        }
+        } 

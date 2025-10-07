@@ -60,13 +60,34 @@ export default function MarkdownRenderer({ content, className = "" }: Props) {
             const match = /language-(\w+)/.exec(className || '')
             const language = match ? match[1] : ''
             
+            // Safely convert children to string, handling objects and arrays
+            const getCodeContent = (children: any): string => {
+              if (typeof children === 'string') {
+                return children
+              }
+              if (Array.isArray(children)) {
+                return children.map(child => 
+                  typeof child === 'string' ? child : 
+                  typeof child === 'object' && child?.props?.children ? 
+                    getCodeContent(child.props.children) : 
+                    String(child)
+                ).join('')
+              }
+              if (typeof children === 'object' && children?.props?.children) {
+                return getCodeContent(children.props.children)
+              }
+              return String(children || '')
+            }
+            
+            const codeContent = getCodeContent(children)
+            
             if (!inline && language) {
               return (
                 <div className="my-4 rounded-lg overflow-hidden border border-gray-200 bg-gray-900">
                   <div className="flex items-center justify-between px-4 py-2 bg-gray-800 border-b border-gray-700">
                     <span className="text-sm text-gray-300 font-medium">{language}</span>
                     <button 
-                      onClick={() => navigator.clipboard.writeText(String(children).replace(/\n$/, ''))}
+                      onClick={() => navigator.clipboard.writeText(codeContent.replace(/\n$/, ''))}
                       className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-gray-700"
                     >
                       Copy
@@ -79,7 +100,7 @@ export default function MarkdownRenderer({ content, className = "" }: Props) {
                     className="!m-0 !p-4"
                     {...props}
                   >
-                    {String(children).replace(/\n$/, '')}
+                    {codeContent.replace(/\n$/, '')}
                   </SyntaxHighlighter>
                 </div>
               )
@@ -87,7 +108,7 @@ export default function MarkdownRenderer({ content, className = "" }: Props) {
             
             return (
               <code className="bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-sm font-mono" {...props}>
-                {children}
+                {codeContent}
               </code>
             )
           },
