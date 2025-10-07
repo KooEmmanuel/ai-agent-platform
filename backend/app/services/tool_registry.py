@@ -48,7 +48,8 @@ from marketplace_tools import (
     RSSFeedTool,
     TelegramTool,
     GoogleSuiteTool,
-    YouTubeTranscriptTool
+    YouTubeTranscriptTool,
+    QuizTool
 )
 
 logger = logging.getLogger(__name__)
@@ -124,6 +125,9 @@ class ToolRegistry:
             
             # Content analysis tools
             'youtube_transcript': YouTubeTranscriptTool,
+            
+            # Education tools
+            'quiz_tool': QuizTool,
         }
         
         # Tool name aliases for backward compatibility

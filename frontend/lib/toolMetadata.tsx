@@ -424,6 +424,15 @@ export const TOOL_METADATA: Record<string, ToolMetadata> = {
     category: 'Content Analysis',
     toolType: 'Function',
     brandColor: '#FF0000'
+  },
+  quiz_tool: {
+    displayName: 'Quiz Generator',
+    icon: DocumentMagnifyingGlassIcon,
+    logo: 'https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/quizlet.svg',
+    description: 'Generate interactive quizzes with multiple question types. Supports MCQ, True/False, Short Answer, and Fill-in-the-Blank questions. Perfect for educational content and assessments.',
+    category: 'Education',
+    toolType: 'Function',
+    brandColor: '#4F46E5'
   }
 }
 

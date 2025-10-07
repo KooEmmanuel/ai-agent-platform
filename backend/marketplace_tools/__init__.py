@@ -40,6 +40,7 @@ from .telegram_tool import TelegramTool
 from .web_automation_tool import WebAutomationTool
 from .google_suite_tool import GoogleSuiteTool
 from .youtube_transcript_tool import YouTubeTranscriptTool
+from .quiz_tool import QuizTool
 
 __all__ = [
     'WebSearchTool',
@@ -76,5 +77,6 @@ __all__ = [
     'TelegramTool',
     'WebAutomationTool',
     'GoogleSuiteTool',
-    'YouTubeTranscriptTool'
+    'YouTubeTranscriptTool',
+    'QuizTool'
 ] 

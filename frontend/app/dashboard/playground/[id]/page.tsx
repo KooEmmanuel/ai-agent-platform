@@ -1287,7 +1287,7 @@ export default function AgentPlaygroundPage() {
   }
 
   return (
-    <div className="h-screen  flex overflow-hidden">
+    <div className="h-[calc(100vh-6rem)] flex overflow-hidden -mx-4 sm:-mx-6 lg:-mx-8">
       
       {/* Left Column - Controls */}
       
@@ -1338,7 +1338,11 @@ export default function AgentPlaygroundPage() {
             ref={messagesContainerRef}
             className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50 pb-4" 
             aria-live="polite"
-            style={{ maxHeight: 'calc(100vh - 200px)' }}
+            style={{ 
+              height: 'calc(100vh - 300px)',
+              maxHeight: 'calc(100vh - 300px)',
+              position: 'relative'
+            }}
           >
             {messages.length === 0 && (
               <div className="text-center text-gray-500 mt-16 lg:mt-20">

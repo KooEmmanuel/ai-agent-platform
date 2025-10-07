@@ -205,7 +205,40 @@ When user asks for a PDF, call pdf_generator with:
 - Handle payment errors, refunds, and disputes appropriately
 - Ensure PCI compliance and security standards
 - Use test mode for development and sandbox environments
-"""
+""",
+            
+       'quiz_tool': """
+       **QUIZ TOOL GUIDANCE:**
+       - Use quiz_tool to generate interactive quizzes on any topic
+       - IMPORTANT: When the quiz tool returns a result, return the quiz content DIRECTLY without additional commentary
+       - The quiz content will be automatically rendered as an interactive quiz in the frontend
+       - Do NOT add explanations like "I've generated a quiz" or "Here's the quiz" - just return the quiz content
+       - Perfect for educational content, assessments, and learning activities
+       - Support multiple question types: MCQ, True/False, Short Answer, Fill-in-the-Blank
+       - Can generate quizzes based on conversation context or specific topics
+       - Support timed and untimed quizzes with different difficulty levels
+
+       **AI FALLBACK HANDLING:**
+       - If the quiz tool returns a "QUIZ GENERATION REQUEST - AI FAILED" message, this means the AI service failed
+       - In this case, YOU must generate the quiz questions yourself using the provided specifications
+       - Follow the exact markdown format provided in the fallback request
+       - Use the conversation context and topic to create relevant, educational questions
+       - Generate questions that match the specified difficulty level and question types
+       - Include proper answers and explanations for each question
+       
+       **QUALITY CONTROL:**
+       - If the quiz tool generates questions that are not relevant to the topic or conversation context
+       - If the questions are too easy/hard for the specified difficulty level
+       - If the questions don't match the requested question types properly
+       - If the answers or explanations are incorrect or unclear
+       - Then YOU should generate the quiz yourself in the correct format instead
+       - Always prioritize educational value and topic relevance over using potentially flawed AI-generated content
+
+       **CRITICAL INSTRUCTION:**
+       When quiz_tool returns a result, your response should be ONLY the quiz content returned by the tool. Do not add any introductory text or explanations. The frontend will automatically detect and render the quiz interactively.
+       
+       **EXCEPTION:** If you receive an AI fallback request, generate the complete quiz in the exact format specified and return it directly.
+       """
         }
     
     def get_tool_prompt(self, tool_name: str) -> Optional[str]:

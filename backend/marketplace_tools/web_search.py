@@ -172,7 +172,7 @@ class WebSearchTool(BaseTool):
             return 'yelp'
         elif 'google.com/maps' in url_lower:
             return 'google_maps'
-                else:
+        else:
             return 'web'
     
     def _is_business_account(self, title: str, content: str, query: str) -> bool:

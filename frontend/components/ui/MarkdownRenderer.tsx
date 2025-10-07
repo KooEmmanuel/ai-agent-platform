@@ -8,6 +8,7 @@ import rehypeAutolinkHeadings from 'rehype-autolink-headings'
 import rehypeExternalLinks from 'rehype-external-links'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { tomorrow } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import QuizRenderer from './QuizRenderer'
 
 // Function to extract YouTube video ID from various YouTube URL formats
 const extractYouTubeVideoId = (url: string): string | null => {
@@ -41,6 +42,13 @@ export default function MarkdownRenderer({ content, className = "" }: Props) {
   // Safety check for undefined or null content
   if (!content || typeof content !== 'string') {
     return <div className={className} />
+  }
+
+  // Check if content is a quiz
+  const isQuiz = content.includes('# Quiz:') && content.includes('**Settings:**')
+  
+  if (isQuiz) {
+    return <QuizRenderer content={content} />
   }
 
   return (

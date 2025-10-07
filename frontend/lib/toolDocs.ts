@@ -1109,6 +1109,48 @@ export const TOOL_DOCS: Record<string, ToolDoc> = {
       'Test knowledge base queries',
       'Monitor and update the knowledge base as needed'
     ]
+  },
+  quiz_tool: {
+    name: 'Quiz Generator',
+    description: 'Generate interactive quizzes with multiple question types. Supports MCQ, True/False, Short Answer, and Fill-in-the-Blank questions. Perfect for educational content, assessments, and learning activities.',
+    category: 'Education',
+    toolType: 'Function',
+    icon: '📝',
+    overview: 'The Quiz Generator tool creates interactive quizzes with various question types. It can generate quizzes based on topics, conversation context, or specific requirements. Perfect for educational content, assessments, and learning activities.',
+    features: [
+      'Multiple question types: MCQ, True/False, Short Answer, Fill-in-the-Blank',
+      'Flexible topic generation from user input or conversation context',
+      'Configurable difficulty levels (easy, medium, hard)',
+      'Optional time limits for timed quizzes',
+      '1-20 questions per quiz',
+      'Automatic answer generation and explanations',
+      'Markdown format output for custom UI rendering'
+    ],
+    useCases: [
+      'Educational assessments and testing',
+      'Training and certification programs',
+      'Interactive learning content',
+      'Knowledge evaluation and practice',
+      'Course material reinforcement',
+      'Skill assessment and validation'
+    ],
+    configuration: [
+      { field: 'Topic', description: 'Quiz topic (optional - will be generated from conversation context if not provided)', required: false, type: 'String' },
+      { field: 'Question Types', description: 'Types of questions to include (mcq, true_false, short_answer, fill_blank)', required: false, type: 'Array' },
+      { field: 'Number of Questions', description: 'Number of questions in the quiz (1-20)', required: false, type: 'Number' },
+      { field: 'Difficulty', description: 'Difficulty level (easy, medium, hard)', required: false, type: 'String' },
+      { field: 'Time Limit', description: 'Time limit in seconds (optional)', required: false, type: 'Number' },
+      { field: 'Conversation Context', description: 'Conversation context for topic generation (optional)', required: false, type: 'String' }
+    ],
+    setupSteps: [
+      'Specify your quiz topic or let it be generated from conversation context',
+      'Choose question types (MCQ, True/False, Short Answer, Fill-in-the-Blank)',
+      'Set the number of questions (1-20)',
+      'Select difficulty level (easy, medium, hard)',
+      'Optionally set a time limit for timed quizzes',
+      'Generate the quiz and review the questions',
+      'Use the quiz in your educational content or assessments'
+    ]
   }
 }
 
@@ -1120,6 +1162,7 @@ export const getCategoryIcon = (category: string): string => {
     case 'Scheduling': return '📅'
     case 'Communication': return '📧'
     case 'Integration': return '🔗'
+    case 'Education': return '🎓'
     default: return '🛠️'
   }
 }

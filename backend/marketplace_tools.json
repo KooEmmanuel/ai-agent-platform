@@ -1,6 +1,6 @@
 {
   "exported_at": "2025-08-10T08:26:15.640269",
-  "total_tools": 36,
+  "total_tools": 37,
   "tools": [
     {
       "id": 1,
@@ -2126,6 +2126,65 @@
       "updated_at": "2025-01-24T00:00:00.000000",
       "user_id": 1,
       "cost": 5
+    },
+    {
+      "id": 37,
+      "name": "quiz_tool",
+      "display_name": "Quiz Generator",
+      "description": "Generate interactive quizzes with multiple question types. Supports MCQ, True/False, Short Answer, and Fill-in-the-Blank questions. Can create timed or untimed quizzes on any topic. Perfect for educational content, assessments, and learning activities.",
+      "category": "Education",
+      "tool_type": "Function",
+      "config": {
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "topic": {
+              "type": "string",
+              "description": "Quiz topic (optional - will be generated from conversation context if not provided)",
+              "examples": ["JavaScript Programming", "World History", "Mathematics", "Science"]
+            },
+            "question_types": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": ["mcq", "true_false", "short_answer", "fill_blank"]
+              },
+              "description": "Types of questions to include in the quiz",
+              "default": ["mcq", "true_false", "short_answer", "fill_blank"]
+            },
+            "num_questions": {
+              "type": "integer",
+              "description": "Number of questions in the quiz",
+              "minimum": 1,
+              "maximum": 20,
+              "default": 5
+            },
+            "difficulty": {
+              "type": "string",
+              "enum": ["easy", "medium", "hard"],
+              "description": "Difficulty level of the quiz",
+              "default": "medium"
+            },
+            "time_limit": {
+              "type": "integer",
+              "description": "Time limit in seconds (optional - leave empty for untimed quiz)",
+              "minimum": 30,
+              "maximum": 3600
+            },
+            "conversation_context": {
+              "type": "string",
+              "description": "Conversation context for topic generation (optional)"
+            }
+          },
+          "required": []
+        }
+      },
+      "is_public": true,
+      "is_active": true,
+      "created_at": "2025-01-24T00:00:00.000000",
+      "updated_at": "2025-01-24T00:00:00.000000",
+      "user_id": 1,
+      "cost": 3
     }
   ]
 }
