@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useMemo, useState, useRef } from 'react'
+import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { ArrowLeftIcon, PaperAirplaneIcon, XMarkIcon, Bars3Icon, EyeSlashIcon, ClipboardIcon, PencilIcon, CheckIcon, PlusIcon } from '@heroicons/react/24/outline'
+import { ArrowLeftIcon, PaperAirplaneIcon, XMarkIcon, Bars3Icon, EyeSlashIcon, ClipboardIcon, PencilIcon, CheckIcon, PlusIcon, Cog6ToothIcon } from '@heroicons/react/24/outline'
 import { PanelRightClose } from 'lucide-react'
 import { PanelLeftClose } from 'lucide-react'
 import { HiOutlinePencilAlt } from "react-icons/hi"
@@ -693,6 +693,29 @@ export default function AgentPlaygroundPage() {
     }
   }
 
+  // Optimized input change handler to prevent unnecessary re-renders
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value)
+  }, [])
+
+  // Memoize computed values to prevent recalculation on every render
+  const hasSelectedCollections = selectedCollections.length > 0
+  const collectionsCount = selectedCollections.length
+  const placeholderText = useMemo(() => {
+    return hasSelectedCollections 
+      ? `Message... (${collectionsCount} collection${collectionsCount > 1 ? 's' : ''} selected)` 
+      : "Message..."
+  }, [hasSelectedCollections, collectionsCount])
+
+  const textareaStyle = useMemo(() => ({
+    background: hasSelectedCollections 
+      ? 'linear-gradient(180deg,#f0f9ff,#e0f2fe)' 
+      : 'linear-gradient(180deg,#ffffff,#fafbfc)',
+    boxShadow: hasSelectedCollections
+      ? '0 2px 8px rgba(59, 130, 246, 0.1), 0 1px 2px rgba(59, 130, 246, 0.06)'
+      : '0 2px 8px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06)'
+  }), [hasSelectedCollections])
+
   const updateAgentModel = async (newModel: string) => {
     if (!agent) return
     
@@ -1287,14 +1310,14 @@ export default function AgentPlaygroundPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-6rem)] flex overflow-hidden -mx-4 sm:-mx-6 lg:-mx-8">
+    <div className="h-[calc(100vh-2rem)] flex overflow-hidden -mx-4 sm:-mx-6 lg:-mx-8" style={{ marginBottom: '0' }}>
       
       {/* Left Column - Controls */}
       
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-w-0 w-full lg:w-auto">
-        <div className="flex flex-col flex-1 bg-white w-full">
+        <div className="flex flex-col flex-1 k w-full" style={{ marginBottom: '0' }}>
 
           {/* Header */}
           <div className="flex items-center justify-between px-4 lg:px-6 py-4 lg:py-5 bg-white border-b border-gray-100">
@@ -1326,9 +1349,11 @@ export default function AgentPlaygroundPage() {
               </div>
               <button 
                 onClick={() => setShowSettings(true)}
-                className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 hover:bg-gray-200 transition-colors" 
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 hover:bg-gray-200 transition-colors flex items-center gap-2" 
+                title="Settings"
               >
-                Settings
+                <Cog6ToothIcon className="w-4 h-4 sm:hidden" />
+                <span className="hidden sm:inline">Settings</span>
               </button>
             </div>
           </div>
@@ -1378,8 +1403,8 @@ export default function AgentPlaygroundPage() {
               >
                 <div className="max-w-4xl mx-auto px-4 lg:px-6 py-6 lg:py-8">
                   <div className="flex gap-4">
-                    {/* Avatar */}
-                    <div className="flex-shrink-0">
+                    {/* Avatar - Hidden on mobile */}
+                    <div className="hidden lg:block flex-shrink-0">
                       {m.role === 'user' ? (
                         user?.avatar_url ? (
                           <img 
@@ -1401,7 +1426,8 @@ export default function AgentPlaygroundPage() {
                     
                     {/* Message content */}
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm text-gray-500 mb-2">
+                      {/* Name label - Hidden on mobile */}
+                      <div className="hidden lg:block text-sm text-gray-500 mb-2">
                         {m.role === 'user' ? (user?.name || 'You') : agent.name}
                       </div>
                                             <div className="prose prose-sm lg:prose-base max-w-none">
@@ -1502,8 +1528,8 @@ export default function AgentPlaygroundPage() {
               >
                 <div className="max-w-4xl mx-auto px-4 lg:px-6 py-6 lg:py-8">
                   <div className="flex gap-4">
-                    {/* Avatar */}
-                    <div className="flex-shrink-0">
+                    {/* Avatar - Hidden on mobile */}
+                    <div className="hidden lg:block flex-shrink-0">
                       <div className="w-8 h-8 rounded-full bg-gray-200 text-gray-700 flex items-center justify-center text-sm font-semibold">
                         {agent.name.charAt(0).toUpperCase()}
                       </div>
@@ -1511,7 +1537,8 @@ export default function AgentPlaygroundPage() {
                     
                     {/* Loading content */}
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm text-gray-500 mb-2">
+                      {/* Name label - Hidden on mobile */}
+                      <div className="hidden lg:block text-sm text-gray-500 mb-2">
                         {agent.name}
                       </div>
                       <div className="flex items-center gap-3">
@@ -1532,7 +1559,7 @@ export default function AgentPlaygroundPage() {
           </div>
 
           {/* Input Area */}
-          <div className="sticky bottom-0 p-4 lg:p-6 bg-white/80 backdrop-blur-sm border-t border-gray-100 z-10">
+          <div className="sticky bottom-0 p-4 lg:p-6  backdrop-blur-sm border-t border-gray-100 z-10" style={{ marginBottom: '0' }}>
             <div className="max-w-4xl mx-auto">
               <div className="relative">
                 {/* Plus icon on the left */}
@@ -1548,19 +1575,16 @@ export default function AgentPlaygroundPage() {
                 
                 <textarea
                   value={input}
-                  onChange={(e) => setInput(e.target.value)}
+                  onChange={handleInputChange}
                   onKeyDown={onKeyDown}
-                  placeholder={selectedCollections.length > 0 ? `Message... (${selectedCollections.length} collection${selectedCollections.length > 1 ? 's' : ''} selected)` : "Message..."}
+                  placeholder={placeholderText}
                   className="w-full resize-none min-h-[52px] lg:min-h-[60px] max-h-40 rounded-2xl pl-12 lg:pl-14 pr-32 py-3 lg:py-4 text-sm lg:text-base focus:outline-none border border-gray-200 focus:border-blue-400 transition-all duration-200" 
-                  style={{ 
-                    background: selectedCollections.length > 0 
-                      ? 'linear-gradient(180deg,#f0f9ff,#e0f2fe)' 
-                      : 'linear-gradient(180deg,#ffffff,#fafbfc)',
-                    boxShadow: selectedCollections.length > 0
-                      ? '0 2px 8px rgba(59, 130, 246, 0.1), 0 1px 2px rgba(59, 130, 246, 0.06)'
-                      : '0 2px 8px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06)'
-                  }}
+                  style={textareaStyle}
                   disabled={sending}
+                  spellCheck={false}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
                 />
                 
                 {/* Send and Audio buttons positioned absolutely */}

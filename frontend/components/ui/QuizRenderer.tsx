@@ -40,14 +40,31 @@ export default function QuizRenderer({ content }: QuizRendererProps) {
 
   // Parse quiz content from markdown
   useEffect(() => {
-    console.log('QuizRenderer: Parsing quiz content:', content.substring(0, 200) + '...')
+    console.log('🔍 QuizRenderer: Starting quiz content parsing...')
+    console.log('📄 QuizRenderer: Full content length:', content.length)
+    console.log('📄 QuizRenderer: Content preview (first 500 chars):', content.substring(0, 500))
+    console.log('📄 QuizRenderer: Content preview (last 200 chars):', content.substring(Math.max(0, content.length - 200)))
+    
+    // Quick content validation
+    console.log('🔍 QuizRenderer: Content validation:')
+    console.log('📋 QuizRenderer: - Contains "# Quiz:":', content.includes('# Quiz:'))
+    console.log('📋 QuizRenderer: - Contains "## Question":', content.includes('## Question'))
+    console.log('📋 QuizRenderer: - Contains "**Question:**":', content.includes('**Question:**'))
+    console.log('📋 QuizRenderer: - Contains "**Answer:**":', content.includes('**Answer:**'))
+    console.log('📋 QuizRenderer: - Contains "**Settings:**":', content.includes('**Settings:**'))
+    console.log('📋 QuizRenderer: - Contains "Quiz ID":', content.includes('Quiz ID'))
+    
     const parsedQuiz = parseQuizContent(content)
-    console.log('QuizRenderer: Parsed quiz data:', parsedQuiz)
+    console.log('✅ QuizRenderer: Parsed quiz data:', parsedQuiz)
+    
     if (parsedQuiz) {
+      console.log('🎉 QuizRenderer: Successfully parsed quiz with', parsedQuiz.questions?.length || 0, 'questions')
       setQuizData(parsedQuiz)
       setTimeRemaining(parsedQuiz.time_limit || null)
     } else {
-      console.log('QuizRenderer: Failed to parse quiz content')
+      console.error('❌ QuizRenderer: Failed to parse quiz content - check parsing logic')
+      console.error('❌ QuizRenderer: This will show the "Unable to load quiz questions" error')
+      console.error('❌ QuizRenderer: Content analysis complete - check logs above for specific failure points')
     }
   }, [content])
 
@@ -65,95 +82,158 @@ export default function QuizRenderer({ content }: QuizRendererProps) {
 
   const parseQuizContent = (content: string): QuizData | null => {
     try {
+      console.log('🔍 QuizRenderer: Starting parseQuizContent...')
+      
       // Extract quiz title
+      console.log('🔍 QuizRenderer: Looking for quiz title pattern: /# Quiz: (.+)/')
       const titleMatch = content.match(/# Quiz: (.+)/)
-      if (!titleMatch) return null
-
+      if (!titleMatch) {
+        console.error('❌ QuizRenderer: No quiz title found! Expected format: "# Quiz: [title]"')
+        console.error('❌ QuizRenderer: Content does not start with proper quiz header')
+        return null
+      }
       const title = titleMatch[1]
+      console.log('✅ QuizRenderer: Found quiz title:', title)
 
       // Extract settings
+      console.log('🔍 QuizRenderer: Looking for settings section...')
       const settingsMatch = content.match(/\*\*Settings:\*\*\n([\s\S]*?)\n---/)
       const settings = settingsMatch ? settingsMatch[1] : ''
+      console.log('✅ QuizRenderer: Settings section found:', settings ? 'Yes' : 'No')
+      if (settings) {
+        console.log('📋 QuizRenderer: Settings content:', settings)
+      }
 
       // Extract time limit
+      console.log('🔍 QuizRenderer: Looking for time limit...')
       const timeLimitMatch = settings.match(/- Time Limit: (\d+) seconds/)
       const timeLimit = timeLimitMatch ? parseInt(timeLimitMatch[1]) : undefined
+      console.log('✅ QuizRenderer: Time limit:', timeLimit || 'Not specified')
 
       // Extract difficulty
+      console.log('🔍 QuizRenderer: Looking for difficulty...')
       const difficultyMatch = settings.match(/- Difficulty: (\w+)/)
       const difficulty = difficultyMatch ? difficultyMatch[1].toLowerCase() : 'medium'
+      console.log('✅ QuizRenderer: Difficulty:', difficulty)
 
       // Extract quiz ID
+      console.log('🔍 QuizRenderer: Looking for quiz ID...')
       const quizIdMatch = content.match(/\*\*Quiz ID:\*\* (.+)/)
       const quizId = quizIdMatch ? quizIdMatch[1] : `quiz_${Date.now()}`
+      console.log('✅ QuizRenderer: Quiz ID:', quizId)
 
       // Parse questions
+      console.log('🔍 QuizRenderer: Looking for question blocks...')
       const questions: QuizQuestion[] = []
       const questionMatches = content.match(/## Question \d+\n([\s\S]*?)(?=## Question \d+|\*\*Quiz ID:\*\*)/g)
 
       if (questionMatches) {
-        console.log(`QuizRenderer: Found ${questionMatches.length} question blocks`)
+        console.log(`✅ QuizRenderer: Found ${questionMatches.length} question blocks`)
         questionMatches.forEach((questionBlock, index) => {
-          console.log(`QuizRenderer: Parsing question ${index + 1}:`, questionBlock.substring(0, 100) + '...')
+          console.log(`🔍 QuizRenderer: Parsing question ${index + 1}...`)
+          console.log(`📄 QuizRenderer: Question block preview:`, questionBlock.substring(0, 200) + '...')
           const question = parseQuestion(questionBlock, index + 1)
           if (question) {
             questions.push(question)
-            console.log(`QuizRenderer: Successfully parsed question ${index + 1}`)
+            console.log(`✅ QuizRenderer: Successfully parsed question ${index + 1}:`, question.type)
           } else {
-            console.log(`QuizRenderer: Failed to parse question ${index + 1}`)
+            console.error(`❌ QuizRenderer: Failed to parse question ${index + 1}`)
+            console.error(`❌ QuizRenderer: Question block that failed:`, questionBlock)
           }
         })
       } else {
-        console.log('QuizRenderer: No question blocks found')
+        console.error('❌ QuizRenderer: No question blocks found!')
+        console.error('❌ QuizRenderer: Expected format: "## Question [number]"')
+        console.error('❌ QuizRenderer: Content structure analysis:')
+        console.error('❌ QuizRenderer: - Contains "## Question":', content.includes('## Question'))
+        console.error('❌ QuizRenderer: - Contains "Quiz ID":', content.includes('Quiz ID'))
+        console.error('❌ QuizRenderer: - All "##" headers:', content.match(/## .+/g))
       }
 
-      return {
+      const result = {
         title,
         questions,
         time_limit: timeLimit,
         difficulty,
         quiz_id: quizId
       }
+      
+      console.log('🎉 QuizRenderer: Final parsed result:', result)
+      console.log('📊 QuizRenderer: Total questions parsed:', questions.length)
+      
+      return result
     } catch (error) {
-      console.error('Error parsing quiz content:', error)
+      console.error('💥 QuizRenderer: Exception in parseQuizContent:', error)
+      console.error('💥 QuizRenderer: Error stack:', error.stack)
       return null
     }
   }
 
   const parseQuestion = (questionBlock: string, questionNumber: number): QuizQuestion | null => {
     try {
+      console.log(`🔍 QuizRenderer: Parsing question ${questionNumber}...`)
+      console.log(`📄 QuizRenderer: Question block:`, questionBlock)
+      
       // Extract question type
+      console.log(`🔍 QuizRenderer: Looking for question type...`)
       const typeMatch = questionBlock.match(/\*\*Type:\*\* (.+)/)
       const type = typeMatch ? typeMatch[1].toLowerCase().replace(' ', '_') as QuizQuestion['type'] : 'mcq'
+      console.log(`✅ QuizRenderer: Question type:`, type)
 
-      // Extract question text - handle multi-line questions
-      const questionMatch = questionBlock.match(/\*\*Question:\*\* ([\s\S]*?)(?=\n\n|\*\*Answer:\*\*|\*\*Explanation:\*\*|- \[ \])/)
+      // Extract question text - handle the actual format (no **Question:** marker)
+      console.log(`🔍 QuizRenderer: Looking for question text...`)
+      // Remove the "## Question X" header first
+      const contentWithoutHeader = questionBlock.replace(/^## Question \d+\n/, '')
+      // Extract text until we hit the first option or end
+      const questionMatch = contentWithoutHeader.match(/^([\s\S]*?)(?=\n- [A-D]\)|$)/)
       const question = questionMatch ? questionMatch[1].trim() : ''
-
-      // Extract options for MCQ and True/False
-      const options: string[] = []
-      if (type === 'mcq' || type === 'true_false') {
-        const optionMatches = questionBlock.match(/- \[ \] (.+)/g)
-        if (optionMatches) {
-          options.push(...optionMatches.map(match => match.replace('- [ ] ', '')))
-        }
+      console.log(`✅ QuizRenderer: Question text:`, question ? 'Found' : 'NOT FOUND')
+      if (question) {
+        console.log(`📝 QuizRenderer: Question content:`, question)
       }
 
-      // Extract correct answer
-      const answerMatch = questionBlock.match(/\*\*Answer:\*\* ([\s\S]*?)(?=\n\n|\*\*Explanation:\*\*|$)/)
-      const correct_answer = answerMatch ? answerMatch[1].trim() : ''
+      // Extract options for MCQ and True/False
+      console.log(`🔍 QuizRenderer: Looking for options...`)
+      const options: string[] = []
+      if (type === 'mcq' || type === 'true_false') {
+        // Look for options in format "- A) text" or "- B) text"
+        const optionMatches = questionBlock.match(/- [A-D]\) (.+)/g)
+        if (optionMatches) {
+          options.push(...optionMatches.map(match => match.replace(/- [A-D]\) /, '')))
+        }
+        console.log(`✅ QuizRenderer: Found ${options.length} options:`, options)
+      } else {
+        console.log(`✅ QuizRenderer: No options needed for type:`, type)
+      }
+
+      // Extract correct answer - look for it after the options
+      console.log(`🔍 QuizRenderer: Looking for correct answer...`)
+      // For now, we'll need to infer the correct answer or look for a different pattern
+      // The current format doesn't seem to have explicit **Answer:** markers
+      const correct_answer = '' // We'll need to handle this differently
+      console.log(`✅ QuizRenderer: Correct answer:`, correct_answer ? 'Found' : 'NOT FOUND - Need to implement answer detection')
+      if (correct_answer) {
+        console.log(`📝 QuizRenderer: Answer content:`, correct_answer)
+      }
 
       // Extract explanation
+      console.log(`🔍 QuizRenderer: Looking for explanation...`)
       const explanationMatch = questionBlock.match(/\*\*Explanation:\*\* ([\s\S]*?)(?=\n\n|$)/)
       const explanation = explanationMatch ? explanationMatch[1].trim() : ''
+      console.log(`✅ QuizRenderer: Explanation:`, explanation ? 'Found' : 'Not provided')
 
       // Validate that we have the essential data
       if (!question) {
-        console.warn(`Question ${questionNumber} has no question text`)
+        console.error(`❌ QuizRenderer: Question ${questionNumber} has no question text - this will cause parsing to fail`)
+        console.error(`❌ QuizRenderer: Question block that failed:`, questionBlock)
         return null
       }
 
-      return {
+      if (!correct_answer) {
+        console.warn(`⚠️ QuizRenderer: Question ${questionNumber} has no correct answer - quiz will work but won't show correct answers`)
+      }
+
+      const result = {
         id: `q${questionNumber}`,
         type,
         question,
@@ -161,8 +241,13 @@ export default function QuizRenderer({ content }: QuizRendererProps) {
         correct_answer,
         explanation
       }
+      
+      console.log(`✅ QuizRenderer: Successfully parsed question ${questionNumber}:`, result)
+      return result
     } catch (error) {
-      console.error('Error parsing question:', error)
+      console.error(`💥 QuizRenderer: Exception parsing question ${questionNumber}:`, error)
+      console.error(`💥 QuizRenderer: Error stack:`, error.stack)
+      console.error(`💥 QuizRenderer: Question block that caused error:`, questionBlock)
       return null
     }
   }
