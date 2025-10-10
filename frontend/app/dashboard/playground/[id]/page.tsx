@@ -1437,6 +1437,13 @@ export default function AgentPlaygroundPage() {
                               value={editInput}
                               onChange={(e) => setEditInput(e.target.value)}
                               className="w-full rounded-lg p-2 border text-sm"
+                              spellCheck={false}
+                              autoComplete="off"
+                              autoCorrect="off"
+                              autoCapitalize="off"
+                              data-gramm="false"
+                              data-gramm_editor="false"
+                              data-enable-grammarly="false"
                             />
                             <div className="flex gap-2 mt-2">
                               <button
@@ -1585,6 +1592,9 @@ export default function AgentPlaygroundPage() {
                   autoComplete="off"
                   autoCorrect="off"
                   autoCapitalize="off"
+                  data-gramm="false"
+                  data-gramm_editor="false"
+                  data-enable-grammarly="false"
                 />
                 
                 {/* Send and Audio buttons positioned absolutely */}
