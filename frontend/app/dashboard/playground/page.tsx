@@ -242,7 +242,7 @@ export default function PlaygroundPage() {
                 <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
                   <Link
                     href={`/dashboard/playground/${agent.id}`}
-                    className={`flex-1 inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                    className={`flex-1 inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-full text-white transition-colors ${
                       agent.is_active
                         ? 'text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
                         : 'text-gray-400 bg-gray-100 cursor-not-allowed'
@@ -253,11 +253,11 @@ export default function PlaygroundPage() {
                     })}
                   >
                     <PlayIcon className="w-4 h-4 mr-2" />
-                    {agent.is_active ? 'Test Assistant' : 'Inactive'}
+                    {agent.is_active ? 'Run Assistant' : 'Inactive'}
                   </Link>
                   <Link
                     href={`/dashboard/agents/${agent.id}`}
-                    className="inline-flex items-center justify-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                    className="inline-flex items-center justify-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
                   >
                     Configure
                   </Link>
@@ -278,7 +278,7 @@ export default function PlaygroundPage() {
         <h3 className="text-lg font-semibold text-blue-900 mb-2">How to use the playground</h3>
         <ul className="text-sm text-blue-800 space-y-1">
           <li>• Select an active assistant from the list above</li>
-          <li>• Click "Test Assistant" to start a conversation</li>
+          <li>• Click "Run Assistant" to start a conversation</li>
           <li>• Your assistant will use its configured capabilities and knowledge</li>
           <li>• Test different queries to see how your assistant responds</li>
           <li>• Use this to refine your assistant's behavior and capabilities</li>
