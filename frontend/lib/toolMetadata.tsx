@@ -433,6 +433,15 @@ export const TOOL_METADATA: Record<string, ToolMetadata> = {
     category: 'Education',
     toolType: 'Function',
     brandColor: '#4F46E5'
+  },
+  project_management_tool: {
+    displayName: 'Project Management Tool',
+    icon: UserGroupIcon,
+    logo: 'https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/asana.svg',
+    description: 'Comprehensive project management tool for AI agents. Create and manage projects, tasks, time tracking, team collaboration, and project analytics. Supports project templates, milestone tracking, budget management, and detailed reporting.',
+    category: 'Productivity',
+    toolType: 'Function',
+    brandColor: '#3B82F6'
   }
 }
 

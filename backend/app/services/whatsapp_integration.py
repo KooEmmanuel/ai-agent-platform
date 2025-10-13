@@ -77,7 +77,8 @@ class WhatsAppIntegrationService:
                 agent=agent,
                 user_message=message_body,
                 conversation_history=[],
-                session_id=f"whatsapp_{phone_number}"
+                session_id=f"whatsapp_{phone_number}",
+                integration_id=integration.id
             )
             
             # Send response back to WhatsApp

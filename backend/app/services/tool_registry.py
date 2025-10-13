@@ -49,7 +49,8 @@ from marketplace_tools import (
     TelegramTool,
     GoogleSuiteTool,
     YouTubeTranscriptTool,
-    QuizTool
+    QuizTool,
+    ProjectManagementTool
 )
 
 logger = logging.getLogger(__name__)
@@ -128,6 +129,9 @@ class ToolRegistry:
             
             # Education tools
             'quiz_tool': QuizTool,
+            
+            # Project Management
+            'project_management_tool': ProjectManagementTool,
         }
         
         # Tool name aliases for backward compatibility
@@ -187,6 +191,7 @@ class ToolRegistry:
             'mongodb_advanced_tool': 'mongodb_advanced',
             'pdf_generator_tool': 'pdf_generator',
             'website_knowledge_base_tool': 'website_knowledge_base',
+            'project_management_tool': 'project_management_tool',
         }
         
         # Database tool name mappings (database names to registry names)
@@ -210,6 +215,7 @@ class ToolRegistry:
             'ChromaDB Tool': 'chromadb_tool',
             'MongoDB Advanced': 'mongodb_advanced',
             'PDF Generator': 'pdf_generator',
+            'Project Management Tool': 'project_management_tool',
         }
     
     def get_tool_class(self, tool_name: str) -> Optional[Type]:

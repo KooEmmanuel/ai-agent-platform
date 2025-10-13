@@ -1151,6 +1151,71 @@ export const TOOL_DOCS: Record<string, ToolDoc> = {
       'Generate the quiz and review the questions',
       'Use the quiz in your educational content or assessments'
     ]
+  },
+  project_management_tool: {
+    name: 'Project Management Tool',
+    description: 'Comprehensive project management tool for AI agents. Create and manage projects, tasks, time tracking, team collaboration, and project analytics.',
+    category: 'Productivity',
+    toolType: 'Function',
+    icon: '👥',
+    overview: 'The Project Management Tool enables AI agents to handle complete project management workflows. It supports project creation, task management, time tracking, team collaboration, and detailed analytics. Perfect for automating business processes and project workflows.',
+    features: [
+      'Create and manage projects with templates',
+      'Task creation, assignment, and tracking',
+      'Time tracking with billable hours',
+      'Project templates for common workflows',
+      'Team collaboration and task assignment',
+      'Progress monitoring and analytics',
+      'Budget and cost tracking',
+      'Milestone management',
+      'Project reporting and insights'
+    ],
+    useCases: [
+      'Automate project creation from templates',
+      'Manage task assignments and deadlines',
+      'Track time and billable hours',
+      'Monitor project progress and budgets',
+      'Generate project reports and analytics',
+      'Handle team collaboration workflows',
+      'Create project milestones and checkpoints',
+      'Manage multiple concurrent projects'
+    ],
+    configuration: [
+      {
+        field: 'api_base_url',
+        description: 'Base URL for the project management API',
+        required: true,
+        type: 'string'
+      },
+      {
+        field: 'auth_token',
+        description: 'Authentication token for API access',
+        required: true,
+        type: 'string'
+      },
+      {
+        field: 'user_id',
+        description: 'User ID for project ownership',
+        required: true,
+        type: 'number'
+      },
+      {
+        field: 'integration_id',
+        description: 'Integration ID for project management platform',
+        required: false,
+        type: 'number'
+      }
+    ],
+    setupSteps: [
+      'Configure the API base URL for your project management system',
+      'Set up authentication token for API access',
+      'Specify your user ID for project ownership',
+      'Optionally set integration ID for platform-specific features',
+      'Test the connection by creating a sample project',
+      'Configure project templates for your workflows',
+      'Set up team members and permissions',
+      'Start automating your project management processes'
+    ]
   }
 }
 
@@ -1162,7 +1227,10 @@ export const getCategoryIcon = (category: string): string => {
     case 'Scheduling': return '📅'
     case 'Communication': return '📧'
     case 'Integration': return '🔗'
+    case 'Productivity': return '⚡'
     case 'Education': return '🎓'
+    case 'Content Analysis': return '📝'
+    case 'Automation': return '🤖'
     default: return '🛠️'
   }
 }

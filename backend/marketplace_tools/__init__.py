@@ -41,6 +41,7 @@ from .web_automation_tool import WebAutomationTool
 from .google_suite_tool import GoogleSuiteTool
 from .youtube_transcript_tool import YouTubeTranscriptTool
 from .quiz_tool import QuizTool
+from .project_management_tool import ProjectManagementTool
 
 __all__ = [
     'WebSearchTool',
@@ -78,5 +79,6 @@ __all__ = [
     'WebAutomationTool',
     'GoogleSuiteTool',
     'YouTubeTranscriptTool',
-    'QuizTool'
+    'QuizTool',
+    'ProjectManagementTool'
 ] 

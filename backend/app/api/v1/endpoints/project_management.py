@@ -2,7 +2,8 @@
 Project Management Integration Endpoints
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, or_, func, desc
 from sqlalchemy.orm import selectinload
@@ -19,6 +20,30 @@ from app.core.database import (
 from app.services.project_template_service import ProjectTemplateService
 
 router = APIRouter()
+
+async def get_user_for_tool(
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False)),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get user for internal tool calls or regular authentication"""
+    # Check if this is an internal tool call
+    if request.headers.get('X-Internal-Tool') == 'true':
+        user_id = request.headers.get('X-User-ID')
+        if user_id:
+            result = await db.execute(select(User).where(User.id == int(user_id)))
+            user = result.scalar_one_or_none()
+            if user:
+                return user
+    
+    # Fall back to regular authentication
+    if credentials:
+        return await get_current_user(credentials, db)
+    else:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required"
+        )
 
 # Pydantic Models
 class ProjectCreate(BaseModel):
@@ -154,7 +179,7 @@ class ProjectFromTemplateCreate(BaseModel):
 @router.post("/projects", response_model=ProjectResponse)
 async def create_project(
     project_data: ProjectCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_user_for_tool),
     db: AsyncSession = Depends(get_db)
 ):
     """Create a new project"""
@@ -229,7 +254,7 @@ async def create_project(
 async def get_projects(
     integration_id: Optional[int] = Query(None),
     status: Optional[str] = Query(None),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_user_for_tool),
     db: AsyncSession = Depends(get_db)
 ):
     """Get user's projects"""
@@ -274,7 +299,7 @@ async def get_projects(
 @router.get("/projects/{project_id}", response_model=ProjectResponse)
 async def get_project(
     project_id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_user_for_tool),
     db: AsyncSession = Depends(get_db)
 ):
     """Get a specific project"""
@@ -319,7 +344,7 @@ async def get_project(
 async def update_project(
     project_id: int,
     project_data: ProjectUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_user_for_tool),
     db: AsyncSession = Depends(get_db)
 ):
     """Update a project"""
@@ -371,7 +396,7 @@ async def update_project(
 @router.delete("/projects/{project_id}", response_model=dict)
 async def delete_project(
     project_id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_user_for_tool),
     db: AsyncSession = Depends(get_db)
 ):
     """Delete a project"""
@@ -406,7 +431,7 @@ async def delete_project(
 @router.post("/tasks", response_model=TaskResponse)
 async def create_task(
     task_data: TaskCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_user_for_tool),
     db: AsyncSession = Depends(get_db)
 ):
     """Create a new task"""
@@ -469,9 +494,9 @@ async def create_task(
 @router.get("/projects/{project_id}/tasks", response_model=List[TaskResponse])
 async def get_project_tasks(
     project_id: int,
-    status: Optional[str] = Query(None),
+    task_status: Optional[str] = Query(None),
     assignee_id: Optional[int] = Query(None),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_user_for_tool),
     db: AsyncSession = Depends(get_db)
 ):
     """Get tasks for a project"""
@@ -491,8 +516,8 @@ async def get_project_tasks(
     
     query = select(ProjectTask).where(ProjectTask.project_id == project_id)
     
-    if status:
-        query = query.where(ProjectTask.status == status)
+    if task_status:
+        query = query.where(ProjectTask.status == task_status)
     if assignee_id:
         query = query.where(ProjectTask.assignee_id == assignee_id)
     
@@ -532,7 +557,7 @@ async def get_project_tasks(
 async def update_task(
     task_id: int,
     task_data: TaskUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_user_for_tool),
     db: AsyncSession = Depends(get_db)
 ):
     """Update a task"""
@@ -585,7 +610,7 @@ async def update_task(
 @router.delete("/tasks/{task_id}")
 async def delete_task(
     task_id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_user_for_tool),
     db: AsyncSession = Depends(get_db)
 ):
     """Delete a task"""
@@ -612,7 +637,7 @@ async def delete_task(
 @router.post("/time-entries", response_model=TimeEntryResponse)
 async def create_time_entry(
     time_data: TimeEntryCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_user_for_tool),
     db: AsyncSession = Depends(get_db)
 ):
     """Create a time entry"""
@@ -688,7 +713,7 @@ async def create_time_entry(
 @router.delete("/time-entries/{time_entry_id}")
 async def delete_time_entry(
     time_entry_id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_user_for_tool),
     db: AsyncSession = Depends(get_db)
 ):
     """Delete a time entry"""
@@ -733,7 +758,7 @@ async def delete_time_entry(
 @router.post("/tasks/{task_id}/recalculate-hours")
 async def recalculate_task_hours(
     task_id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_user_for_tool),
     db: AsyncSession = Depends(get_db)
 ):
     """Manually recalculate and update task's actual_hours"""
@@ -776,7 +801,7 @@ async def get_project_time_entries(
     project_id: int,
     start_date: Optional[datetime] = Query(None),
     end_date: Optional[datetime] = Query(None),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_user_for_tool),
     db: AsyncSession = Depends(get_db)
 ):
     """Get time entries for a project"""
@@ -830,7 +855,7 @@ async def get_project_time_entries(
 @router.get("/projects/{project_id}/analytics")
 async def get_project_analytics(
     project_id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_user_for_tool),
     db: AsyncSession = Depends(get_db)
 ):
     """Get project analytics"""
@@ -936,7 +961,7 @@ async def get_project_template(template_id: str):
 @router.post("/projects/from-template", response_model=ProjectResponse)
 async def create_project_from_template(
     project_data: ProjectFromTemplateCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_user_for_tool),
     db: AsyncSession = Depends(get_db)
 ):
     """Create a new project from a template"""

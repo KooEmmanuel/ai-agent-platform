@@ -128,6 +128,17 @@ async def chat_with_agent_stream(
     agent_service = AgentService(db)
     conversation_history = await agent_service.get_conversation_history(conversation.id)
     
+    # Check if agent has a Project Management integration for tools that need it
+    from app.core.database import Integration
+    pm_integration_result = await db.execute(
+        select(Integration).where(
+            Integration.agent_id == agent_id,
+            Integration.platform == "project_management"
+        )
+    )
+    pm_integration = pm_integration_result.scalar_one_or_none()
+    integration_id = pm_integration.id if pm_integration else None
+    
     # Log conversation history for debugging
     print(f"📚 Conversation history loaded: {len(conversation_history)} messages")
     for i, msg in enumerate(conversation_history):
@@ -151,7 +162,8 @@ async def chat_with_agent_stream(
                 agent=agent,
                 user_message=message_data.message,
                 conversation_history=conversation_history,
-                session_id=session_id
+                session_id=session_id,
+                integration_id=integration_id
             ):
                 chunk_type = chunk.get("type")
                 content = chunk.get("content", "")
@@ -343,6 +355,17 @@ async def chat_with_agent(
     # Get conversation history for context
     conversation_history = await agent_service.get_conversation_history(conversation.id)
     
+    # Check if agent has a Project Management integration for tools that need it
+    from app.core.database import Integration
+    pm_integration_result = await db.execute(
+        select(Integration).where(
+            Integration.agent_id == agent_id,
+            Integration.platform == "project_management"
+        )
+    )
+    pm_integration = pm_integration_result.scalar_one_or_none()
+    integration_id = pm_integration.id if pm_integration else None
+    
     # Log conversation history for debugging
     print(f"📚 Conversation history loaded: {len(conversation_history)} messages")
     for i, msg in enumerate(conversation_history):
@@ -358,7 +381,8 @@ async def chat_with_agent(
         agent=agent,
         user_message=message_data.message,
         conversation_history=conversation_history,
-        session_id=session_id
+        session_id=session_id,
+        integration_id=integration_id
     )
     
     # Save agent response

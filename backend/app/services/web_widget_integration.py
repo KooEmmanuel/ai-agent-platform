@@ -287,7 +287,8 @@ class WebWidgetIntegrationService:
                 agent=agent,
                 user_message=f"Web chat from {user_id} on {domain}: {message}",
                 session_id=session_id,
-                user_id=integration.user_id  # Pass integration owner's user_id for file storage
+                user_id=integration.user_id,  # Pass integration owner's user_id for file storage
+                integration_id=integration.id  # Pass integration_id for tools that need it
             ):
                 chunk_type = chunk.get("type")
                 content = chunk.get("content", "")

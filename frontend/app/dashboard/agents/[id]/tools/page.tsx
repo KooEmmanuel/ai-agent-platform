@@ -179,6 +179,10 @@ export default function AgentToolsPage() {
     'Data',
     'Analytics',
     'Integration',
+    'Productivity',
+    'Education',
+    'Content Analysis',
+    'Automation',
     'Custom'
   ]
 

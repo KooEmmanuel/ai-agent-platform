@@ -35,6 +35,10 @@ const categories = [
   'Data',
   'Analytics',
   'Integration',
+  'Productivity',
+  'Education',
+  'Content Analysis',
+  'Automation',
   'Custom'
 ]
 

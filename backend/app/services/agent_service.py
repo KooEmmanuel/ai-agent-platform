@@ -51,7 +51,8 @@ class AgentService:
         user_message: str, 
         conversation_history: List[Dict[str, str]] = None,
         session_id: str = None,
-        user_id: int = None
+        user_id: int = None,
+        integration_id: int = None
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """
         Execute an agent with streaming response
@@ -160,7 +161,7 @@ class AgentService:
                 messages.append(assistant_message)
                 
                 tools_used = await self._handle_tool_calls_stream(
-                    agent, assistant_message["tool_calls"], messages, user_id
+                    agent, assistant_message["tool_calls"], messages, user_id, integration_id
                 )
                 
                 # Make a follow-up streaming call to get the final response after tool execution
@@ -198,7 +199,8 @@ class AgentService:
         user_message: str, 
         conversation_history: List[Dict[str, str]] = None,
         session_id: str = None,
-        user_id: int = None
+        user_id: int = None,
+        integration_id: int = None
     ) -> Tuple[str, List[str], float]:
         """
         Execute an agent with the given message and return response, tools used, and cost
@@ -303,7 +305,7 @@ class AgentService:
                 })
                 
                 tools_used = await self._handle_tool_calls(
-                    agent, assistant_message.tool_calls, messages, user_id
+                    agent, assistant_message.tool_calls, messages, user_id, integration_id
                 )
                 
                 # Make a follow-up call to get the final response after tool execution
@@ -703,7 +705,8 @@ class AgentService:
         agent: Agent, 
         tool_calls: List[Any], 
         messages: List[Dict[str, str]],
-        user_id: int = None
+        user_id: int = None,
+        integration_id: int = None
     ) -> List[str]:
         """Handle tool calls from the AI model"""
         tools_used = []
@@ -721,7 +724,7 @@ class AgentService:
             start_time = time.time()
             try:
                 # Execute the tool using the registry
-                tool_result = await self._execute_tool(tool_name, tool_args, agent, user_id)
+                tool_result = await self._execute_tool(tool_name, tool_args, agent, user_id, integration_id)
                 execution_time = time.time() - start_time
                 
                 # Log successful tool execution
@@ -789,7 +792,8 @@ class AgentService:
         agent: Agent, 
         tool_calls: List[Dict], 
         messages: List[Dict[str, str]],
-        user_id: int = None
+        user_id: int = None,
+        integration_id: int = None
     ) -> List[str]:
         """Handle tool calls with streaming updates"""
         tools_used = []
@@ -804,7 +808,7 @@ class AgentService:
                 
                 # Execute tool
                 logger.info(f"🔄 Starting tool execution: {tool_name}")
-                tool_result = await self._execute_tool(tool_name, arguments, agent, user_id)
+                tool_result = await self._execute_tool(tool_name, arguments, agent, user_id, integration_id)
                 logger.info(f"✅ Tool execution completed: {tool_name}")
                 
                 # Add tool result to messages
@@ -841,7 +845,7 @@ class AgentService:
         
         return tools_used
 
-    async def _execute_tool(self, tool_name: str, arguments: str, agent: Agent = None, user_id: int = None) -> str:
+    async def _execute_tool(self, tool_name: str, arguments: str, agent: Agent = None, user_id: int = None, integration_id: int = None) -> str:
         """Execute a specific tool using the tool registry"""
         try:
             args = json.loads(arguments) if isinstance(arguments, str) else arguments
@@ -950,6 +954,10 @@ class AgentService:
                 tool_params['user_id'] = user_id
             elif agent and hasattr(agent, 'user_id'):
                 tool_params['user_id'] = agent.user_id
+            
+            # Add integration_id to tool_params for tools that need it (like Project Management Tool)
+            if integration_id:
+                tool_params['integration_id'] = integration_id
             
             result = await tool_registry.execute_tool(
                 tool_name=sanitized_tool_name,
