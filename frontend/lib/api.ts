@@ -1099,6 +1099,115 @@ class ApiClient {
   }> {
     return this.request(`/files/${fileId}/info`)
   }
+
+  // Project Management API methods
+  async getProjects(integrationId?: number, status?: string) {
+    const params = new URLSearchParams()
+    if (integrationId) params.append('integration_id', integrationId.toString())
+    if (status) params.append('status', status)
+    
+    const queryString = params.toString()
+    return this.request(`/project-management/projects${queryString ? `?${queryString}` : ''}`)
+  }
+
+  async getProject(projectId: number) {
+    return this.request(`/project-management/projects/${projectId}`)
+  }
+
+  async createProject(projectData: any) {
+    return this.request('/project-management/projects', { 
+      method: 'POST', 
+      body: JSON.stringify(projectData) 
+    })
+  }
+
+  async updateProject(projectId: number, projectData: any) {
+    return this.request(`/project-management/projects/${projectId}`, { 
+      method: 'PUT', 
+      body: JSON.stringify(projectData) 
+    })
+  }
+
+  async deleteProject(projectId: number) {
+    return this.request(`/project-management/projects/${projectId}`, { method: 'DELETE' })
+  }
+
+  async getProjectTasks(projectId: number, status?: string, assigneeId?: number) {
+    const params = new URLSearchParams()
+    if (status) params.append('status', status)
+    if (assigneeId) params.append('assignee_id', assigneeId.toString())
+    
+    const queryString = params.toString()
+    return this.request(`/project-management/projects/${projectId}/tasks${queryString ? `?${queryString}` : ''}`)
+  }
+
+  async createTask(taskData: any) {
+    return this.request('/project-management/tasks', { 
+      method: 'POST', 
+      body: JSON.stringify(taskData) 
+    })
+  }
+
+  async updateTask(taskId: number, taskData: any) {
+    return this.request(`/project-management/tasks/${taskId}`, { 
+      method: 'PUT', 
+      body: JSON.stringify(taskData) 
+    })
+  }
+
+  async deleteTask(taskId: number) {
+    return this.request(`/project-management/tasks/${taskId}`, { method: 'DELETE' })
+  }
+
+  async createTimeEntry(timeData: any) {
+    return this.request('/project-management/time-entries', { 
+      method: 'POST', 
+      body: JSON.stringify(timeData) 
+    })
+  }
+
+  async deleteTimeEntry(timeEntryId: number) {
+    return this.request(`/project-management/time-entries/${timeEntryId}`, { method: 'DELETE' })
+  }
+
+  async recalculateTaskHours(taskId: number) {
+    return this.request(`/project-management/tasks/${taskId}/recalculate-hours`, { method: 'POST' })
+  }
+
+  async getProjectTimeEntries(projectId: number, startDate?: string, endDate?: string) {
+    const params = new URLSearchParams()
+    if (startDate) params.append('start_date', startDate)
+    if (endDate) params.append('end_date', endDate)
+    
+    const queryString = params.toString()
+    return this.request(`/project-management/projects/${projectId}/time-entries${queryString ? `?${queryString}` : ''}`)
+  }
+
+  async getProjectAnalytics(projectId: number) {
+    return this.request(`/project-management/projects/${projectId}/analytics`)
+  }
+
+  // Template API methods
+  async getProjectTemplates() {
+    return this.request('/project-management/templates')
+  }
+
+  async getProjectTemplate(templateId: string) {
+    return this.request(`/project-management/templates/${templateId}`)
+  }
+
+  async createProjectFromTemplate(data: {
+    integration_id: number
+    name: string
+    template_id: string
+    start_date?: string
+    custom_settings?: any
+  }) {
+    return this.request('/project-management/projects/from-template', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  }
 }
 
 // Create a singleton instance with the correct base URL

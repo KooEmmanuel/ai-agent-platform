@@ -48,6 +48,14 @@ const platforms = [
     color: 'bg-blue-100 text-blue-800'
   },
   {
+    id: 'project_management',
+    name: 'Project Management',
+    icon: '📋',
+    description: 'AI-powered project management platform',
+    status: 'available',
+    color: 'bg-orange-100 text-orange-800'
+  },
+  {
     id: 'discord',
     name: 'Discord',
     icon: '🎮',
@@ -78,6 +86,14 @@ const platforms = [
     description: 'Embed assistant in your website',
     status: 'available',
     color: 'bg-indigo-100 text-indigo-800'
+  },
+  {
+    id: 'project_management',
+    name: 'Project Management',
+    icon: '📋',
+    description: 'AI-powered project management platform',
+    status: 'available',
+    color: 'bg-orange-100 text-orange-800'
   }
 ]
 
@@ -343,18 +359,56 @@ export default function IntegrationsPage() {
             >
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between space-y-3 sm:space-y-0">
                 <div className="flex items-start space-x-3 lg:space-x-4 flex-1 min-w-0">
+                  {/* Logo or Platform Icon */}
+                  <div className="flex-shrink-0">
+                    {integration.platform === 'project_management' && integration.config?.logo_url ? (
+                      <img 
+                        src={integration.config.logo_url} 
+                        alt="Integration Logo"
+                        className="w-8 h-8 lg:w-10 lg:h-10 rounded-lg object-cover border border-gray-200"
+                        onError={(e) => {
+                          // Fallback to platform icon if logo fails to load
+                          e.currentTarget.style.display = 'none'
+                          const nextElement = e.currentTarget.nextElementSibling as HTMLElement
+                          if (nextElement) {
+                            nextElement.style.display = 'block'
+                          }
+                        }}
+                      />
+                    ) : null}
+                    <div 
+                      className={`w-8 h-8 lg:w-10 lg:h-10 rounded-lg flex items-center justify-center text-lg ${
+                        integration.platform === 'project_management' && integration.config?.logo_url 
+                          ? 'hidden' 
+                          : 'block'
+                      } ${getPlatformInfo(integration.platform).color || 'bg-gray-100 text-gray-600'}`}
+                    >
+                      {getPlatformInfo(integration.platform).icon}
+                    </div>
+                  </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2 space-y-1 sm:space-y-0 mb-1">
                       <h4 className="text-sm lg:text-lg font-medium text-gray-900 truncate">
-                        {integration.platform} Integration
+                        {integration.platform === 'project_management' && integration.config?.workspace_name
+                          ? integration.config.workspace_name
+                          : integration.platform === 'web' && integration.config?.widget_name
+                          ? integration.config.widget_name
+                          : `${getPlatformInfo(integration.platform).name} Integration`}
                       </h4>
-                      <span className={`inline-flex items-center px-2 py-0.5 lg:px-2.5 lg:py-0.5 rounded-full text-xs font-medium flex-shrink-0 w-fit ${
-                        integration.is_active 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {integration.is_active ? 'Active' : 'Inactive'}
-                      </span>
+                      <div className="flex items-center space-x-2">
+                        {integration.platform === 'project_management' && integration.config?.logo_url && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            🖼️ Logo
+                          </span>
+                        )}
+                        <span className={`inline-flex items-center px-2 py-0.5 lg:px-2.5 lg:py-0.5 rounded-full text-xs font-medium flex-shrink-0 w-fit ${
+                          integration.is_active 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {integration.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
                     </div>
                     <p className="text-xs lg:text-sm text-gray-600 mb-2 line-clamp-2">
                       {getPlatformInfo(integration.platform).description}
@@ -385,9 +439,11 @@ export default function IntegrationsPage() {
                     )}
                   </button>
                   <Link
-                    href={`/dashboard/integrations/${integration.id}`}
+                    href={integration.platform === 'project_management' 
+                      ? '/dashboard/integrations/project-management'
+                      : `/dashboard/integrations/${integration.id}`}
                     className="p-1.5 lg:p-2 text-gray-400 hover:text-blue-600 transition-colors"
-                    title="View Details"
+                    title={integration.platform === 'project_management' ? 'Open Dashboard' : 'View Details'}
                   >
                     <ArrowTopRightOnSquareIcon className="w-4 h-4 lg:w-5 lg:h-5" />
                   </Link>

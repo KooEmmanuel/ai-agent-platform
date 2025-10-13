@@ -672,4 +672,149 @@ class KnowledgeBaseDocument(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationship
-    collection = relationship("KnowledgeBaseCollection", back_populates="documents") 
+    collection = relationship("KnowledgeBaseCollection", back_populates="documents")
+
+# Project Management Models
+class Project(Base):
+    """Project Management - Projects"""
+    __tablename__ = "projects"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    integration_id = Column(Integer, ForeignKey("integrations.id"), nullable=False)
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    status = Column(String, default='active')  # 'active', 'completed', 'paused', 'cancelled'
+    priority = Column(String, default='medium')  # 'low', 'medium', 'high', 'urgent'
+    start_date = Column(DateTime, nullable=True)
+    end_date = Column(DateTime, nullable=True)
+    budget = Column(Float, nullable=True)
+    progress = Column(Float, default=0.0)  # 0-100 percentage
+    color = Column(String, nullable=True)  # UI color
+    icon = Column(String, nullable=True)  # UI icon
+    settings = Column(JSON, nullable=True)  # Project-specific settings
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    user = relationship("User")
+    integration = relationship("Integration")
+    tasks = relationship("ProjectTask", back_populates="project", cascade="all, delete-orphan")
+    team_members = relationship("ProjectTeamMember", back_populates="project", cascade="all, delete-orphan")
+    time_entries = relationship("TimeEntry", back_populates="project", cascade="all, delete-orphan")
+    milestones = relationship("ProjectMilestone", back_populates="project", cascade="all, delete-orphan")
+
+class ProjectTask(Base):
+    """Project Management - Tasks"""
+    __tablename__ = "project_tasks"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    parent_task_id = Column(Integer, ForeignKey("project_tasks.id"), nullable=True)  # For subtasks
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    status = Column(String, default='todo')  # 'todo', 'in_progress', 'review', 'completed', 'cancelled'
+    priority = Column(String, default='medium')  # 'low', 'medium', 'high', 'urgent'
+    assignee_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    due_date = Column(DateTime, nullable=True)
+    estimated_hours = Column(Float, nullable=True)
+    actual_hours = Column(Float, default=0.0)
+    progress = Column(Float, default=0.0)  # 0-100 percentage
+    tags = Column(JSON, nullable=True)  # Array of tags
+    attachments = Column(JSON, nullable=True)  # Array of file attachments
+    custom_fields = Column(JSON, nullable=True)  # Custom field values
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    project = relationship("Project", back_populates="tasks")
+    assignee = relationship("User")
+    parent_task = relationship("ProjectTask", remote_side=[id], back_populates="subtasks")
+    subtasks = relationship("ProjectTask", back_populates="parent_task", cascade="all, delete-orphan")
+    time_entries = relationship("TimeEntry", back_populates="task", cascade="all, delete-orphan")
+    comments = relationship("ProjectComment", back_populates="task", cascade="all, delete-orphan")
+
+class ProjectTeamMember(Base):
+    """Project Management - Team Members"""
+    __tablename__ = "project_team_members"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    role = Column(String, nullable=False)  # 'owner', 'manager', 'member', 'viewer'
+    permissions = Column(JSON, nullable=True)  # Specific permissions
+    joined_at = Column(DateTime, default=func.now())
+    
+    # Relationships
+    project = relationship("Project", back_populates="team_members")
+    user = relationship("User")
+
+class TimeEntry(Base):
+    """Project Management - Time Tracking"""
+    __tablename__ = "time_entries"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    task_id = Column(Integer, ForeignKey("project_tasks.id"), nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    description = Column(Text, nullable=True)
+    hours = Column(Float, nullable=False)
+    date = Column(DateTime, nullable=False)
+    is_billable = Column(Boolean, default=True)
+    hourly_rate = Column(Float, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    project = relationship("Project", back_populates="time_entries")
+    task = relationship("ProjectTask", back_populates="time_entries")
+    user = relationship("User")
+
+class ProjectMilestone(Base):
+    """Project Management - Milestones"""
+    __tablename__ = "project_milestones"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    due_date = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+    is_completed = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    project = relationship("Project", back_populates="milestones")
+
+class ProjectComment(Base):
+    """Project Management - Comments"""
+    __tablename__ = "project_comments"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    task_id = Column(Integer, ForeignKey("project_tasks.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    content = Column(Text, nullable=False)
+    attachments = Column(JSON, nullable=True)  # Array of file attachments
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    task = relationship("ProjectTask", back_populates="comments")
+    user = relationship("User")
+
+class ProjectTemplate(Base):
+    """Project Management - Templates"""
+    __tablename__ = "project_templates"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    template_data = Column(JSON, nullable=False)  # Project structure, tasks, etc.
+    is_public = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    user = relationship("User") 

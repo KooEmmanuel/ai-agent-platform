@@ -10,6 +10,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { FaWhatsapp, FaTelegramPlane } from 'react-icons/fa'
 import { MdMarkEmailUnread } from 'react-icons/md'
+import { FaProjectDiagram } from 'react-icons/fa'
 import Link from 'next/link'
 import { apiClient } from '../../../../lib/api'
 import { useToast } from '../../../../components/ui/Toast'
@@ -80,6 +81,22 @@ const platforms = [
       { name: 'button_stroke_color', label: 'Button Stroke Color', type: 'color', required: false, placeholder: '#000000' },
       { name: 'button_fill_color', label: 'Button Fill Color', type: 'color', required: false, placeholder: '#3B82F6' }
     ]
+  },
+  {
+    id: 'project_management',
+    name: 'Project Management',
+    icon: <FaProjectDiagram className="w-8 h-8 text-orange-500" />,
+    description: 'AI-powered project management platform',
+    status: 'available',
+    config_fields: [
+      { name: 'workspace_name', label: 'Workspace Name', type: 'text', required: true, placeholder: 'My Project Workspace' },
+      { name: 'logo_url', label: 'Logo URL', type: 'url', required: false, placeholder: 'https://example.com/logo.png' },
+      { name: 'default_project_template', label: 'Default Project Template', type: 'select', required: false, options: ['software_development', 'marketing_campaign', 'event_planning', 'research_project', 'custom'], placeholder: 'Choose a template' },
+      { name: 'auto_assign_tasks', label: 'Auto-assign tasks based on skills', type: 'checkbox', required: false },
+      { name: 'enable_time_tracking', label: 'Enable time tracking', type: 'checkbox', required: false },
+      { name: 'enable_budget_tracking', label: 'Enable budget tracking', type: 'checkbox', required: false },
+      { name: 'notification_preferences', label: 'Notification Preferences', type: 'select', required: false, options: ['email', 'in_app', 'both', 'none'], placeholder: 'Choose notification method' }
+    ]
   }
 ]
 
@@ -108,9 +125,25 @@ export default function CreateIntegrationPage() {
     fetchAgents()
   }, [])
 
+  // Set default values when platform is selected
+  useEffect(() => {
+    if (selectedPlatform === 'project_management') {
+      setConfig({
+        workspace_name: 'My Project Workspace',
+        logo_url: '',
+        auto_assign_tasks: false,
+        enable_time_tracking: true,
+        enable_budget_tracking: true,
+        notification_preferences: 'email'
+      })
+    } else {
+      setConfig({})
+    }
+  }, [selectedPlatform])
+
   const selectedPlatformData = platforms.find(p => p.id === selectedPlatform)
 
-  const handleConfigChange = (fieldName: string, value: string) => {
+  const handleConfigChange = (fieldName: string, value: string | boolean) => {
     setConfig(prev => ({ ...prev, [fieldName]: value }))
   }
 
@@ -147,9 +180,13 @@ export default function CreateIntegrationPage() {
         duration: 3000
       })
       
-      // Redirect to integrations page after a short delay
+      // Redirect based on platform type
       setTimeout(() => {
-        window.location.href = '/dashboard/integrations'
+        if (selectedPlatform === 'project_management') {
+          window.location.href = '/dashboard/integrations/project-management'
+        } else {
+          window.location.href = '/dashboard/integrations'
+        }
       }, 1500)
     } catch (error: any) {
       console.error('Error creating integration:', error)
@@ -347,9 +384,11 @@ export default function CreateIntegrationPage() {
                 <div className="space-y-4">
                   {selectedPlatformData.config_fields.map((field) => (
                     <div key={field.name}>
-                      <label htmlFor={field.name} className="block text-sm font-medium text-gray-700">
-                        {field.label} {field.required && '*'}
-                      </label>
+                      {field.type !== 'checkbox' && (
+                        <label htmlFor={field.name} className="block text-sm font-medium text-gray-700">
+                          {field.label} {field.required && '*'}
+                        </label>
+                      )}
                       {field.type === 'select' ? (
                         <select
                           id={field.name}
@@ -358,23 +397,82 @@ export default function CreateIntegrationPage() {
                           onChange={(e) => handleConfigChange(field.name, e.target.value)}
                           className="mt-1 block w-full shadow-[0_2px_10px_rgba(59,130,246,0.1)] rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:shadow-[0_4px_20px_rgba(59,130,246,0.2)]"
                         >
-                          <option value="">Select {field.label.toLowerCase()}</option>
+                          <option value="">{field.placeholder || `Select ${field.label.toLowerCase()}`}</option>
                           {field.options?.map((option) => (
                             <option key={option} value={option}>
-                              {option.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                              {option.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                             </option>
                           ))}
                         </select>
+                      ) : field.type === 'checkbox' ? (
+                        <div className={`mt-1 flex items-center justify-between p-4 rounded-lg border transition-all duration-200 ${
+                          config[field.name] 
+                            ? 'bg-blue-50 border-blue-200' 
+                            : 'bg-gray-50 border-gray-200'
+                        }`}>
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2">
+                              <div className="flex items-center space-x-2">
+                                {field.name === 'auto_assign_tasks' && <span className="text-blue-500">🎯</span>}
+                                {field.name === 'enable_time_tracking' && <span className="text-blue-500">⏱️</span>}
+                                {field.name === 'enable_budget_tracking' && <span className="text-blue-500">💰</span>}
+                                <label htmlFor={field.name} className="text-sm font-medium text-gray-700 cursor-pointer">
+                                  {field.label}
+                                </label>
+                              </div>
+                              {config[field.name] && (
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                  ✓ Enabled
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {field.name === 'auto_assign_tasks' && 'Automatically assign tasks to team members based on their skills and availability'}
+                              {field.name === 'enable_time_tracking' && 'Track time spent on tasks and projects for better productivity insights'}
+                              {field.name === 'enable_budget_tracking' && 'Monitor project budgets and expenses in real-time'}
+                            </p>
+                          </div>
+                          <div className="ml-4">
+                            <button
+                              type="button"
+                              onClick={() => handleConfigChange(field.name, !config[field.name])}
+                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                                config[field.name] ? 'bg-blue-600' : 'bg-gray-200'
+                              }`}
+                            >
+                              <span
+                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm ${
+                                  config[field.name] ? 'translate-x-6' : 'translate-x-1'
+                                }`}
+                              />
+                            </button>
+                          </div>
+                        </div>
                       ) : (
-                        <input
-                          type={field.type}
-                          id={field.name}
-                          required={field.required}
-                          value={config[field.name] || (field.type === 'color' ? '#3B82F6' : '')}
-                          onChange={(e) => handleConfigChange(field.name, e.target.value)}
-                          className="mt-1 block w-full shadow-[0_2px_10px_rgba(59,130,246,0.1)] rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:shadow-[0_4px_20px_rgba(59,130,246,0.2)]"
-                          placeholder={field.placeholder || (field.type === 'color' ? '#3B82F6' : `Enter ${field.label.toLowerCase()}`)}
-                        />
+                        <div>
+                          <input
+                            type={field.type}
+                            id={field.name}
+                            required={field.required}
+                            value={config[field.name] || (field.type === 'color' ? '#3B82F6' : '')}
+                            onChange={(e) => handleConfigChange(field.name, e.target.value)}
+                            className="mt-1 block w-full shadow-[0_2px_10px_rgba(59,130,246,0.1)] rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:shadow-[0_4px_20px_rgba(59,130,246,0.2)]"
+                            placeholder={field.placeholder || (field.type === 'color' ? '#3B82F6' : `Enter ${field.label.toLowerCase()}`)}
+                          />
+                          {field.name === 'logo_url' && config[field.name] && (
+                            <div className="mt-2 flex items-center space-x-3">
+                              <img 
+                                src={config[field.name]} 
+                                alt="Logo Preview"
+                                className="w-8 h-8 rounded-lg object-cover border border-gray-200"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none'
+                                }}
+                              />
+                              <span className="text-xs text-gray-500">Logo preview</span>
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
                   ))}

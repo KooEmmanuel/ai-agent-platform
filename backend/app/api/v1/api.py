@@ -3,7 +3,7 @@ Main API router for v1 endpoints
 """
 
 from fastapi import APIRouter
-from app.api.v1.endpoints import auth, agents, tools, integrations, playground, credits, whatsapp, email, telegram, web_widget, analytics, users, notifications, billing, conversations, knowledge_base, files, admin, admin_auth, support
+from app.api.v1.endpoints import auth, agents, tools, integrations, playground, credits, whatsapp, email, telegram, web_widget, analytics, users, notifications, billing, conversations, knowledge_base, files, admin, admin_auth, support, project_management
 
 api_router = APIRouter()
 
@@ -26,4 +26,5 @@ api_router.include_router(knowledge_base.router, prefix="/knowledge-base", tags=
 api_router.include_router(files.router, prefix="/files", tags=["files"])
 api_router.include_router(admin_auth.router, prefix="/admin-auth", tags=["admin-authentication"])
 api_router.include_router(admin.router, prefix="/admin", tags=["admin"])
-api_router.include_router(support.router, prefix="/support", tags=["support"]) 
+api_router.include_router(support.router, prefix="/support", tags=["support"])
+api_router.include_router(project_management.router, prefix="/project-management", tags=["project-management"]) 
