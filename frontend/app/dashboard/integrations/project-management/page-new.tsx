@@ -98,7 +98,7 @@ export default function ProjectManagementPage() {
         // Fetch templates
         const templatesResponse = await apiClient.getProjectTemplates()
         console.log('Templates API response:', templatesResponse)
-        console.log('Templates count:', templatesResponse.length)
+        console.log('Templates count:', (templatesResponse as any[]).length)
         setTemplates(templatesResponse as any[])
 
         // Set default template from config
