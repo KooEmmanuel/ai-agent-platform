@@ -108,6 +108,8 @@ class ProjectManagementTool(BaseTool):
                 return await self._create_project_from_template(kwargs)
             elif action == 'get_project_analytics':
                 return await self._get_project_analytics(kwargs)
+            elif action == 'get_project_details':
+                return await self._get_project_details(kwargs)
             else:
                 return self._format_error(f"Unknown action: {action}")
                 
@@ -203,9 +205,12 @@ class ProjectManagementTool(BaseTool):
     
     async def _get_projects(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Get all projects."""
-        # Try to get integration_id from params or config
+        # Try to get integration_id from params, config, or agent's tool configuration
         integration_id = params.get('integration_id', self.integration_id)
+        
+        # If still no integration_id, try to find the project management integration for this user
         if not integration_id:
+            # This is a fallback - in practice, the integration_id should be passed from the agent service
             return self._format_error(
                 "Project Management integration is required. Please ensure you have a Project Management integration set up and the agent is configured to use it."
             )
@@ -331,8 +336,29 @@ class ProjectManagementTool(BaseTool):
     async def _get_tasks(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Get tasks for a project."""
         project_id = params.get('project_id')
+        
+        # If no project_id provided, try to get it automatically
         if not project_id:
-            return self._format_error("Project ID is required")
+            projects_result = await self._get_projects(params)
+            if projects_result.get('success'):
+                projects_data = projects_result.get('result', {})
+                projects = projects_data.get('projects', [])
+                if len(projects) == 1:
+                    # Auto-use the single project
+                    project_id = projects[0]['id']
+                    logger.info(f"🔍 Auto-selected project ID {project_id} for tasks retrieval")
+                elif len(projects) > 1:
+                    # Multiple projects - return list for user to choose
+                    project_list = [f"ID {p.get('id')}: {p.get('name')}" for p in projects]
+                    return self._format_error(
+                        f"Multiple projects found. Please specify project_id. Available projects: {', '.join(project_list)}"
+                    )
+                else:
+                    return self._format_error(
+                        "No projects found. Use 'create_project' or 'create_project_from_template' to create a project first."
+                    )
+            else:
+                return self._format_error("Could not retrieve projects to determine project_id")
         
         response = await self._make_request('GET', f'/project-management/projects/{project_id}/tasks')
         
@@ -341,7 +367,8 @@ class ProjectManagementTool(BaseTool):
             return self._format_success({
                 'tasks': tasks,
                 'count': len(tasks),
-                'message': f"Found {len(tasks)} tasks"
+                'project_id': project_id,
+                'message': f"Found {len(tasks)} tasks for project {project_id}"
             })
         elif response['status'] == 404:
             # Project not found - suggest checking available projects
@@ -456,8 +483,29 @@ class ProjectManagementTool(BaseTool):
     async def _get_time_entries(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Get time entries for a project."""
         project_id = params.get('project_id')
+        
+        # If no project_id provided, try to get it automatically
         if not project_id:
-            return self._format_error("Project ID is required")
+            projects_result = await self._get_projects(params)
+            if projects_result.get('success'):
+                projects_data = projects_result.get('result', {})
+                projects = projects_data.get('projects', [])
+                if len(projects) == 1:
+                    # Auto-use the single project
+                    project_id = projects[0]['id']
+                    logger.info(f"🔍 Auto-selected project ID {project_id} for time entries retrieval")
+                elif len(projects) > 1:
+                    # Multiple projects - return list for user to choose
+                    project_list = [f"ID {p.get('id')}: {p.get('name')}" for p in projects]
+                    return self._format_error(
+                        f"Multiple projects found. Please specify project_id. Available projects: {', '.join(project_list)}"
+                    )
+                else:
+                    return self._format_error(
+                        "No projects found. Use 'create_project' or 'create_project_from_template' to create a project first."
+                    )
+            else:
+                return self._format_error("Could not retrieve projects to determine project_id")
         
         response = await self._make_request('GET', f'/project-management/projects/{project_id}/time-entries')
         
@@ -471,7 +519,8 @@ class ProjectManagementTool(BaseTool):
                 'count': len(time_entries),
                 'total_hours': total_hours,
                 'billable_hours': billable_hours,
-                'message': f"Found {len(time_entries)} time entries ({total_hours} total hours)"
+                'project_id': project_id,
+                'message': f"Found {len(time_entries)} time entries ({total_hours} total hours) for project {project_id}"
             })
         elif response['status'] == 404:
             # Project not found - suggest checking available projects
@@ -580,6 +629,71 @@ class ProjectManagementTool(BaseTool):
         else:
             return self._format_error(f"Failed to get project analytics: {response['data']}")
     
+    async def _get_project_details(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Get comprehensive project details including tasks and time entries."""
+        project_id = params.get('project_id')
+        
+        # If no project_id provided, try to get it automatically
+        if not project_id:
+            projects_result = await self._get_projects(params)
+            if projects_result.get('success'):
+                projects_data = projects_result.get('result', {})
+                projects = projects_data.get('projects', [])
+                if len(projects) == 1:
+                    # Auto-use the single project
+                    project_id = projects[0]['id']
+                    logger.info(f"🔍 Auto-selected project ID {project_id} for project details retrieval")
+                elif len(projects) > 1:
+                    # Multiple projects - return list for user to choose
+                    project_list = [f"ID {p.get('id')}: {p.get('name')}" for p in projects]
+                    return self._format_error(
+                        f"Multiple projects found. Please specify project_id. Available projects: {', '.join(project_list)}"
+                    )
+                else:
+                    return self._format_error(
+                        "No projects found. Use 'create_project' or 'create_project_from_template' to create a project first."
+                    )
+            else:
+                return self._format_error("Could not retrieve projects to determine project_id")
+        
+        # Get project info
+        project_response = await self._make_request('GET', f'/project-management/projects/{project_id}')
+        if project_response['status'] != 200:
+            return self._format_error(f"Failed to get project: {project_response['data']}")
+        
+        # Get tasks
+        tasks_response = await self._make_request('GET', f'/project-management/projects/{project_id}/tasks')
+        tasks = tasks_response['data'] if tasks_response['status'] == 200 else []
+        
+        # Get time entries
+        time_response = await self._make_request('GET', f'/project-management/projects/{project_id}/time-entries')
+        time_entries = time_response['data'] if time_response['status'] == 200 else []
+        
+        # Calculate time statistics
+        total_hours = sum(entry.get('hours', 0) for entry in time_entries)
+        billable_hours = sum(entry.get('hours', 0) for entry in time_entries if entry.get('is_billable', False))
+        
+        # Calculate task statistics
+        task_status_counts = {}
+        for task in tasks:
+            status = task.get('status', 'unknown')
+            task_status_counts[status] = task_status_counts.get(status, 0) + 1
+        
+        return self._format_success({
+            'project': project_response['data'],
+            'tasks': tasks,
+            'time_entries': time_entries,
+            'statistics': {
+                'task_count': len(tasks),
+                'time_entry_count': len(time_entries),
+                'total_hours_logged': total_hours,
+                'billable_hours': billable_hours,
+                'task_status_breakdown': task_status_counts
+            },
+            'project_id': project_id,
+            'message': f"Retrieved complete project details for project {project_id}: {len(tasks)} tasks, {len(time_entries)} time entries ({total_hours} total hours)"
+        })
+    
     def get_tool_info(self) -> Dict[str, Any]:
         """Get tool information for agent integration."""
         return {
@@ -593,13 +707,13 @@ class ProjectManagementTool(BaseTool):
                             'create_project', 'get_projects', 'get_project', 'update_project', 'delete_project',
                             'create_task', 'get_tasks', 'get_task', 'update_task', 'delete_task',
                             'create_time_entry', 'get_time_entries', 'delete_time_entry',
-                            'get_templates', 'create_project_from_template', 'get_project_analytics'
+                            'get_templates', 'create_project_from_template', 'get_project_analytics', 'get_project_details'
                         ],
-                        'description': 'The action to perform. Start with get_projects to see available projects, or get_templates to see available templates for creating projects.'
+                        'description': 'The action to perform. Use get_project_details to get comprehensive project information including tasks and time entries. If no project_id is provided, the tool will automatically use the single available project.'
                     },
                     'project_id': {
                         'type': 'integer',
-                        'description': 'Project ID for project-specific operations'
+                        'description': 'Project ID for project-specific operations. If not provided, the tool will automatically use the single available project.'
                     },
                     'task_id': {
                         'type': 'integer',
@@ -628,7 +742,7 @@ class ProjectManagementTool(BaseTool):
                     },
                     'status': {
                         'type': 'string',
-                        'enum': ['todo', 'in_progress', 'review', 'completed', 'cancelled'],
+                        'enum': ['pending', 'in_progress', 'completed', 'closed', 'achieved'],
                         'description': 'Task status'
                     },
                     'due_date': {

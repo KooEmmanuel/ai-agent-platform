@@ -958,6 +958,36 @@ class AgentService:
             # Add integration_id to tool_params for tools that need it (like Project Management Tool)
             if integration_id:
                 tool_params['integration_id'] = integration_id
+            elif sanitized_tool_name == 'project_management_tool' and agent:
+                # For project management tool, try to get integration_id from agent's tool configuration
+                tool_integration_id = None
+                for tool_config in agent.tools:
+                    if tool_config.get('name') == 'project_management_tool':
+                        tool_integration_id = tool_config.get('custom_config', {}).get('integration_id')
+                        break
+                
+                if tool_integration_id:
+                    tool_params['integration_id'] = tool_integration_id
+                    logger.info(f"🔍 Auto-detected integration_id {tool_integration_id} for project management tool")
+                else:
+                    # If no integration_id in tool config, try to find the project management integration for this user
+                    try:
+                        from app.core.database import Integration
+                        result = await self.db.execute(
+                            select(Integration).where(
+                                Integration.user_id == agent.user_id,
+                                Integration.platform == 'project_management',
+                                Integration.is_active == True
+                            )
+                        )
+                        integration = result.scalar_one_or_none()
+                        if integration:
+                            tool_params['integration_id'] = integration.id
+                            logger.info(f"🔍 Auto-found project management integration_id {integration.id} for user {agent.user_id}")
+                        else:
+                            logger.warning(f"⚠️ No active project management integration found for user {agent.user_id}")
+                    except Exception as e:
+                        logger.error(f"❌ Error finding project management integration: {e}")
             
             result = await tool_registry.execute_tool(
                 tool_name=sanitized_tool_name,

@@ -713,7 +713,7 @@ class ProjectTask(Base):
     parent_task_id = Column(Integer, ForeignKey("project_tasks.id"), nullable=True)  # For subtasks
     title = Column(String, nullable=False)
     description = Column(Text, nullable=True)
-    status = Column(String, default='todo')  # 'todo', 'in_progress', 'review', 'completed', 'cancelled'
+    status = Column(String, default='pending')  # 'pending', 'in_progress', 'completed', 'closed', 'achieved'
     priority = Column(String, default='medium')  # 'low', 'medium', 'high', 'urgent'
     assignee_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     due_date = Column(DateTime, nullable=True)

@@ -72,6 +72,7 @@ export default function ProjectDetails({ project, onBack, onProjectUpdate }: Pro
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
+    status: 'pending',
     priority: 'medium',
     due_date: '',
     estimated_hours: '',
@@ -97,6 +98,7 @@ export default function ProjectDetails({ project, onBack, onProjectUpdate }: Pro
   const [showDeleteTimeEntryConfirm, setShowDeleteTimeEntryConfirm] = useState(false)
   const [timeEntryToDelete, setTimeEntryToDelete] = useState<{id: number, description: string} | null>(null)
   const [isCreatingTimeEntry, setIsCreatingTimeEntry] = useState(false)
+  const [statusFilter, setStatusFilter] = useState<string>('all')
   const { showToast } = useToast()
 
   useEffect(() => {
@@ -133,6 +135,7 @@ export default function ProjectDetails({ project, onBack, onProjectUpdate }: Pro
         project_id: project.id,
         title: newTask.title,
         description: newTask.description || undefined,
+        status: newTask.status,
         priority: newTask.priority,
         due_date: newTask.due_date ? new Date(newTask.due_date).toISOString() : undefined,
         estimated_hours: newTask.estimated_hours ? parseFloat(newTask.estimated_hours) : undefined,
@@ -142,9 +145,14 @@ export default function ProjectDetails({ project, onBack, onProjectUpdate }: Pro
       await apiClient.createTask(taskData)
       await fetchTasks()
       
+      // Refresh project data to get updated progress
+      const updatedProject = await apiClient.getProject(project.id) as Project
+      onProjectUpdate(updatedProject)
+      
       setNewTask({
         title: '',
         description: '',
+        status: 'pending',
         priority: 'medium',
         due_date: '',
         estimated_hours: '',
@@ -172,6 +180,10 @@ export default function ProjectDetails({ project, onBack, onProjectUpdate }: Pro
       await apiClient.updateTask(taskId, { status: newStatus })
       await fetchTasks()
       
+      // Refresh project data to get updated progress
+      const updatedProject = await apiClient.getProject(project.id) as Project
+      onProjectUpdate(updatedProject)
+      
       showToast({
         type: 'success',
         title: 'Task Updated',
@@ -198,6 +210,10 @@ export default function ProjectDetails({ project, onBack, onProjectUpdate }: Pro
     try {
       await apiClient.deleteTask(taskToDelete.id)
       await fetchTasks()
+      
+      // Refresh project data to get updated progress
+      const updatedProject = await apiClient.getProject(project.id) as Project
+      onProjectUpdate(updatedProject)
       
       setShowDeleteTaskConfirm(false)
       setTaskToDelete(null)
@@ -409,6 +425,7 @@ export default function ProjectDetails({ project, onBack, onProjectUpdate }: Pro
     setNewTask({
       title: task.title,
       description: task.description || '',
+      status: task.status,
       priority: task.priority,
       due_date: task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : '',
       estimated_hours: task.estimated_hours ? task.estimated_hours.toString() : '',
@@ -423,6 +440,7 @@ export default function ProjectDetails({ project, onBack, onProjectUpdate }: Pro
       const taskData = {
         title: newTask.title,
         description: newTask.description || undefined,
+        status: newTask.status,
         priority: newTask.priority,
         due_date: newTask.due_date ? new Date(newTask.due_date).toISOString() : undefined,
         estimated_hours: newTask.estimated_hours ? parseFloat(newTask.estimated_hours) : undefined,
@@ -432,18 +450,16 @@ export default function ProjectDetails({ project, onBack, onProjectUpdate }: Pro
       const response = await apiClient.updateTask(editingTask.id, taskData)
       console.log('Task update response:', response)
       
-      // Update task in local state
-      const updatedTasks = tasks.map(task => 
-        task.id === editingTask.id 
-          ? { ...task, ...taskData }
-          : task
-      )
-      setTasks(updatedTasks)
+      // Refresh tasks and project data
+      await fetchTasks()
+      const updatedProject = await apiClient.getProject(project.id) as Project
+      onProjectUpdate(updatedProject)
       
       setEditingTask(null)
       setNewTask({
         title: '',
         description: '',
+        status: 'pending',
         priority: 'medium',
         due_date: '',
         estimated_hours: '',
@@ -470,6 +486,7 @@ export default function ProjectDetails({ project, onBack, onProjectUpdate }: Pro
     setNewTask({
       title: '',
       description: '',
+      status: 'pending',
       priority: 'medium',
       due_date: '',
       estimated_hours: '',
@@ -482,6 +499,8 @@ export default function ProjectDetails({ project, onBack, onProjectUpdate }: Pro
       case 'completed': return 'bg-green-100 text-green-800'
       case 'in_progress': return 'bg-blue-100 text-blue-800'
       case 'pending': return 'bg-yellow-100 text-yellow-800'
+      case 'closed': return 'bg-gray-100 text-gray-800'
+      case 'achieved': return 'bg-purple-100 text-purple-800'
       case 'blocked': return 'bg-red-100 text-red-800'
       default: return 'bg-gray-100 text-gray-800'
     }
@@ -549,28 +568,33 @@ export default function ProjectDetails({ project, onBack, onProjectUpdate }: Pro
       </div>
 
       {/* Project Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
         <div className="bg-white rounded-xl p-3 sm:p-4 shadow-lg shadow-blue-200/50">
           <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-blue-600">{tasks.length}</div>
           <div className="text-xs sm:text-sm text-gray-600">Total Tasks</div>
         </div>
         <div className="bg-white rounded-xl p-3 sm:p-4 shadow-lg shadow-blue-200/50">
           <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-green-600">
-            {tasks.filter(t => t.status === 'completed').length}
-          </div>
-          <div className="text-xs sm:text-sm text-gray-600">Completed</div>
-        </div>
-        <div className="bg-white rounded-xl p-3 sm:p-4 shadow-lg shadow-blue-200/50">
-          <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-yellow-600">
-            {tasks.filter(t => t.status === 'in_progress').length}
-          </div>
-          <div className="text-xs sm:text-sm text-gray-600">In Progress</div>
-        </div>
-        <div className="bg-white rounded-xl p-3 sm:p-4 shadow-lg shadow-blue-200/50">
-          <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-600">
-            {Math.round((tasks.filter(t => t.status === 'completed').length / Math.max(tasks.length, 1)) * 100)}%
+            {Math.round(project.progress)}%
           </div>
           <div className="text-xs sm:text-sm text-gray-600">Progress</div>
+        </div>
+        <div className="bg-white rounded-xl p-3 sm:p-4 shadow-lg shadow-blue-200/50">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-xs sm:text-sm text-gray-600">Filter by Status</div>
+          </div>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="w-full px-2 py-1 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="all">All Tasks ({tasks.length})</option>
+            <option value="pending">Pending ({tasks.filter(t => t.status === 'pending').length})</option>
+            <option value="in_progress">In Progress ({tasks.filter(t => t.status === 'in_progress').length})</option>
+            <option value="completed">Completed ({tasks.filter(t => t.status === 'completed').length})</option>
+            <option value="achieved">Achieved ({tasks.filter(t => t.status === 'achieved').length})</option>
+            <option value="closed">Closed ({tasks.filter(t => t.status === 'closed').length})</option>
+          </select>
         </div>
       </div>
 
@@ -585,13 +609,20 @@ export default function ProjectDetails({ project, onBack, onProjectUpdate }: Pro
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
             <p className="mt-2 text-gray-600">Loading tasks...</p>
           </div>
-        ) : tasks.length === 0 ? (
+        ) : tasks.filter(task => statusFilter === 'all' || task.status === statusFilter).length === 0 ? (
           <div className="p-8 text-center">
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center">
               <FaCheckCircle className="w-8 h-8 text-blue-600" />
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No tasks yet</h3>
-            <p className="text-gray-600 mb-4">Get started by creating your first task</p>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              {statusFilter === 'all' ? 'No tasks yet' : `No ${statusFilter.replace('_', ' ')} tasks`}
+            </h3>
+            <p className="text-gray-600 mb-4">
+              {statusFilter === 'all' 
+                ? 'Get started by creating your first task' 
+                : `No tasks found with status "${statusFilter.replace('_', ' ')}". Try changing the filter or create a new task.`
+              }
+            </p>
             <button
               onClick={() => setShowCreateTask(true)}
               className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg shadow-lg shadow-blue-200/50 hover:from-blue-700 hover:to-indigo-700 transition-all duration-200"
@@ -601,16 +632,26 @@ export default function ProjectDetails({ project, onBack, onProjectUpdate }: Pro
           </div>
         ) : (
           <div className="divide-y divide-gray-100">
-            {tasks.map((task) => (
+            {tasks
+              .filter(task => statusFilter === 'all' || task.status === statusFilter)
+              .map((task) => (
               <div key={task.id} className="p-4 sm:p-6 hover:bg-gray-50 transition-colors">
                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between space-y-3 sm:space-y-0">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center space-x-3 mb-2">
                       <button
-                        onClick={() => updateTaskStatus(task.id, task.status === 'completed' ? 'pending' : 'completed')}
+                        onClick={() => {
+                          const nextStatus = task.status === 'completed' ? 'pending' : 
+                                           task.status === 'pending' ? 'in_progress' :
+                                           task.status === 'in_progress' ? 'completed' : 'pending'
+                          updateTaskStatus(task.id, nextStatus)
+                        }}
                         className="text-gray-400 hover:text-green-600 transition-colors flex-shrink-0"
+                        title={`Mark as ${task.status === 'completed' ? 'pending' : 
+                               task.status === 'pending' ? 'in progress' :
+                               task.status === 'in_progress' ? 'completed' : 'pending'}`}
                       >
-                        {task.status === 'completed' ? (
+                        {task.status === 'completed' || task.status === 'achieved' ? (
                           <FaCheckCircle className="w-5 h-5 text-green-600" />
                         ) : (
                           <FaCircle className="w-5 h-5" />
@@ -765,6 +806,21 @@ export default function ProjectDetails({ project, onBack, onProjectUpdate }: Pro
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                    <select
+                      value={newTask.status}
+                      onChange={(e) => setNewTask({ ...newTask, status: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="pending">Pending</option>
+                      <option value="in_progress">In Progress</option>
+                      <option value="completed">Completed</option>
+                      <option value="closed">Closed</option>
+                      <option value="achieved">Achieved</option>
+                    </select>
+                  </div>
+                  
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
                     <select
                       value={newTask.priority}
@@ -776,16 +832,16 @@ export default function ProjectDetails({ project, onBack, onProjectUpdate }: Pro
                       <option value="high">High</option>
                     </select>
                   </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
-                    <input
-                      type="date"
-                      value={newTask.due_date}
-                      onChange={(e) => setNewTask({ ...newTask, due_date: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+                  <input
+                    type="date"
+                    value={newTask.due_date}
+                    onChange={(e) => setNewTask({ ...newTask, due_date: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
                 </div>
                 
                 <div>
@@ -973,6 +1029,21 @@ export default function ProjectDetails({ project, onBack, onProjectUpdate }: Pro
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                    <select
+                      value={newTask.status}
+                      onChange={(e) => setNewTask({ ...newTask, status: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="pending">Pending</option>
+                      <option value="in_progress">In Progress</option>
+                      <option value="completed">Completed</option>
+                      <option value="closed">Closed</option>
+                      <option value="achieved">Achieved</option>
+                    </select>
+                  </div>
+                  
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
                     <select
                       value={newTask.priority}
@@ -985,16 +1056,16 @@ export default function ProjectDetails({ project, onBack, onProjectUpdate }: Pro
                       <option value="urgent">Urgent</option>
                     </select>
                   </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
-                    <input
-                      type="date"
-                      value={newTask.due_date}
-                      onChange={(e) => setNewTask({ ...newTask, due_date: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+                  <input
+                    type="date"
+                    value={newTask.due_date}
+                    onChange={(e) => setNewTask({ ...newTask, due_date: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
                 </div>
                 
                 <div>

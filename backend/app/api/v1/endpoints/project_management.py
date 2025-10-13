@@ -21,6 +21,41 @@ from app.services.project_template_service import ProjectTemplateService
 
 router = APIRouter()
 
+async def update_project_progress(project_id: int, db: AsyncSession):
+    """Update project progress based on task completion"""
+    # Get all tasks for the project
+    result = await db.execute(
+        select(ProjectTask).where(ProjectTask.project_id == project_id)
+    )
+    tasks = result.scalars().all()
+    
+    if not tasks:
+        return
+    
+    # Calculate project progress based on task completion
+    total_tasks = len(tasks)
+    completed_tasks = len([t for t in tasks if t.status in ['completed', 'achieved']])
+    
+    # Calculate weighted progress based on task progress values
+    total_progress = sum(t.progress for t in tasks)
+    average_progress = total_progress / total_tasks if total_tasks > 0 else 0
+    
+    # Use the higher of completion percentage or average progress
+    completion_percentage = (completed_tasks / total_tasks) * 100 if total_tasks > 0 else 0
+    project_progress = max(completion_percentage, average_progress)
+    
+    # Update project progress
+    project_result = await db.execute(
+        select(Project).where(Project.id == project_id)
+    )
+    project = project_result.scalar_one_or_none()
+    
+    if project:
+        project.progress = round(project_progress, 1)
+        project.updated_at = datetime.utcnow()
+        await db.commit()
+        print(f"📊 [PROGRESS] Updated project '{project.name}' progress to {project.progress}%")
+
 async def get_user_for_tool(
     request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False)),
@@ -95,6 +130,7 @@ class TaskCreate(BaseModel):
     parent_task_id: Optional[int] = None
     title: str
     description: Optional[str] = None
+    status: str = "pending"
     priority: str = "medium"
     assignee_id: Optional[int] = None
     due_date: Optional[datetime] = None
@@ -453,15 +489,24 @@ async def create_task(
     # Convert timezone-aware datetime to timezone-naive for database storage
     due_date_naive = task_data.due_date.replace(tzinfo=None) if task_data.due_date else None
     
+    # Set initial progress based on status
+    initial_progress = 0.0
+    if task_data.status in ['completed', 'achieved']:
+        initial_progress = 100.0
+    elif task_data.status == 'in_progress':
+        initial_progress = 25.0
+    
     task = ProjectTask(
         project_id=task_data.project_id,
         parent_task_id=task_data.parent_task_id,
         title=task_data.title,
         description=task_data.description,
+        status=task_data.status,
         priority=task_data.priority,
         assignee_id=task_data.assignee_id,
         due_date=due_date_naive,
         estimated_hours=task_data.estimated_hours,
+        progress=initial_progress,
         tags=task_data.tags,
         custom_fields=task_data.custom_fields
     )
@@ -469,6 +514,9 @@ async def create_task(
     db.add(task)
     await db.commit()
     await db.refresh(task)
+    
+    # Update project progress after task creation
+    await update_project_progress(task.project_id, db)
     
     return TaskResponse(
         id=task.id,
@@ -582,9 +630,23 @@ async def update_task(
             value = value.replace(tzinfo=None)
         setattr(task, field, value)
     
+    # Auto-update task progress based on status
+    if 'status' in task_data.dict(exclude_unset=True):
+        if task.status in ['completed', 'achieved']:
+            task.progress = 100.0
+        elif task.status == 'in_progress':
+            task.progress = max(task.progress, 25.0)  # At least 25% when in progress
+        elif task.status == 'pending':
+            task.progress = 0.0
+        elif task.status == 'closed':
+            task.progress = 0.0  # Closed tasks are considered 0% progress
+    
     task.updated_at = datetime.utcnow()
     await db.commit()
     await db.refresh(task)
+    
+    # Update project progress after task update
+    await update_project_progress(task.project_id, db)
     
     return TaskResponse(
         id=task.id,
@@ -628,8 +690,12 @@ async def delete_task(
             detail="Task not found"
         )
     
+    project_id = task.project_id
     await db.delete(task)
     await db.commit()
+    
+    # Update project progress after task deletion
+    await update_project_progress(project_id, db)
     
     return {"message": "Task deleted successfully"}
 
@@ -794,6 +860,44 @@ async def recalculate_task_hours(
         "task_id": task_id,
         "old_hours": task.actual_hours,
         "new_hours": total_hours
+    }
+
+@router.post("/projects/{project_id}/recalculate-progress")
+async def recalculate_project_progress(
+    project_id: int,
+    current_user: User = Depends(get_user_for_tool),
+    db: AsyncSession = Depends(get_db)
+):
+    """Manually recalculate and update project progress"""
+    # Verify project access
+    result = await db.execute(
+        select(Project).where(
+            Project.id == project_id,
+            Project.user_id == current_user.id
+        )
+    )
+    project = result.scalar_one_or_none()
+    
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found"
+        )
+    
+    old_progress = project.progress
+    await update_project_progress(project_id, db)
+    
+    # Get updated project
+    result = await db.execute(
+        select(Project).where(Project.id == project_id)
+    )
+    updated_project = result.scalar_one_or_none()
+    
+    return {
+        "message": "Project progress recalculated successfully",
+        "project_id": project_id,
+        "old_progress": old_progress,
+        "new_progress": updated_project.progress if updated_project else 0
     }
 
 @router.get("/projects/{project_id}/time-entries", response_model=List[TimeEntryResponse])

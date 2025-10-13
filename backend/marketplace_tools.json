@@ -2207,13 +2207,13 @@
                 "create_project", "get_projects", "get_project", "update_project", "delete_project",
                 "create_task", "get_tasks", "get_task", "update_task", "delete_task",
                 "create_time_entry", "get_time_entries", "delete_time_entry",
-                "get_templates", "create_project_from_template", "get_project_analytics"
+                "get_templates", "create_project_from_template", "get_project_analytics", "get_project_details"
               ],
-              "description": "The action to perform"
+              "description": "The action to perform. Use get_project_details to get comprehensive project information including tasks and time entries. If no project_id is provided, the tool will automatically use the single available project."
             },
             "project_id": {
               "type": "integer",
-              "description": "Project ID for project-specific operations"
+              "description": "Project ID for project-specific operations. If not provided, the tool will automatically use the single available project."
             },
             "task_id": {
               "type": "integer",
