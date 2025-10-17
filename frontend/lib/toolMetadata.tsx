@@ -442,6 +442,17 @@ export const TOOL_METADATA: Record<string, ToolMetadata> = {
     category: 'Productivity',
     toolType: 'Function',
     brandColor: '#3B82F6'
+  },
+
+  // Video Generation Tools (1)
+  sora2_video_generator: {
+    displayName: 'Sora2 Video Generator',
+    icon: VideoCameraIcon,
+    logo: '/images/tools/sora2-logo.png',
+    description: 'Generate high-quality videos from text prompts using OpenAI\'s Sora2 API. Create realistic, animated, cinematic, or documentary-style videos with customizable duration, aspect ratios, and quality settings.',
+    category: 'Video Generation',
+    toolType: 'Function',
+    brandColor: '#10B981'
   }
 }
 

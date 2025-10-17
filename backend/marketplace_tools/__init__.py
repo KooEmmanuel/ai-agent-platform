@@ -42,6 +42,7 @@ from .google_suite_tool import GoogleSuiteTool
 from .youtube_transcript_tool import YouTubeTranscriptTool
 from .quiz_tool import QuizTool
 from .project_management_tool import ProjectManagementTool
+from .sora2_tool import Sora2Tool
 
 __all__ = [
     'WebSearchTool',
@@ -80,5 +81,6 @@ __all__ = [
     'GoogleSuiteTool',
     'YouTubeTranscriptTool',
     'QuizTool',
-    'ProjectManagementTool'
+    'ProjectManagementTool',
+    'Sora2Tool'
 ] 

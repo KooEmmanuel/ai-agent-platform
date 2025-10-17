@@ -33,6 +33,19 @@ const isYouTubeUrl = (url: string): boolean => {
   return /youtube\.com|youtu\.be/.test(url)
 }
 
+// Function to check if a URL is a blob storage video URL
+const isBlobVideoUrl = (url: string): boolean => {
+  return /\.blob\.vercel-storage\.com.*\.(mp4|webm|ogg|mov|avi)$/i.test(url)
+}
+
+// Function to extract filename from blob URL for display
+const extractBlobFilename = (url: string): string => {
+  const urlParts = url.split('/')
+  const filename = urlParts[urlParts.length - 1]
+  // Remove query parameters if any
+  return filename.split('?')[0]
+}
+
 type Props = {
   content: string
   className?: string
@@ -208,7 +221,7 @@ export default function MarkdownRenderer({ content, className = "" }: Props) {
             </td>
           ),
           
-          // Custom link styles with YouTube video support
+          // Custom link styles with YouTube and blob video support
           a: ({ children, href, ...props }) => {
             // Check if this is a YouTube URL and extract video ID
             if (href && isYouTubeUrl(href)) {
@@ -241,7 +254,39 @@ export default function MarkdownRenderer({ content, className = "" }: Props) {
               }
             }
             
-            // Regular link rendering for non-YouTube URLs
+            // Check if this is a blob storage video URL
+            if (href && isBlobVideoUrl(href)) {
+              const filename = extractBlobFilename(href)
+              return (
+                <div className="my-4 rounded-lg overflow-hidden shadow-sm border border-gray-200">
+                  <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                    <video
+                      src={href}
+                      controls
+                      className="absolute top-0 left-0 w-full h-full rounded-lg"
+                      preload="metadata"
+                    >
+                      Your browser does not support the video tag.
+                    </video>
+                  </div>
+                  <div className="p-2 text-sm text-gray-600 bg-gray-50 flex justify-between items-center">
+                    <span className="text-gray-500 truncate">
+                      {filename}
+                    </span>
+                    <a 
+                      href={href} 
+                      target="_blank" 
+                      rel="nofollow noopener noreferrer"
+                      className="text-blue-600 underline hover:text-blue-800 ml-2 flex-shrink-0"
+                    >
+                      Download
+                    </a>
+                  </div>
+                </div>
+              )
+            }
+            
+            // Regular link rendering for non-video URLs
             return (
               <a 
                 href={href} 

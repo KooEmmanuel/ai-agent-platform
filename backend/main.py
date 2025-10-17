@@ -12,6 +12,10 @@ from contextlib import asynccontextmanager
 import uvicorn
 import os
 from loguru import logger
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 from app.core.config import settings
 from app.core.database import init_db, close_db, check_db_connection, test_db_connection

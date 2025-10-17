@@ -50,7 +50,8 @@ from marketplace_tools import (
     GoogleSuiteTool,
     YouTubeTranscriptTool,
     QuizTool,
-    ProjectManagementTool
+    ProjectManagementTool,
+    Sora2Tool
 )
 
 logger = logging.getLogger(__name__)
@@ -132,6 +133,9 @@ class ToolRegistry:
             
             # Project Management
             'project_management_tool': ProjectManagementTool,
+            
+            # Video Generation
+            'sora2_video_generator': Sora2Tool,
         }
         
         # Tool name aliases for backward compatibility
