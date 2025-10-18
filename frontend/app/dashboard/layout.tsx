@@ -19,7 +19,11 @@ import {
   ArrowRightOnRectangleIcon,
   DocumentTextIcon,
   BeakerIcon,
-  ShieldCheckIcon
+  ShieldCheckIcon,
+  BuildingOfficeIcon,
+  PlusIcon,
+  FolderIcon,
+  UserGroupIcon
 } from '@heroicons/react/24/outline'
 import { LuPanelLeftClose, LuPanelRightClose } from "react-icons/lu"
 import { LogOut } from 'lucide-react'
@@ -30,10 +34,25 @@ import { initializeApiClient } from '../../lib/api'
 
 const navigation = [
   { name: 'Overview', href: '/dashboard', icon: HomeIcon },
-  { name: 'Agents', href: '/dashboard/agents', icon: CpuChipIcon },
-  { name: 'Tools', href: '/dashboard/tools', icon: WrenchScrewdriverIcon },
-  { name: 'Knowledge Base', href: '/dashboard/knowledge-base', icon: DocumentTextIcon },
-  { name: 'Integrations', href: '/dashboard/integrations', icon: ChatBubbleLeftRightIcon },
+  { 
+    name: 'Organizations', 
+    href: '/dashboard/organizations', 
+    icon: BuildingOfficeIcon,
+    children: [
+      { name: 'My Organizations', href: '/dashboard/organizations', icon: BuildingOfficeIcon },
+      { name: 'Create Organization', href: '/dashboard/organizations/create', icon: PlusIcon }
+    ]
+  },
+  { 
+    name: 'Personal', 
+    href: '/dashboard/personal', 
+    icon: UserCircleIcon,
+    children: [
+      { name: 'My Agents', href: '/dashboard/agents', icon: CpuChipIcon },
+      { name: 'My Tools', href: '/dashboard/tools', icon: WrenchScrewdriverIcon },
+      { name: 'My Knowledge Base', href: '/dashboard/knowledge-base', icon: DocumentTextIcon }
+    ]
+  },
   { name: 'Playground', href: '/dashboard/playground', icon: SparklesIcon },
   { name: 'Analytics', href: '/dashboard/analytics', icon: ChartBarIcon },
   { name: 'Billing', href: '/dashboard/billing', icon: CreditCardIcon },
@@ -50,6 +69,7 @@ export default function DashboardLayout({
   const [desktopSidebarVisible, setDesktopSidebarVisible] = useState(true)
   const [user, setUser] = useState<any>(null)
   const [activeSection, setActiveSection] = useState<string>('')
+  const [expandedItems, setExpandedItems] = useState<string[]>([])
   const pathname = usePathname()
 
   useEffect(() => {
@@ -138,6 +158,100 @@ export default function DashboardLayout({
     }
   }
 
+  const toggleExpanded = (itemName: string) => {
+    setExpandedItems(prev => 
+      prev.includes(itemName) 
+        ? prev.filter(name => name !== itemName)
+        : [...prev, itemName]
+    )
+  }
+
+  const renderNavItem = (item: any, isMobile: boolean = false) => {
+    const isActive = pathname === item.href || activeSection === item.href
+    const hasChildren = item.children && item.children.length > 0
+    const isExpanded = expandedItems.includes(item.name)
+    
+    return (
+      <div key={item.name}>
+        {hasChildren ? (
+          <div>
+            <button
+              onClick={() => toggleExpanded(item.name)}
+              className={`group flex items-center w-full px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${
+                isActive
+                  ? 'bg-blue-50 text-blue-700 shadow-sm border-l-4 border-blue-500'
+                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+              } ${isMobile ? '' : desktopSidebarVisible ? '' : 'px-0 justify-center'}`}
+            >
+              <item.icon className={`h-5 w-5 flex-shrink-0 ${isMobile || desktopSidebarVisible ? 'mr-3' : ''}`} />
+              {(isMobile || desktopSidebarVisible) && (
+                <>
+                  <span className="font-medium">{item.name}</span>
+                  <div className="ml-auto">
+                    <svg 
+                      className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} 
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </>
+              )}
+            </button>
+            {isExpanded && (isMobile || desktopSidebarVisible) && (
+              <div className="ml-4 mt-1 space-y-1">
+                {item.children.map((child: any) => {
+                  const isChildActive = pathname === child.href
+                  return (
+                    <Link
+                      key={child.name}
+                      href={child.href}
+                      className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+                        isChildActive
+                          ? 'bg-blue-50 text-blue-700 shadow-sm border-l-4 border-blue-500'
+                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      }`}
+                      onClick={() => handleNavClick(child.href)}
+                    >
+                      <child.icon className="mr-3 h-4 w-4 flex-shrink-0" />
+                      <span className="font-medium">{child.name}</span>
+                      {isChildActive && (
+                        <div className="ml-auto w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                      )}
+                    </Link>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        ) : (
+          <Link
+            href={item.href}
+            className={`group flex items-center py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${
+              isActive
+                ? 'bg-blue-50 text-blue-700 shadow-sm border-l-4 border-blue-500'
+                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+            } ${isMobile ? 'px-3' : desktopSidebarVisible ? 'px-3' : 'px-0 justify-center'}`}
+            title={!isMobile && !desktopSidebarVisible ? item.name : undefined}
+            onClick={() => handleNavClick(item.href)}
+          >
+            <item.icon className={`h-5 w-5 flex-shrink-0 ${isMobile || desktopSidebarVisible ? 'mr-3' : ''}`} />
+            {(isMobile || desktopSidebarVisible) && (
+              <>
+                <span className="font-medium">{item.name}</span>
+                {isActive && (
+                  <div className="ml-auto w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                )}
+              </>
+            )}
+          </Link>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Mobile sidebar */}
@@ -169,27 +283,7 @@ export default function DashboardLayout({
             </button>
           </div>
           <nav className="flex-1 space-y-1 px-2 py-4 ml-2">
-            {navigation.map((item) => {
-              const isActive = pathname === item.href || activeSection === item.href
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={`group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${
-                    isActive
-                      ? 'bg-blue-50 text-blue-700 shadow-sm border-l-4 border-blue-500'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
-                  onClick={() => handleNavClick(item.href)}
-                >
-                  <item.icon className="mr-3 h-4 w-4 flex-shrink-0" />
-                  <span className="font-medium">{item.name}</span>
-                  {isActive && (
-                    <div className="ml-auto w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                  )}
-                </Link>
-              )
-            })}
+            {navigation.map((item) => renderNavItem(item, true))}
           </nav>
           <div className="border-t border-gray-100 p-4">
             <div className="flex items-center justify-between">
@@ -251,32 +345,7 @@ export default function DashboardLayout({
             )}
           </div>
           <nav className={`flex-1 space-y-1 py-4 ${desktopSidebarVisible ? 'px-2 ml-2' : 'px-0'}`}>
-            {navigation.map((item) => {
-              const isActive = pathname === item.href || activeSection === item.href
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={`group flex items-center py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${
-                    isActive
-                      ? 'bg-blue-50 text-blue-700 shadow-sm border-l-4 border-blue-500'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  } ${desktopSidebarVisible ? 'px-3' : 'px-0 justify-center'}`}
-                  title={desktopSidebarVisible ? item.name : item.name}
-                  onClick={() => handleNavClick(item.href)}
-                >
-                  <item.icon className={`h-5 w-5 flex-shrink-0 ${desktopSidebarVisible ? 'mr-3' : ''}`} />
-                  {desktopSidebarVisible && (
-                    <>
-                      <span className="font-medium">{item.name}</span>
-                      {isActive && (
-                        <div className="ml-auto w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                      )}
-                    </>
-                  )}
-                </Link>
-              )
-            })}
+            {navigation.map((item) => renderNavItem(item, false))}
           </nav>
           <div className={`border-t border-gray-100 ${desktopSidebarVisible ? 'p-4' : 'p-2'}`}>
             {desktopSidebarVisible ? (

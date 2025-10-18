@@ -1196,7 +1196,7 @@ class ApiClient {
     return this.request(`/project-management/templates/${templateId}`)
   }
 
-  async createProjectFromTemplate(data: {
+  async   createProjectFromTemplate(data: {
     integration_id: number
     name: string
     template_id: string
@@ -1206,6 +1206,107 @@ class ApiClient {
     return this.request('/project-management/projects/from-template', {
       method: 'POST',
       body: JSON.stringify(data)
+    })
+  }
+
+  // Organization methods
+  async getOrganizations() {
+    return this.request('/organizations/', {
+      method: 'GET'
+    })
+  }
+
+  async getOrganization(id: number) {
+    return this.request(`/organizations/${id}`, {
+      method: 'GET'
+    })
+  }
+
+  async createOrganization(data: {
+    name: string
+    description?: string
+    slug?: string
+  }) {
+    return this.request('/organizations/', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  }
+
+  async updateOrganization(id: number, data: {
+    name?: string
+    description?: string
+    settings?: any
+  }) {
+    return this.request(`/organizations/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    })
+  }
+
+  async getOrganizationProjects(organizationId: number) {
+    return this.request(`/organizations/${organizationId}/projects`, {
+      method: 'GET'
+    })
+  }
+
+  async createOrganizationProject(organizationId: number, data: {
+    name: string
+    description?: string
+    settings?: any
+  }) {
+    return this.request(`/organizations/${organizationId}/projects`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  }
+
+  // Organization Invitation methods
+  async createOrganizationInvitation(organizationId: number, data: {
+    email: string
+    role: string
+  }) {
+    return this.request(`/organizations/${organizationId}/invitations`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  }
+
+  async getOrganizationMembers(organizationId: number) {
+    return this.request(`/organizations/${organizationId}/members`, {
+      method: 'GET'
+    })
+  }
+
+  async getOrganizationInvitations(organizationId: number) {
+    return this.request(`/organizations/${organizationId}/invitations`, {
+      method: 'GET'
+    })
+  }
+
+  async acceptOrganizationInvitation(token: string) {
+    return this.request('/organizations/invitations/accept', {
+      method: 'POST',
+      body: JSON.stringify({ token })
+    })
+  }
+
+  async acceptOrganizationInvitationPublic(token: string) {
+    return this.request('/organizations/invitations/accept-public', {
+      method: 'POST',
+      body: JSON.stringify({ token })
+    })
+  }
+
+  async declineOrganizationInvitation(invitationId: number) {
+    return this.request(`/organizations/invitations/${invitationId}/decline`, {
+      method: 'POST'
+    })
+  }
+
+  async cancelOrganizationInvitation(invitationId: number) {
+    return this.request(`/organizations/invitations/${invitationId}`, {
+      method: 'DELETE'
     })
   }
 }

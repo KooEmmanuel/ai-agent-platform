@@ -2,17 +2,23 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
 import { signInWithGoogle } from '../../../lib/firebase'
 import { useToast } from '../../../components/ui/Toast'
+import { apiClient } from '../../../lib/api'
 import DrixaiLogo from '../../../components/ui/drixai-logo'
 
 export default function RegisterPage() {
+  const searchParams = useSearchParams()
+  const invitationToken = searchParams.get('invitation')
+  
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
+  const [invitationData, setInvitationData] = useState<any>(null)
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -36,6 +42,36 @@ export default function RegisterPage() {
       }, 2000)
     }
   }, [showToast])
+
+  // Load invitation data if token exists
+  useEffect(() => {
+    if (invitationToken) {
+      const loadInvitationData = async () => {
+        try {
+          const response = await apiClient.acceptOrganizationInvitation(invitationToken)
+          setInvitationData(response)
+          // Pre-fill email if available
+          if ((response as any).organization_name) {
+            showToast({
+              type: 'info',
+              title: 'Organization Invitation',
+              message: `You've been invited to join ${(response as any).organization_name}`,
+              duration: 5000
+            })
+          }
+        } catch (err: any) {
+          console.error('Failed to load invitation:', err)
+          showToast({
+            type: 'error',
+            title: 'Invalid Invitation',
+            message: 'This invitation link is invalid or has expired.',
+            duration: 4000
+          })
+        }
+      }
+      loadInvitationData()
+    }
+  }, [invitationToken, showToast])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -83,6 +119,35 @@ export default function RegisterPage() {
           message: 'Welcome! Redirecting to dashboard...',
           duration: 2000
         })
+        
+        // If there's an invitation token, accept the invitation
+        if (invitationToken) {
+          try {
+            // Use the authenticated endpoint now that user is logged in
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/organizations/invitations/accept`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${data.access_token}`
+              },
+              body: JSON.stringify({ token: invitationToken })
+            })
+            
+            if (response.ok) {
+              showToast({
+                type: 'success',
+                title: 'Invitation Accepted!',
+                message: 'You have successfully joined the organization.',
+                duration: 3000
+              })
+            } else {
+              console.error('Failed to accept invitation:', await response.text())
+            }
+          } catch (err) {
+            console.error('Failed to accept invitation:', err)
+            // Don't block the registration flow if invitation acceptance fails
+          }
+        }
         
         setTimeout(() => {
           window.location.href = '/dashboard'
@@ -135,6 +200,38 @@ export default function RegisterPage() {
         message: 'Welcome! Redirecting to dashboard...',
         duration: 2000
       })
+      
+      // If there's an invitation token, accept the invitation
+      if (invitationToken) {
+        try {
+          // Get the auth token from localStorage (set by Google signin)
+          const token = localStorage.getItem('auth_token')
+          if (token) {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/organizations/invitations/accept`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({ token: invitationToken })
+            })
+            
+            if (response.ok) {
+              showToast({
+                type: 'success',
+                title: 'Invitation Accepted!',
+                message: 'You have successfully joined the organization.',
+                duration: 3000
+              })
+            } else {
+              console.error('Failed to accept invitation:', await response.text())
+            }
+          }
+        } catch (err) {
+          console.error('Failed to accept invitation:', err)
+          // Don't block the registration flow if invitation acceptance fails
+        }
+      }
       
       setTimeout(() => {
         window.location.href = '/dashboard'

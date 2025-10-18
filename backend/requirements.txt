@@ -53,7 +53,7 @@ gspread-dataframe==3.3.1
 mysql-connector-python==8.2.0
 
 # Email support
-aiosmtplib==3.0.1
+# aiosmtplib==3.0.1  # Removed due to conflict with fastapi-mail
 
 # Image processing
 Pillow==10.1.0
@@ -101,6 +101,11 @@ jinja2==3.1.2
 
 # OpenAI integration
 openai==2.4.0
+
+# Email functionality
+fastapi-mail==1.4.1
+aiosmtplib>=2.0,<3.0
+jinja2==3.1.2
 
 # Vector database and document processing
 chromadb==0.4.18

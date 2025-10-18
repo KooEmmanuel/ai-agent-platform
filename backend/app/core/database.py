@@ -817,4 +817,114 @@ class ProjectTemplate(Base):
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
     
     # Relationships
-    user = relationship("User") 
+    user = relationship("User")
+
+
+# Organization Management Models
+class Organization(Base):
+    """Organizations - Top-level organizational structure"""
+    __tablename__ = "organizations"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    slug = Column(String, unique=True, index=True)  # URL-friendly identifier
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    settings = Column(JSON, nullable=True)  # Organization-specific settings
+    billing_info = Column(JSON, nullable=True)  # Billing and subscription info
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    owner = relationship("User", foreign_keys=[owner_id])
+    members = relationship("OrganizationMember", back_populates="organization")
+    projects = relationship("OrganizationProject", back_populates="organization")
+
+
+class OrganizationMember(Base):
+    """Organization Members - Users belonging to organizations"""
+    __tablename__ = "organization_members"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    role = Column(String, nullable=False)  # 'owner', 'admin', 'member', 'guest'
+    permissions = Column(JSON, nullable=True)  # Custom permissions
+    status = Column(String, default='active')  # 'active', 'pending', 'suspended'
+    invited_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    joined_at = Column(DateTime, default=func.now())
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Ensure unique user per organization
+    __table_args__ = (UniqueConstraint('organization_id', 'user_id', name='unique_org_user'),)
+    
+    # Relationships
+    organization = relationship("Organization", back_populates="members")
+    user = relationship("User", foreign_keys=[user_id])
+    inviter = relationship("User", foreign_keys=[invited_by])
+
+
+class OrganizationInvitation(Base):
+    """Organization Invitations - Pending invitations to join organizations"""
+    __tablename__ = "organization_invitations"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    email = Column(String, nullable=False)
+    role = Column(String, nullable=False)  # 'admin', 'member', 'guest'
+    invited_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    token = Column(String, unique=True, index=True)  # Invitation token
+    expires_at = Column(DateTime, nullable=False)
+    status = Column(String, default='pending')  # 'pending', 'accepted', 'declined', 'expired'
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    organization = relationship("Organization")
+    inviter = relationship("User")
+
+
+class OrganizationProject(Base):
+    """Organization Projects - Projects within organizations"""
+    __tablename__ = "organization_projects"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    status = Column(String, default='active')  # 'active', 'archived', 'completed'
+    settings = Column(JSON, nullable=True)  # Project-specific settings
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    organization = relationship("Organization", back_populates="projects")
+    creator = relationship("User", foreign_keys=[created_by])
+    members = relationship("OrganizationProjectMember", back_populates="project")
+
+
+class OrganizationProjectMember(Base):
+    """Organization Project Members - Users assigned to organization projects"""
+    __tablename__ = "organization_project_members"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("organization_projects.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    role = Column(String, nullable=False)  # 'manager', 'member', 'viewer'
+    permissions = Column(JSON, nullable=True)  # Project-specific permissions
+    status = Column(String, default='active')  # 'active', 'inactive'
+    assigned_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    joined_at = Column(DateTime, default=func.now())
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Ensure unique user per project
+    __table_args__ = (UniqueConstraint('project_id', 'user_id', name='unique_project_user'),)
+    
+    # Relationships
+    project = relationship("OrganizationProject", back_populates="members")
+    user = relationship("User", foreign_keys=[user_id])
+    assigner = relationship("User", foreign_keys=[assigned_by]) 
