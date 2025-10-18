@@ -67,8 +67,8 @@ export default function OrganizationDetailPage() {
         apiClient.getOrganization(organizationId),
         apiClient.getOrganizationProjects(organizationId)
       ])
-      setOrganization(orgData)
-      setProjects(projectsData)
+      setOrganization(orgData as Organization)
+      setProjects(projectsData as OrganizationProject[])
     } catch (err: any) {
       console.error('Error fetching organization data:', err)
       setError(err.response?.data?.detail || 'Failed to load organization')

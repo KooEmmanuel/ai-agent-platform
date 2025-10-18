@@ -10,6 +10,13 @@ import {
 } from '@heroicons/react/24/outline'
 import { apiClient } from '../../../../lib/api'
 
+interface Organization {
+  id: number
+  name: string
+  description?: string
+  slug?: string
+}
+
 export default function CreateOrganizationPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
@@ -76,7 +83,7 @@ export default function CreateOrganizationPage() {
         name: formData.name,
         description: formData.description || undefined,
         slug: formData.slug || undefined
-      })
+      }) as Organization
       
       // Redirect to the new organization
       router.push(`/dashboard/organizations/${organization.id}`)

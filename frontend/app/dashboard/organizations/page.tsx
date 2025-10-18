@@ -41,7 +41,7 @@ export default function OrganizationsPage() {
     try {
       setLoading(true)
       const data = await apiClient.getOrganizations()
-      setOrganizations(data)
+      setOrganizations(data as Organization[])
     } catch (err) {
       console.error('Error fetching organizations:', err)
       setError('Failed to load organizations')
