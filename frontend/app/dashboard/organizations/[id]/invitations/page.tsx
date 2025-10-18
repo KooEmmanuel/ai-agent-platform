@@ -53,7 +53,7 @@ export default function OrganizationInvitationsPage() {
     try {
       setLoading(true)
       const data = await apiClient.getOrganizationInvitations(organizationId)
-      setInvitations(data)
+      setInvitations(data as OrganizationInvitation[])
     } catch (err: any) {
       console.error('Error fetching invitations:', err)
       setError(err.response?.data?.detail || 'Failed to load invitations')
