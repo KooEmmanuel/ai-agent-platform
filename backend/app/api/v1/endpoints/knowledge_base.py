@@ -143,6 +143,28 @@ async def upload_file_to_collection(
             file=file
         )
         
+        # Send email notification about file upload
+        try:
+            from app.services.file_upload_notification_service import file_upload_notification_service
+            
+            file_info = {
+                "filename": file.filename,
+                "file_size": file.size or 0,
+                "file_type": file.content_type or "application/octet-stream",
+                "url": result.get('file_path', '')
+            }
+            
+            upload_context = f"Knowledge Base - Collection: {result.get('collection_name', 'Unknown')}"
+            
+            await file_upload_notification_service.send_file_upload_notification(
+                uploaded_by=current_user,
+                file_info=file_info,
+                upload_context=upload_context
+            )
+        except Exception as e:
+            # Log error but don't fail the upload
+            logger.error(f"Failed to send file upload notification: {e}")
+        
         return {
             "success": True,
             "message": f"Successfully uploaded {result['filename']}",

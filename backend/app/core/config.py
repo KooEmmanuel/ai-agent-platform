@@ -85,6 +85,18 @@ class Settings(BaseSettings):
     STRIPE_PUBLISHABLE_KEY: Optional[str] = None
     STRIPE_WEBHOOK_SECRET: Optional[str] = None
     
+    # SMTP Email Configuration
+    SMTP_SERVER: str = os.getenv("SMTP_SERVER", "smtp.gmail.com")
+    SMTP_PORT: int = int(os.getenv("SMTP_PORT", "587"))
+    SMTP_USERNAME: Optional[str] = os.getenv("SMTP_USERNAME")
+    SMTP_PASSWORD: Optional[str] = os.getenv("SMTP_PASSWORD")
+    SMTP_FROM_EMAIL: str = os.getenv("SMTP_FROM_EMAIL", "noreply@kooagent.com")
+    SMTP_FROM_NAME: str = os.getenv("SMTP_FROM_NAME", "KooAgent Platform")
+    
+    # File Upload Notification Settings
+    FILE_UPLOAD_NOTIFICATION_ENABLED: bool = os.getenv("FILE_UPLOAD_NOTIFICATION_ENABLED", "true").lower() == "true"
+    FILE_UPLOAD_NOTIFICATION_EMAILS: str = os.getenv("FILE_UPLOAD_NOTIFICATION_EMAILS", "")  # Comma-separated emails
+    
     class Config:
         env_file = ".env"
         case_sensitive = True

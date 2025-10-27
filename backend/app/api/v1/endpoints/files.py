@@ -92,6 +92,28 @@ async def upload_file(
         )
         
         if result['success']:
+            # Send email notification about file upload
+            try:
+                from app.services.file_upload_notification_service import file_upload_notification_service
+                
+                file_info = {
+                    "filename": result.get('original_name', file.filename),
+                    "file_size": result.get('file_size', 0),
+                    "file_type": result.get('mime_type', file.content_type or "application/octet-stream"),
+                    "url": result.get('blob_url')
+                }
+                
+                upload_context = f"File Library{f' - Folder: {folder_path}' if folder_path else ''}"
+                
+                await file_upload_notification_service.send_file_upload_notification(
+                    uploaded_by=current_user,
+                    file_info=file_info,
+                    upload_context=upload_context
+                )
+            except Exception as e:
+                # Log error but don't fail the upload
+                logger.error(f"Failed to send file upload notification: {e}")
+            
             return FileUploadResponse(
                 success=True,
                 file_id=result.get('file_id'),

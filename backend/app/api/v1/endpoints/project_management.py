@@ -1170,3 +1170,393 @@ async def create_project_from_template(
         task_count=len([task for phase in project_structure["phases"] for task in phase["tasks"]]),
         team_member_count=1
     )
+
+# File Upload Endpoints
+@router.post("/tasks/{task_id}/files")
+async def upload_task_file(
+    task_id: int,
+    request: Request,
+    current_user: User = Depends(get_user_for_tool),
+    db: AsyncSession = Depends(get_db)
+):
+    """Upload a file to a task"""
+    # Verify task exists and belongs to user
+    result = await db.execute(
+        select(ProjectTask).join(Project).where(
+            ProjectTask.id == task_id,
+            Project.user_id == current_user.id
+        )
+    )
+    task = result.scalar_one_or_none()
+    if not task:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Task not found"
+        )
+    
+    # Get file from request
+    form = await request.form()
+    file = form.get("file")
+    if not file:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No file provided"
+        )
+    
+    try:
+        # Upload to Vercel Blob using the existing pattern
+        from vercel_blob import put
+        import os
+        
+        # Get blob token from environment
+        blob_token = os.getenv('BLOB_READ_WRITE_TOKEN')
+        if not blob_token:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Blob storage not configured"
+            )
+        
+        # Generate unique filename
+        import uuid
+        import os
+        file_extension = os.path.splitext(file.filename)[1]
+        unique_filename = f"{uuid.uuid4()}{file_extension}"
+        
+        # Read file content
+        file_content = await file.read()
+        
+        # Create blob path for task documents
+        blob_path = f"project-management/tasks/{task_id}/{unique_filename}"
+        
+        # Upload to Vercel Blob
+        blob_result = put(
+            blob_path,
+            file_content,
+            {
+                "token": blob_token,
+                "addRandomSuffix": "true"
+            }
+        )
+        
+        # Save document record to database
+        from app.core.database import TaskDocument
+        document = TaskDocument(
+            task_id=task_id,
+            user_id=current_user.id,
+            filename=unique_filename,
+            original_filename=file.filename,
+            file_size=len(file_content),
+            file_type=file.content_type or "application/octet-stream",
+            blob_url=blob_result['url'],
+            blob_key=blob_path
+        )
+        
+        db.add(document)
+        await db.commit()
+        await db.refresh(document)
+        
+        # Send email notification about file upload
+        try:
+            from app.services.file_upload_notification_service import file_upload_notification_service
+            
+            file_info = {
+                "filename": document.original_filename,
+                "file_size": document.file_size,
+                "file_type": document.file_type,
+                "url": document.blob_url
+            }
+            
+            upload_context = f"Project Management - Task: {task.title}"
+            
+            await file_upload_notification_service.send_file_upload_notification(
+                uploaded_by=current_user,
+                file_info=file_info,
+                upload_context=upload_context
+            )
+        except Exception as e:
+            # Log error but don't fail the upload
+            print(f"Failed to send file upload notification: {e}")
+        
+        return {
+            "success": True,
+            "document": {
+                "id": document.id,
+                "filename": document.original_filename,
+                "url": document.blob_url,
+                "size": document.file_size,
+                "type": document.file_type,
+                "uploaded_at": document.uploaded_at.isoformat()
+            }
+        }
+        
+    except Exception as e:
+        print(f"Error uploading file: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to upload file"
+        )
+
+@router.get("/tasks/{task_id}/files")
+async def get_task_files(
+    task_id: int,
+    current_user: User = Depends(get_user_for_tool),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get files for a task"""
+    # Verify task exists and belongs to user
+    result = await db.execute(
+        select(ProjectTask).join(Project).where(
+            ProjectTask.id == task_id,
+            Project.user_id == current_user.id
+        )
+    )
+    task = result.scalar_one_or_none()
+    if not task:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Task not found"
+        )
+    
+    # Get documents for this task
+    from app.core.database import TaskDocument
+    result = await db.execute(
+        select(TaskDocument).where(TaskDocument.task_id == task_id)
+        .order_by(desc(TaskDocument.uploaded_at))
+    )
+    documents = result.scalars().all()
+    
+    return [
+        {
+            "id": doc.id,
+            "filename": doc.original_filename,
+            "url": doc.blob_url,
+            "size": doc.file_size,
+            "type": doc.file_type,
+            "uploaded_at": doc.uploaded_at.isoformat(),
+            "uploaded_by": doc.user.name if doc.user else "Unknown"
+        }
+        for doc in documents
+    ]
+
+@router.delete("/tasks/{task_id}/files/{document_id}")
+async def delete_task_file(
+    task_id: int,
+    document_id: int,
+    current_user: User = Depends(get_user_for_tool),
+    db: AsyncSession = Depends(get_db)
+):
+    """Delete a file from a task"""
+    # Verify task exists and belongs to user
+    result = await db.execute(
+        select(ProjectTask).join(Project).where(
+            ProjectTask.id == task_id,
+            Project.user_id == current_user.id
+        )
+    )
+    task = result.scalar_one_or_none()
+    if not task:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Task not found"
+        )
+    
+    # Get document
+    from app.core.database import TaskDocument
+    result = await db.execute(
+        select(TaskDocument).where(
+            TaskDocument.id == document_id,
+            TaskDocument.task_id == task_id
+        )
+    )
+    document = result.scalar_one_or_none()
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found"
+        )
+    
+    try:
+        # Delete from Vercel Blob using the existing pattern
+        from vercel_blob import delete
+        import os
+        
+        # Get blob token from environment
+        blob_token = os.getenv('BLOB_READ_WRITE_TOKEN')
+        if not blob_token:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Blob storage not configured"
+            )
+        
+        # Delete from Vercel Blob
+        try:
+            delete(document.blob_url, {"token": blob_token})
+        except Exception as e:
+            print(f"Warning: Error deleting blob: {e}")
+        
+        # Delete from database
+        await db.delete(document)
+        await db.commit()
+        
+        return {"success": True, "message": "File deleted successfully"}
+        
+    except Exception as e:
+        print(f"Error deleting file: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete file"
+        )
+
+@router.post("/tasks/{task_id}/files/{document_id}/notify")
+async def notify_document_upload(
+    task_id: int,
+    document_id: int,
+    notification_data: dict,
+    current_user: User = Depends(get_user_for_tool),
+    db: AsyncSession = Depends(get_db)
+):
+    """Send notifications about document upload"""
+    # Verify task exists and belongs to user
+    result = await db.execute(
+        select(ProjectTask).join(Project).where(
+            ProjectTask.id == task_id,
+            Project.user_id == current_user.id
+        )
+    )
+    task = result.scalar_one_or_none()
+    if not task:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Task not found"
+        )
+    
+    # Get document
+    from app.core.database import TaskDocument
+    result = await db.execute(
+        select(TaskDocument).where(
+            TaskDocument.id == document_id,
+            TaskDocument.task_id == task_id
+        )
+    )
+    document = result.scalar_one_or_none()
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found"
+        )
+    
+    # Get users to notify
+    user_ids = notification_data.get("user_ids", [])
+    message = notification_data.get("message", f"New document uploaded: {document.original_filename}")
+    
+    # Create notifications
+    from app.core.database import TaskDocumentNotification
+    notifications = []
+    for user_id in user_ids:
+        notification = TaskDocumentNotification(
+            document_id=document_id,
+            user_id=user_id,
+            notified_by=current_user.id,
+            message=message
+        )
+        notifications.append(notification)
+    
+    if notifications:
+        db.add_all(notifications)
+        await db.commit()
+    
+    return {
+        "success": True,
+        "message": f"Notifications sent to {len(notifications)} users"
+    }
+
+@router.get("/tasks/{task_id}/emails")
+async def get_task_emails(
+    task_id: int,
+    current_user: User = Depends(get_user_for_tool),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get email submissions for a task"""
+    # Verify task exists and belongs to user
+    result = await db.execute(
+        select(ProjectTask).join(Project).where(
+            ProjectTask.id == task_id,
+            Project.user_id == current_user.id
+        )
+    )
+    task = result.scalar_one_or_none()
+    if not task:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Task not found"
+        )
+    
+    # Mock email data - in real implementation, this would come from your email integration
+    mock_emails = [
+        {
+            "id": 1,
+            "subject": "Project Update - Phase 1 Complete",
+            "from": "client@example.com",
+            "date": "2024-01-15T09:00:00Z",
+            "body": "Great work on completing phase 1. Please proceed with phase 2.",
+            "attachments": 2
+        },
+        {
+            "id": 2,
+            "subject": "Feedback on Design Mockup",
+            "from": "designer@example.com",
+            "date": "2024-01-16T11:30:00Z",
+            "body": "Please review the attached design mockup and provide feedback.",
+            "attachments": 1
+        }
+    ]
+    
+    return mock_emails
+
+@router.get("/tasks/{task_id}/external-tools")
+async def get_task_external_tools(
+    task_id: int,
+    current_user: User = Depends(get_user_for_tool),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get external tools connected to a task"""
+    # Verify task exists and belongs to user
+    result = await db.execute(
+        select(ProjectTask).join(Project).where(
+            ProjectTask.id == task_id,
+            Project.user_id == current_user.id
+        )
+    )
+    task = result.scalar_one_or_none()
+    if not task:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Task not found"
+        )
+    
+    # Mock external tools data - in real implementation, this would come from your integrations
+    mock_tools = [
+        {
+            "id": 1,
+            "name": "Slack Channel",
+            "type": "communication",
+            "url": "https://company.slack.com/channels/project-updates",
+            "connected_at": "2024-01-10T08:00:00Z"
+        },
+        {
+            "id": 2,
+            "name": "GitHub Repository",
+            "type": "version_control",
+            "url": "https://github.com/company/project-repo",
+            "connected_at": "2024-01-12T14:30:00Z"
+        },
+        {
+            "id": 3,
+            "name": "Figma Design",
+            "type": "design",
+            "url": "https://figma.com/file/project-design",
+            "connected_at": "2024-01-14T10:15:00Z"
+        }
+    ]
+    
+    return mock_tools

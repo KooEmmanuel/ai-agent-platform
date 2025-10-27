@@ -733,6 +733,7 @@ class ProjectTask(Base):
     subtasks = relationship("ProjectTask", back_populates="parent_task", cascade="all, delete-orphan")
     time_entries = relationship("TimeEntry", back_populates="task", cascade="all, delete-orphan")
     comments = relationship("ProjectComment", back_populates="task", cascade="all, delete-orphan")
+    documents = relationship("TaskDocument", back_populates="task", cascade="all, delete-orphan")
 
 class ProjectTeamMember(Base):
     """Project Management - Team Members"""
@@ -818,6 +819,61 @@ class ProjectTemplate(Base):
     
     # Relationships
     user = relationship("User")
+
+class TaskDocument(Base):
+    """Project Management - Task Documents"""
+    __tablename__ = "task_documents"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    task_id = Column(Integer, ForeignKey("project_tasks.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    filename = Column(String, nullable=False)
+    original_filename = Column(String, nullable=False)
+    file_size = Column(Integer, nullable=False)  # Size in bytes
+    file_type = Column(String, nullable=False)  # MIME type
+    blob_url = Column(String, nullable=False)  # Vercel Blob URL
+    blob_key = Column(String, nullable=False)  # Vercel Blob key for deletion
+    description = Column(Text, nullable=True)
+    uploaded_at = Column(DateTime, default=func.now())
+    
+    # Relationships
+    task = relationship("ProjectTask", back_populates="documents")
+    user = relationship("User")
+
+class TaskDocumentNotification(Base):
+    """Project Management - Document Upload Notifications"""
+    __tablename__ = "task_document_notifications"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    document_id = Column(Integer, ForeignKey("task_documents.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)  # User to notify
+    notified_by = Column(Integer, ForeignKey("users.id"), nullable=False)  # User who uploaded
+    message = Column(Text, nullable=True)
+    is_read = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=func.now())
+    
+    # Relationships
+    document = relationship("TaskDocument")
+    user = relationship("User", foreign_keys=[user_id])
+    notifier = relationship("User", foreign_keys=[notified_by])
+
+class FileUploadNotification(Base):
+    """File Upload Notifications - Track notifications sent to team members"""
+    __tablename__ = "file_upload_notifications"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    file_id = Column(String, nullable=False)  # File identifier (could be blob URL or file ID)
+    filename = Column(String, nullable=False)
+    uploaded_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    notified_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    message = Column(Text, nullable=True)
+    upload_context = Column(String, nullable=True)  # e.g., "Project Management", "Knowledge Base"
+    notification_type = Column(String, default='team_member')  # 'team_member', 'admin', 'system'
+    created_at = Column(DateTime, default=func.now())
+    
+    # Relationships
+    uploaded_by = relationship("User", foreign_keys=[uploaded_by_id])
+    notified_user = relationship("User", foreign_keys=[notified_user_id])
 
 
 # Organization Management Models

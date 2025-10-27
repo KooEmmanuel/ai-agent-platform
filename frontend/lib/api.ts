@@ -1209,6 +1209,57 @@ class ApiClient {
     })
   }
 
+  // Task file management
+  async uploadTaskFile(taskId: number, formData: FormData) {
+    return this.request(`/project-management/tasks/${taskId}/files`, {
+      method: 'POST',
+      body: formData
+    })
+  }
+
+  async getTaskFiles(taskId: number) {
+    return this.request(`/project-management/tasks/${taskId}/files`)
+  }
+
+  async deleteTaskFile(taskId: number, documentId: number) {
+    return this.request(`/project-management/tasks/${taskId}/files/${documentId}`, {
+      method: 'DELETE'
+    })
+  }
+
+  async notifyDocumentUpload(taskId: number, documentId: number, data: { user_ids: number[], message?: string }) {
+    return this.request(`/project-management/tasks/${taskId}/files/${documentId}/notify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    })
+  }
+
+  // File upload notifications
+  async sendTeamMemberNotifications(data: {
+    file_info: {
+      filename: string
+      file_size: number
+      file_type: string
+      url?: string
+    }
+    team_member_ids: number[]
+    message?: string
+    upload_context?: string
+  }) {
+    return this.request('/file-notifications/team-members', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    })
+  }
+
+  async getNotificationStatus() {
+    return this.request('/file-notifications/status', {
+      method: 'GET'
+    })
+  }
+
   // Organization methods
   async getOrganizations() {
     return this.request('/organizations/', {

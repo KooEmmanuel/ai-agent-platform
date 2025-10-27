@@ -23,7 +23,8 @@ import {
   BuildingOfficeIcon,
   PlusIcon,
   FolderIcon,
-  UserGroupIcon
+  UserGroupIcon,
+  LinkIcon
 } from '@heroicons/react/24/outline'
 import { LuPanelLeftClose, LuPanelRightClose } from "react-icons/lu"
 import { LogOut } from 'lucide-react'
@@ -50,7 +51,8 @@ const navigation = [
     children: [
       { name: 'My Agents', href: '/dashboard/agents', icon: CpuChipIcon },
       { name: 'My Tools', href: '/dashboard/tools', icon: WrenchScrewdriverIcon },
-      { name: 'My Knowledge Base', href: '/dashboard/knowledge-base', icon: DocumentTextIcon }
+      { name: 'My Knowledge Base', href: '/dashboard/knowledge-base', icon: DocumentTextIcon },
+      { name: 'Integrations', href: '/dashboard/integrations', icon: LinkIcon }
     ]
   },
   { name: 'Playground', href: '/dashboard/playground', icon: SparklesIcon },

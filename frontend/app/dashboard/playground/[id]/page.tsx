@@ -1307,7 +1307,7 @@ export default function AgentPlaygroundPage() {
         Agent not found
       </div>
     )
-  }
+  } 
 
   return (
     <div className="h-[calc(100vh-2rem)] flex overflow-hidden -mx-4 sm:-mx-6 lg:-mx-8" style={{ marginBottom: '0' }}>

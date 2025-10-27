@@ -394,7 +394,7 @@ export default function ProjectManagementPage() {
   // Show project details if a project is selected
   if (showProjectDetails && selectedProject) {
     return (
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <ProjectDetails 
             project={selectedProject}
@@ -407,7 +407,7 @@ export default function ProjectManagementPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-6 sm:mb-8">
