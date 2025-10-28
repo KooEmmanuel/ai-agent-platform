@@ -947,6 +947,7 @@ class ApiClient {
   }
 
   async updateOrganizationIntegration(organizationId: number, integrationId: number, data: {
+    agent_id?: number
     config?: Record<string, any>
     webhook_url?: string
     is_active?: boolean

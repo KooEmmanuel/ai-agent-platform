@@ -22,6 +22,7 @@ class OrganizationIntegrationCreate(BaseModel):
     webhook_url: Optional[str] = None
 
 class OrganizationIntegrationUpdate(BaseModel):
+    agent_id: Optional[int] = None
     config: Optional[Dict[str, Any]] = None
     webhook_url: Optional[str] = None
     is_active: Optional[bool] = None
@@ -232,6 +233,8 @@ async def update_organization_integration(
         )
     
     # Update fields
+    if integration_data.agent_id is not None:
+        integration.agent_id = integration_data.agent_id
     if integration_data.config is not None:
         integration.config = integration_data.config
     if integration_data.webhook_url is not None:
