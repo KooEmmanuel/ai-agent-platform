@@ -595,9 +595,18 @@ export default function OrganizationIntegrationsPage() {
 
       {/* Available Platforms */}
       <div className="bg-white rounded-xl shadow-sm shadow-blue-200/20">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Available Platforms</h3>
-          <p className="text-sm text-gray-600 mt-1">Choose a platform to integrate with your organization's agents</p>
+        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Available Platforms</h3>
+            <p className="text-sm text-gray-600 mt-1">Choose a platform to integrate with your organization's agents</p>
+          </div>
+          <button
+            onClick={() => setSelectedPlatform('project_management')}
+            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <PlusIcon className="w-5 h-5 mr-2" />
+            Create Integration
+          </button>
         </div>
         <div className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -607,16 +616,11 @@ export default function OrganizationIntegrationsPage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3 }}
-                className={`p-4 rounded-lg border-2 transition-all cursor-pointer ${
+                className={`p-4 rounded-lg border-2 transition-all ${
                   platform.status === 'available'
-                    ? 'border-gray-200 hover:border-blue-300 hover:shadow-md'
+                    ? 'border-gray-200 hover:border-gray-300'
                     : 'border-gray-100 bg-gray-50 cursor-not-allowed'
                 }`}
-                onClick={() => {
-                  if (platform.status === 'available') {
-                    setSelectedPlatform(platform.id)
-                  }
-                }}
               >
                 <div className="flex items-center space-x-3 mb-3">
                   <span className="text-2xl">{platform.icon}</span>
@@ -628,12 +632,6 @@ export default function OrganizationIntegrationsPage() {
                   </div>
                 </div>
                 <p className="text-sm text-gray-600">{platform.description}</p>
-                {platform.status === 'available' && (
-                  <div className="mt-3 flex items-center text-blue-600 text-sm font-medium">
-                    <PlusIcon className="w-4 h-4 mr-1" />
-                    Add Integration
-                  </div>
-                )}
               </motion.div>
             ))}
           </div>
