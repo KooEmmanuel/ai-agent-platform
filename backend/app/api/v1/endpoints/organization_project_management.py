@@ -995,13 +995,18 @@ async def create_organization_time_entry(
             )
     
     # Create time entry
+    # Convert timezone-aware datetime to timezone-naive for database storage
+    date_value = time_data.date
+    if date_value.tzinfo is not None:
+        date_value = date_value.replace(tzinfo=None)
+    
     time_entry = OrganizationTimeEntry(
         project_id=project_id,
         task_id=time_data.task_id,
         user_id=current_user.id,
         description=time_data.description,
         hours=time_data.hours,
-        date=time_data.date,
+        date=date_value,
         is_billable=time_data.is_billable,
         hourly_rate=time_data.hourly_rate
     )
@@ -1088,10 +1093,16 @@ async def get_organization_project_time_entries(
     
     if start_date:
         start_date_obj = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+        # Convert to timezone-naive for database comparison
+        if start_date_obj.tzinfo is not None:
+            start_date_obj = start_date_obj.replace(tzinfo=None)
         query = query.where(OrganizationTimeEntry.date >= start_date_obj)
     
     if end_date:
         end_date_obj = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+        # Convert to timezone-naive for database comparison
+        if end_date_obj.tzinfo is not None:
+            end_date_obj = end_date_obj.replace(tzinfo=None)
         query = query.where(OrganizationTimeEntry.date <= end_date_obj)
     
     # Include relationships
