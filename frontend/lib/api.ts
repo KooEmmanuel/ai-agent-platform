@@ -1635,6 +1635,12 @@ class ApiClient {
     })
   }
 
+  async removeOrganizationMember(organizationId: number, userId: number): Promise<{ message: string }> {
+    return this.request(`/organizations/${organizationId}/members/${userId}`, {
+      method: 'DELETE'
+    })
+  }
+
   async getOrganizationInvitations(organizationId: number) {
     return this.request(`/organizations/${organizationId}/invitations`, {
       method: 'GET'

@@ -147,6 +147,33 @@ export default function OrganizationSettingsPage() {
     }
   }
 
+  const handleRemoveMember = async (userId: number, userName: string) => {
+    if (!confirm(`Are you sure you want to remove ${userName} from this organization?`)) {
+      return
+    }
+
+    try {
+      await apiClient.removeOrganizationMember(organizationId!, userId)
+      
+      showToast({
+        type: 'success',
+        title: 'Success',
+        message: `${userName} has been removed from the organization`
+      })
+      
+      // Refresh members list
+      const membersData = await apiClient.getOrganizationMembers(organizationId!)
+      setMembers(membersData as OrganizationMember[])
+    } catch (error: any) {
+      console.error('Error removing member:', error)
+      showToast({
+        type: 'error',
+        title: 'Error',
+        message: error.message || 'Failed to remove member'
+      })
+    }
+  }
+
   const handleCancelInvitation = async (invitationId: number) => {
     try {
       await apiClient.cancelOrganizationInvitation(invitationId)
@@ -347,7 +374,11 @@ export default function OrganizationSettingsPage() {
                           {member.status}
                         </span>
                         {member.role !== 'owner' && (
-                          <button className="text-gray-400 hover:text-red-600">
+                          <button 
+                            onClick={() => handleRemoveMember(member.user_id, member.user_name || member.user_email)}
+                            className="text-gray-400 hover:text-red-600 transition-colors"
+                            title="Remove member"
+                          >
                             <TrashIcon className="w-4 h-4" />
                           </button>
                         )}

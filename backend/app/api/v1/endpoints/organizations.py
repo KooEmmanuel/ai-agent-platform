@@ -399,6 +399,69 @@ async def get_organization_members(
     
     return response_objects
 
+
+@router.delete("/{organization_id}/members/{user_id}")
+async def remove_organization_member(
+    organization_id: int,
+    user_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Remove a member from an organization"""
+    logger.info(f"🗑️ Removing user {user_id} from organization {organization_id} by user {current_user.id}")
+    
+    # Check if current user has admin permissions
+    if not await check_organization_permission(organization_id, current_user.id, 'admin', db):
+        logger.warning(f"❌ User {current_user.id} doesn't have admin permissions for organization {organization_id}")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to remove members from this organization"
+        )
+    
+    # Check if the user to be removed is the owner
+    org_result = await db.execute(
+        select(Organization).where(Organization.id == organization_id)
+    )
+    org = org_result.scalar_one_or_none()
+    
+    if not org:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Organization not found"
+        )
+    
+    if org.owner_id == user_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot remove the organization owner"
+        )
+    
+    # Find the member to remove
+    member_result = await db.execute(
+        select(OrganizationMember).where(
+            and_(
+                OrganizationMember.organization_id == organization_id,
+                OrganizationMember.user_id == user_id
+            )
+        )
+    )
+    member = member_result.scalar_one_or_none()
+    
+    if not member:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Member not found in this organization"
+        )
+    
+    # Remove the member
+    await db.delete(member)
+    await db.commit()
+    
+    logger.info(f"✅ Successfully removed user {user_id} from organization {organization_id}")
+    
+    return {"message": "Member removed successfully"}
+
+
 # Organization Invitation endpoints
 @router.post("/{organization_id}/invitations", response_model=OrganizationInvitationResponse)
 async def create_organization_invitation(
