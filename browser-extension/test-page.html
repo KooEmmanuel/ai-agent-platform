@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extension Test Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .instructions {
+            background: #e3f2fd;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .step {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-left: 4px solid #007bff;
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 AI Agent Extension Test Page</h1>
+        
+        <div class="instructions">
+            <h3>📋 Test Instructions:</h3>
+            <div class="step">
+                <strong>Step 1:</strong> Click the extension icon in your browser toolbar
+            </div>
+            <div class="step">
+                <strong>Step 2:</strong> Login with your Drixai account (email/password or Google)
+            </div>
+            <div class="step">
+                <strong>Step 3:</strong> Select an organization
+            </div>
+            <div class="step">
+                <strong>Step 4:</strong> Select an agent
+            </div>
+            <div class="step">
+                <strong>Step 5:</strong> A floating chatbot should appear on this page!
+            </div>
+        </div>
+
+        <div class="instructions">
+            <h3>🔍 Debug Information:</h3>
+            <p>Open Chrome DevTools (F12) and check the Console tab for debug messages.</p>
+            <p>Look for messages starting with:</p>
+            <ul>
+                <li>🤖 Agent selected</li>
+                <li>📤 Sending message to tab</li>
+                <li>📨 Content script received message</li>
+                <li>🎯 FloatingChatbot.show() called</li>
+                <li>🏗️ Creating chatbot UI</li>
+            </ul>
+        </div>
+
+        <div class="instructions">
+            <h3>🧪 Test Buttons:</h3>
+            <button class="test-button" onclick="testExtension()">Test Extension Communication</button>
+            <button class="test-button" onclick="checkConsole()">Check Console Logs</button>
+            <button class="test-button" onclick="reloadPage()">Reload Page</button>
+        </div>
+
+        <div id="test-results" style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 5px; display: none;">
+            <h4>Test Results:</h4>
+            <div id="test-output"></div>
+        </div>
+    </div>
+
+    <script>
+        function testExtension() {
+            const results = document.getElementById('test-results');
+            const output = document.getElementById('test-output');
+            
+            results.style.display = 'block';
+            output.innerHTML = '<p>Testing extension communication...</p>';
+            
+            // Check if extension is loaded
+            if (typeof chrome !== 'undefined' && chrome.runtime) {
+                output.innerHTML += '<p>✅ Chrome extension API is available</p>';
+                
+                // Try to send a test message
+                chrome.runtime.sendMessage({action: 'test'}, (response) => {
+                    if (chrome.runtime.lastError) {
+                        output.innerHTML += '<p>❌ Extension not responding: ' + chrome.runtime.lastError.message + '</p>';
+                    } else {
+                        output.innerHTML += '<p>✅ Extension is responding</p>';
+                    }
+                });
+            } else {
+                output.innerHTML += '<p>❌ Chrome extension API not available</p>';
+            }
+        }
+
+        function checkConsole() {
+            const results = document.getElementById('test-results');
+            const output = document.getElementById('test-output');
+            
+            results.style.display = 'block';
+            output.innerHTML = '<p>📋 Console check instructions:</p>';
+            output.innerHTML += '<ol>';
+            output.innerHTML += '<li>Open Chrome DevTools (F12)</li>';
+            output.innerHTML += '<li>Go to Console tab</li>';
+            output.innerHTML += '<li>Look for extension debug messages</li>';
+            output.innerHTML += '<li>Try clicking an agent in the extension</li>';
+            output.innerHTML += '<li>Watch for new console messages</li>';
+            output.innerHTML += '</ol>';
+        }
+
+        function reloadPage() {
+            window.location.reload();
+        }
+
+        // Log when page loads
+        console.log('🧪 Extension test page loaded');
+        console.log('🧪 Ready to test the AI Agent extension');
+    </script>
+</body>
+</html>

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API Test</title>
+</head>
+<body>
+    <h1>API Connection Test</h1>
+    <button id="test-btn">Test API Connection</button>
+    <div id="result"></div>
+
+    <script>
+        const API_BASE_URL = 'https://kwickbuild.up.railway.app';
+        
+        document.getElementById('test-btn').addEventListener('click', async () => {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Testing...';
+            
+            try {
+                // Test basic connectivity
+                const response = await fetch(`${API_BASE_URL}/api/v1/auth/test`);
+                const data = await response.json();
+                
+                resultDiv.innerHTML = `
+                    <h3>✅ API Connection Successful!</h3>
+                    <p><strong>Status:</strong> ${response.status}</p>
+                    <p><strong>Response:</strong> ${JSON.stringify(data, null, 2)}</p>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <h3>❌ API Connection Failed</h3>
+                    <p><strong>Error:</strong> ${error.message}</p>
+                    <p><strong>URL:</strong> ${API_BASE_URL}/api/v1/auth/test</p>
+                `;
+            }
+        });
+    </script>
+</body>
+</html>

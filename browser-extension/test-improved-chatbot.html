@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Improved Chatbot Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255,255,255,0.1);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+        .status {
+            background: rgba(255,255,255,0.2);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            border-left: 4px solid #4CAF50;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 10px 5px;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .test-section {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 Improved Chatbot Design Test</h1>
+        
+        <div class="status">
+            <h3>✅ Improvements Made:</h3>
+            <ul>
+                <li><strong>Better Layout:</strong> Proper flexbox layout with fixed input area</li>
+                <li><strong>Visible Textarea:</strong> Added background color and better styling</li>
+                <li><strong>Modern Design:</strong> Rounded corners, shadows, and smooth transitions</li>
+                <li><strong>Interactive Elements:</strong> Hover effects and focus states</li>
+                <li><strong>Message Bubbles:</strong> Chat-like message display</li>
+                <li><strong>Send Button:</strong> Circular button with send icon</li>
+                <li><strong>Auto-resize:</strong> Textarea grows with content</li>
+                <li><strong>Keyboard Support:</strong> Enter to send, Shift+Enter for new line</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h3>🧪 Test the Improved Chatbot:</h3>
+            <ol>
+                <li><strong>Reload the extension</strong> in Chrome</li>
+                <li><strong>Click the extension icon</strong> and complete login</li>
+                <li><strong>Select an organization</strong> and then an agent</li>
+                <li><strong>Chatbot should appear</strong> with improved design!</li>
+            </ol>
+        </div>
+
+        <div class="test-section">
+            <h3>🎯 What You Should See:</h3>
+            <ul>
+                <li><strong>Header:</strong> Gradient background with agent name and close button</li>
+                <li><strong>Messages Area:</strong> Scrollable area with welcome message</li>
+                <li><strong>Input Area:</strong> Light gray textarea that turns white when focused</li>
+                <li><strong>Send Button:</strong> Blue circular button with send icon</li>
+                <li><strong>Interactive:</strong> Type a message and press Enter to send</li>
+                <li><strong>Responsive:</strong> Textarea grows as you type longer messages</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h3>🛠️ Manual Test:</h3>
+            <button onclick="createTestChatbot()">Create Test Chatbot</button>
+            <button onclick="testInput()">Test Input Focus</button>
+            <button onclick="testMessages()">Test Message Display</button>
+        </div>
+    </div>
+
+    <script>
+        function createTestChatbot() {
+            // Remove existing chatbot
+            const existing = document.getElementById('ai-agent-chatbot');
+            if (existing) {
+                existing.remove();
+            }
+            
+            // Create improved chatbot
+            const chatbot = document.createElement('div');
+            chatbot.id = 'ai-agent-chatbot';
+            chatbot.style.cssText = `
+                position: fixed;
+                top: 100px;
+                right: 20px;
+                width: 400px;
+                height: 600px;
+                background: white;
+                border: 2px solid #007bff;
+                border-radius: 12px;
+                z-index: 999999;
+                box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                color: #333;
+                display: flex;
+                flex-direction: column;
+            `;
+            
+            chatbot.innerHTML = `
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 16px; border-radius: 12px 12px 0 0; flex-shrink: 0;">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <div>
+                            <div style="font-weight: bold; font-size: 16px;">🤖 Test Agent</div>
+                            <div style="font-size: 12px; opacity: 0.8;">Test Organization</div>
+                        </div>
+                        <button onclick="this.parentElement.parentElement.parentElement.remove()" style="background: none; border: none; color: white; font-size: 20px; cursor: pointer; padding: 4px; border-radius: 4px; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='none'">×</button>
+                    </div>
+                </div>
+                
+                <div style="display: flex; flex-direction: column; height: calc(100% - 60px);">
+                    <!-- Messages Area -->
+                    <div id="chatbot-messages" style="flex: 1; overflow-y: auto; padding: 16px; background: #f8f9fa;">
+                        <div style="background: #e3f2fd; padding: 12px; border-radius: 12px; margin-bottom: 12px; border-left: 4px solid #2196f3;">
+                            <div style="font-weight: 600; margin-bottom: 4px; color: #1976d2;">👋 Hello!</div>
+                            <div style="color: #424242; line-height: 1.4;">I'm Test Agent from Test Organization. How can I help you today?</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Input Area -->
+                    <div style="padding: 16px; background: white; border-top: 1px solid #e0e0e0; flex-shrink: 0;">
+                        <div style="display: flex; gap: 8px; align-items: flex-end;">
+                            <textarea id="chatbot-input" placeholder="Type your message..." style="flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 20px; resize: none; font-family: inherit; font-size: 14px; line-height: 1.4; min-height: 20px; max-height: 100px; outline: none; transition: border-color 0.2s; background: #f8f9fa;" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); sendMessage();}" oninput="this.style.height='auto'; this.style.height=Math.min(this.scrollHeight, 100)+'px';"></textarea>
+                            <button id="chatbot-send" style="background: #007bff; color: white; border: none; padding: 12px; border-radius: 50%; cursor: pointer; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; transition: background 0.2s; flex-shrink: 0;" onmouseover="this.style.background='#0056b3'" onmouseout="this.style.background='#007bff'" onclick="sendMessage()">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(chatbot);
+            
+            // Add functionality
+            window.sendMessage = function() {
+                const input = document.getElementById('chatbot-input');
+                const message = input.value.trim();
+                if (!message) return;
+                
+                // Add user message
+                addMessage('user', message);
+                
+                // Clear input
+                input.value = '';
+                input.style.height = 'auto';
+                
+                // Simulate response
+                setTimeout(() => {
+                    addMessage('assistant', `Thanks for your message: "${message}". This is a demo response!`);
+                }, 1000);
+            };
+            
+            function addMessage(type, content) {
+                const messagesContainer = document.getElementById('chatbot-messages');
+                const messageDiv = document.createElement('div');
+                messageDiv.style.cssText = `
+                    margin-bottom: 12px;
+                    display: flex;
+                    ${type === 'user' ? 'justify-content: flex-end;' : 'justify-content: flex-start;'}
+                `;
+                
+                const messageContent = document.createElement('div');
+                messageContent.style.cssText = `
+                    max-width: 80%;
+                    padding: 12px 16px;
+                    border-radius: 18px;
+                    font-size: 14px;
+                    line-height: 1.4;
+                    ${type === 'user' 
+                        ? 'background: #007bff; color: white; border-bottom-right-radius: 4px;' 
+                        : 'background: #e3f2fd; color: #424242; border-bottom-left-radius: 4px; border-left: 4px solid #2196f3;'
+                    }
+                `;
+                
+                messageContent.textContent = content;
+                messageDiv.appendChild(messageContent);
+                messagesContainer.appendChild(messageDiv);
+                
+                // Scroll to bottom
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+            
+            // Focus input
+            document.getElementById('chatbot-input').focus();
+        }
+        
+        function testInput() {
+            const input = document.getElementById('chatbot-input');
+            if (input) {
+                input.focus();
+                input.style.borderColor = '#3b82f6';
+                input.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
+                input.style.background = 'white';
+            }
+        }
+        
+        function testMessages() {
+            const messagesContainer = document.getElementById('chatbot-messages');
+            if (messagesContainer) {
+                const testMessage = document.createElement('div');
+                testMessage.style.cssText = `
+                    background: #e3f2fd;
+                    padding: 12px;
+                    border-radius: 12px;
+                    margin-bottom: 12px;
+                    border-left: 4px solid #2196f3;
+                `;
+                testMessage.innerHTML = `
+                    <div style="font-weight: 600; margin-bottom: 4px; color: #1976d2;">🧪 Test Message</div>
+                    <div style="color: #424242; line-height: 1.4;">This is a test message to verify the message display works correctly!</div>
+                `;
+                messagesContainer.appendChild(testMessage);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+        }
+        
+        // Log when page loads
+        console.log('🚀 Improved chatbot test page loaded');
+    </script>
+</body>
+</html>

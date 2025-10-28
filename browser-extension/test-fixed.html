@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extension Test - Fixed Version</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255,255,255,0.1);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+        .status {
+            background: rgba(255,255,255,0.2);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            border-left: 4px solid #4CAF50;
+        }
+        .error {
+            border-left-color: #f44336;
+        }
+        .warning {
+            border-left-color: #ff9800;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 10px 5px;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .test-section {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .log {
+            background: rgba(0,0,0,0.3);
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            margin: 5px 0;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 AI Agent Extension Test</h1>
+        
+        <div class="status">
+            <h3>✅ Fixed Issues:</h3>
+            <ul>
+                <li>Removed Firebase scripts from popup (CSP error fixed)</li>
+                <li>Fixed variable scope in injectChatbotDirectly function</li>
+                <li>Added fallback direct injection when message fails</li>
+                <li>Simplified content script dependencies</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h3>🧪 Test Instructions:</h3>
+            <ol>
+                <li><strong>Reload the extension</strong> in Chrome (chrome://extensions/)</li>
+                <li><strong>Click the extension icon</strong> in the toolbar</li>
+                <li><strong>Login</strong> with your Drixai account</li>
+                <li><strong>Select an organization</strong></li>
+                <li><strong>Select an agent</strong></li>
+                <li><strong>Chatbot should appear</strong> on this page!</li>
+            </ol>
+        </div>
+
+        <div class="test-section">
+            <h3>🔍 Debug Console:</h3>
+            <p>Open Chrome DevTools (F12) and check Console for these messages:</p>
+            <div class="log">
+                <div>🚀 Content script loaded on: [URL]</div>
+                <div>🏗️ FloatingChatbot constructor called</div>
+                <div>🤖 Agent selected: [agent data]</div>
+                <div>📤 Sending message to tab: [tab id]</div>
+                <div>🔄 Direct injection called with: [data]</div>
+                <div>✅ Direct chatbot injection successful</div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>🎯 Expected Result:</h3>
+            <p>After selecting an agent, you should see a <strong>floating chatbot window</strong> appear on the right side of this page with:</p>
+            <ul>
+                <li>Agent name and organization in the header</li>
+                <li>A welcome message</li>
+                <li>An input field and send button</li>
+                <li>A close button (×) in the top-right</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h3>🛠️ Manual Tests:</h3>
+            <button onclick="testContentScript()">Test Content Script</button>
+            <button onclick="testExtensionAPI()">Test Extension API</button>
+            <button onclick="simulateChatbot()">Simulate Chatbot</button>
+            <button onclick="clearLogs()">Clear Logs</button>
+            <button onclick="reloadPage()">Reload Page</button>
+        </div>
+
+        <div id="test-results" class="test-section" style="display: none;">
+            <h3>📊 Test Results:</h3>
+            <div id="test-output" class="log"></div>
+        </div>
+    </div>
+
+    <script>
+        function addLog(message, type = 'info') {
+            const results = document.getElementById('test-results');
+            const output = document.getElementById('test-output');
+            
+            results.style.display = 'block';
+            const logEntry = document.createElement('div');
+            logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logEntry.style.color = type === 'error' ? '#f44336' : type === 'success' ? '#4CAF50' : '#fff';
+            output.appendChild(logEntry);
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function testContentScript() {
+            addLog('Testing content script availability...');
+            
+            // Check if we can see the chatbot element
+            const chatbot = document.getElementById('ai-agent-chatbot');
+            if (chatbot) {
+                addLog('✅ Chatbot element found on page', 'success');
+            } else {
+                addLog('❌ No chatbot element found on page', 'error');
+            }
+            
+            // Check if content script variables are available
+            if (typeof ExtensionApiClient !== 'undefined') {
+                addLog('✅ ExtensionApiClient is available', 'success');
+            } else {
+                addLog('❌ ExtensionApiClient not available', 'error');
+            }
+        }
+
+        function testExtensionAPI() {
+            addLog('Testing Chrome extension API...');
+            
+            if (typeof chrome !== 'undefined' && chrome.runtime) {
+                addLog('✅ Chrome extension API available', 'success');
+            } else {
+                addLog('❌ Chrome extension API not available', 'error');
+            }
+        }
+
+        function simulateChatbot() {
+            addLog('Creating simulated chatbot...');
+            
+            // Create a test chatbot
+            const chatbot = document.createElement('div');
+            chatbot.id = 'ai-agent-chatbot';
+            chatbot.style.cssText = `
+                position: fixed;
+                top: 100px;
+                right: 20px;
+                width: 350px;
+                height: 500px;
+                background: white;
+                border: 2px solid #007bff;
+                border-radius: 12px;
+                z-index: 999999;
+                box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                color: #333;
+            `;
+            
+            chatbot.innerHTML = `
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 16px; border-radius: 10px 10px 0 0;">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <div>
+                            <div style="font-weight: bold;">🤖 Test Agent</div>
+                            <div style="font-size: 12px; opacity: 0.8;">Test Organization</div>
+                        </div>
+                        <button onclick="this.parentElement.parentElement.parentElement.remove()" style="background: none; border: none; color: white; font-size: 18px; cursor: pointer;">×</button>
+                    </div>
+                </div>
+                <div style="padding: 20px; height: calc(100% - 60px); display: flex; flex-direction: column;">
+                    <div style="flex: 1; overflow-y: auto; margin-bottom: 20px;">
+                        <div style="background: #f0f0f0; padding: 15px; border-radius: 10px; margin-bottom: 10px;">
+                            <div style="font-weight: bold; margin-bottom: 5px;">👋 Hello!</div>
+                            <div>I'm Test Agent from Test Organization. How can I help you today?</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" placeholder="Type your message..." style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
+                        <button style="background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">Send</button>
+                    </div>
+                </div>
+            `;
+            
+            // Remove existing chatbot if any
+            const existing = document.getElementById('ai-agent-chatbot');
+            if (existing) {
+                existing.remove();
+            }
+            
+            document.body.appendChild(chatbot);
+            addLog('✅ Simulated chatbot created', 'success');
+        }
+
+        function clearLogs() {
+            document.getElementById('test-output').innerHTML = '';
+        }
+
+        function reloadPage() {
+            window.location.reload();
+        }
+
+        // Log when page loads
+        addLog('🚀 Extension test page loaded');
+        addLog('🔍 Ready to test the fixed extension');
+        
+        // Check if content script loaded
+        setTimeout(() => {
+            if (typeof ExtensionApiClient !== 'undefined') {
+                addLog('✅ ExtensionApiClient loaded successfully', 'success');
+            } else {
+                addLog('❌ ExtensionApiClient not loaded', 'error');
+            }
+        }, 1000);
+    </script>
+</body>
+</html>

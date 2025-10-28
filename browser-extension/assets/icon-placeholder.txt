@@ -1,0 +1,22 @@
+# Icon Placeholder
+
+This folder should contain the following icon files:
+
+- icon-16.png (16x16 pixels)
+- icon-32.png (32x32 pixels) 
+- icon-48.png (48x48 pixels)
+- icon-128.png (128x128 pixels)
+
+For now, you can use any 16x16, 32x32, 48x48, and 128x128 pixel images as placeholders.
+
+The icons should represent the AI Agent Assistant - consider using:
+- A robot/agent icon
+- A chat bubble with AI symbol
+- A brain with chat elements
+- Or any combination that represents AI assistance
+
+Recommended design:
+- Simple, clean design
+- High contrast
+- Recognizable at small sizes
+- Consistent with your brand colors

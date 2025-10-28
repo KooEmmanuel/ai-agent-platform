@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extension Debug Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .debug-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border: 2px solid #007bff;
+        }
+        .log-entry {
+            background: #f8f9fa;
+            padding: 10px;
+            margin: 5px 0;
+            border-left: 4px solid #28a745;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .error {
+            border-left-color: #dc3545;
+            background: #f8d7da;
+        }
+        .warning {
+            border-left-color: #ffc107;
+            background: #fff3cd;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        #test-results {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            background: #f9f9f9;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Extension Debug Test Page</h1>
+    
+    <div class="debug-panel">
+        <h3>📋 Debug Instructions:</h3>
+        <ol>
+            <li><strong>Open Chrome DevTools:</strong> Press F12</li>
+            <li><strong>Go to Console tab</strong></li>
+            <li><strong>Reload this page</strong> (Ctrl+R)</li>
+            <li><strong>Look for these messages:</strong>
+                <ul>
+                    <li>🚀 Content script loaded on: [URL]</li>
+                    <li>🚀 ExtensionApiClient available: true/false</li>
+                    <li>🏗️ FloatingChatbot constructor called</li>
+                </ul>
+            </li>
+            <li><strong>Click the extension icon</strong> and complete login</li>
+            <li><strong>Select an organization and agent</strong></li>
+            <li><strong>Watch for more console messages</strong></li>
+        </ol>
+    </div>
+
+    <div class="debug-panel">
+        <h3>🧪 Test Buttons:</h3>
+        <button onclick="testContentScript()">Test Content Script</button>
+        <button onclick="testExtensionAPI()">Test Extension API</button>
+        <button onclick="simulateAgentClick()">Simulate Agent Click</button>
+        <button onclick="clearLogs()">Clear Logs</button>
+        <button onclick="reloadPage()">Reload Page</button>
+    </div>
+
+    <div class="debug-panel">
+        <h3>📊 Test Results:</h3>
+        <div id="test-results">
+            <div class="log-entry">Ready to test...</div>
+        </div>
+    </div>
+
+    <div class="debug-panel">
+        <h3>🔧 Manual Tests:</h3>
+        <p><strong>Test 1:</strong> Check if content script loads</p>
+        <p><strong>Test 2:</strong> Check if ExtensionApiClient is available</p>
+        <p><strong>Test 3:</strong> Check if message listener is working</p>
+        <p><strong>Test 4:</strong> Check if chatbot UI can be created</p>
+    </div>
+
+    <script>
+        function addLog(message, type = 'info') {
+            const results = document.getElementById('test-results');
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry ${type}`;
+            logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            results.appendChild(logEntry);
+            results.scrollTop = results.scrollHeight;
+        }
+
+        function testContentScript() {
+            addLog('Testing content script availability...');
+            
+            // Check if we can see the chatbot element
+            const chatbot = document.getElementById('ai-agent-chatbot');
+            if (chatbot) {
+                addLog('✅ Chatbot element found on page', 'success');
+            } else {
+                addLog('❌ No chatbot element found on page', 'error');
+            }
+            
+            // Check if content script variables are available
+            if (typeof ExtensionApiClient !== 'undefined') {
+                addLog('✅ ExtensionApiClient is available', 'success');
+            } else {
+                addLog('❌ ExtensionApiClient not available', 'error');
+            }
+        }
+
+        function testExtensionAPI() {
+            addLog('Testing Chrome extension API...');
+            
+            if (typeof chrome !== 'undefined' && chrome.runtime) {
+                addLog('✅ Chrome extension API available', 'success');
+                
+                // Try to send a test message
+                chrome.runtime.sendMessage({action: 'test'}, (response) => {
+                    if (chrome.runtime.lastError) {
+                        addLog(`❌ Extension not responding: ${chrome.runtime.lastError.message}`, 'error');
+                    } else {
+                        addLog('✅ Extension is responding', 'success');
+                    }
+                });
+            } else {
+                addLog('❌ Chrome extension API not available', 'error');
+            }
+        }
+
+        function simulateAgentClick() {
+            addLog('Simulating agent click...');
+            
+            // Try to create a simple chatbot UI manually
+            const chatbot = document.createElement('div');
+            chatbot.id = 'ai-agent-chatbot';
+            chatbot.style.cssText = `
+                position: fixed;
+                top: 100px;
+                right: 20px;
+                width: 300px;
+                height: 400px;
+                background: white;
+                border: 2px solid #007bff;
+                border-radius: 10px;
+                z-index: 999999;
+                padding: 20px;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            `;
+            chatbot.innerHTML = `
+                <h3>🤖 Test Chatbot</h3>
+                <p>This is a test chatbot UI</p>
+                <button onclick="this.parentElement.remove()">Close</button>
+            `;
+            
+            document.body.appendChild(chatbot);
+            addLog('✅ Test chatbot UI created', 'success');
+        }
+
+        function clearLogs() {
+            document.getElementById('test-results').innerHTML = '<div class="log-entry">Logs cleared...</div>';
+        }
+
+        function reloadPage() {
+            window.location.reload();
+        }
+
+        // Log when page loads
+        addLog('🚀 Debug test page loaded');
+        addLog('🔍 Ready to test the extension');
+        
+        // Check if content script loaded
+        setTimeout(() => {
+            if (typeof ExtensionApiClient !== 'undefined') {
+                addLog('✅ ExtensionApiClient loaded successfully', 'success');
+            } else {
+                addLog('❌ ExtensionApiClient not loaded', 'error');
+            }
+        }, 1000);
+    </script>
+</body>
+</html>

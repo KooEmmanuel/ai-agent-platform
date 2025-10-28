@@ -1,0 +1,19 @@
+{
+  "name": "ai-agent-browser-extension",
+  "version": "1.0.0",
+  "description": "AI Agent Assistant Browser Extension",
+  "main": "background/background.js",
+  "scripts": {
+    "build": "echo 'Extension build complete'",
+    "dev": "echo 'Extension development mode'"
+  },
+  "keywords": [
+    "ai",
+    "agent",
+    "assistant",
+    "browser-extension",
+    "chrome-extension"
+  ],
+  "author": "AI Agent Platform",
+  "license": "MIT"
+}
