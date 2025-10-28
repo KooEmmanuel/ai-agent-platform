@@ -96,7 +96,6 @@ export default function OrganizationIntegrationsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null)
-  const [showCreateModal, setShowCreateModal] = useState(false)
   const [agents, setAgents] = useState<Agent[]>([])
   const [loadingAgents, setLoadingAgents] = useState(true)
   const [selectedAgent, setSelectedAgent] = useState<number | null>(null)
@@ -123,7 +122,6 @@ export default function OrganizationIntegrationsPage() {
       const platform = urlParams.get('platform')
       if (platform) {
         setSelectedPlatform(platform)
-        setShowCreateModal(true)
       }
     }
   }, [organizationId])
@@ -174,13 +172,19 @@ export default function OrganizationIntegrationsPage() {
     }
 
     try {
+      const config: Record<string, any> = {
+        enabled: true
+      }
+      
+      // Add workspace_name for project management
+      if (platform === 'project_management' && editForm.config.workspace_name) {
+        config.workspace_name = editForm.config.workspace_name
+      }
+      
       const integrationData = {
         agent_id: selectedAgent,
         platform: platform,
-        config: {
-          // Platform-specific configuration would go here
-          enabled: true
-        }
+        config: config
       }
 
       await apiClient.createOrganizationIntegration(organizationId, integrationData)
@@ -191,7 +195,6 @@ export default function OrganizationIntegrationsPage() {
         message: `${platform} integration has been created successfully`
       })
       
-      setShowCreateModal(false)
       setSelectedAgent(null)
       setSelectedPlatform(null)
       fetchIntegrations()
@@ -519,7 +522,9 @@ export default function OrganizationIntegrationsPage() {
                         </div>
                         <div className="flex-1">
                           <h4 className="text-sm font-medium text-gray-900">
-                            {platform?.name || integration.platform}
+                            {integration.platform === 'project_management' && integration.config?.workspace_name
+                              ? integration.config.workspace_name
+                              : platform?.name || integration.platform}
                           </h4>
                           <p className="text-sm text-gray-500">
                             Agent ID: {integration.agent_id} • Created {new Date(integration.created_at).toLocaleDateString()}
@@ -610,7 +615,6 @@ export default function OrganizationIntegrationsPage() {
                 onClick={() => {
                   if (platform.status === 'available') {
                     setSelectedPlatform(platform.id)
-                    setShowCreateModal(true)
                   }
                 }}
               >
@@ -645,100 +649,100 @@ export default function OrganizationIntegrationsPage() {
             Connect your organization's agents to external platforms to reach more users
           </p>
           <button
-            onClick={() => setShowCreateModal(true)}
+            onClick={() => setSelectedPlatform('project_management')}
             className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             <PlusIcon className="w-5 h-5 mr-2" />
-            Add Your First Integration
+            Create Project Management Integration
           </button>
         </div>
       )}
-
-      {/* Create Integration Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Create {selectedPlatform ? platforms.find(p => p.id === selectedPlatform)?.name : ''} Integration
-              </h3>
-              <p className="text-sm text-gray-600 mt-1">
-                Select an agent to power this integration
-              </p>
-            </div>
-            
-            <div className="p-6">
-              {/* Agent Selection */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Select Agent
-                </label>
-                {loadingAgents ? (
-                  <div className="flex items-center justify-center py-4">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-                    <span className="ml-2 text-sm text-gray-600">Loading agents...</span>
-                  </div>
-                ) : agents.length === 0 ? (
-                  <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <p className="text-sm text-yellow-800">
-                      No active agents found. Please create an agent first.
-                    </p>
-                  </div>
-                ) : (
-                  <select
-                    value={selectedAgent || ''}
-                    onChange={(e) => setSelectedAgent(e.target.value ? parseInt(e.target.value) : null)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">Choose an agent</option>
-                    {agents.map(agent => (
-                      <option key={agent.id} value={agent.id.toString()}>
-                        {agent.name} - {agent.description}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-
-              {/* Platform Info */}
-              {selectedPlatform && (
-                <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <span className="text-2xl">
-                      {platforms.find(p => p.id === selectedPlatform)?.icon}
-                    </span>
-                    <div>
-                      <h4 className="font-medium text-gray-900">
-                        {platforms.find(p => p.id === selectedPlatform)?.name}
-                      </h4>
-                      <p className="text-sm text-gray-600">
-                        {platforms.find(p => p.id === selectedPlatform)?.description}
-                      </p>
-                    </div>
-                  </div>
+      {/* Inline Create Integration Panel */}
+      {selectedPlatform && (
+        <div className="bg-white rounded-xl shadow-sm shadow-blue-200/20">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Create {platforms.find(p => p.id === selectedPlatform)?.name} Integration
+            </h3>
+            <p className="text-sm text-gray-600 mt-1">Select an agent and configure settings</p>
+          </div>
+          <div className="p-6 space-y-6">
+            {/* Agent Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Select Agent</label>
+              {loadingAgents ? (
+                <div className="flex items-center justify-center py-4">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                  <span className="ml-2 text-sm text-gray-600">Loading agents...</span>
                 </div>
+              ) : agents.length === 0 ? (
+                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-sm text-yellow-800">No active agents found. Please create an agent first.</p>
+                </div>
+              ) : (
+                <select
+                  value={selectedAgent || ''}
+                  onChange={(e) => setSelectedAgent(e.target.value ? parseInt(e.target.value) : null)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Choose an agent</option>
+                  {agents.map(agent => (
+                    <option key={agent.id} value={agent.id.toString()}>
+                      {agent.name} - {agent.description}
+                    </option>
+                  ))}
+                </select>
               )}
             </div>
 
-            <div className="px-6 py-4 bg-gray-50 rounded-b-xl flex justify-end space-x-3">
-              <button
-                onClick={() => {
-                  setShowCreateModal(false)
-                  setSelectedAgent(null)
-                  setSelectedPlatform(null)
-                }}
-                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => selectedPlatform && handleCreateIntegration(selectedPlatform)}
-                disabled={!selectedAgent || !selectedPlatform}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                Create Integration
-              </button>
+            {/* Workspace Name for Project Management */}
+            {selectedPlatform === 'project_management' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Workspace Name</label>
+                <input
+                  type="text"
+                  value={editForm.config.workspace_name || ''}
+                  onChange={(e) => setEditForm(prev => ({
+                    ...prev,
+                    config: { ...prev.config, workspace_name: e.target.value }
+                  }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="My Organization Workspace"
+                  required
+                />
+                <p className="mt-1 text-xs text-gray-500">This will be displayed as the integration name</p>
+              </div>
+            )}
+
+            {/* Platform Info */}
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <div className="flex items-center space-x-3">
+                <span className="text-2xl">{platforms.find(p => p.id === selectedPlatform)?.icon}</span>
+                <div>
+                  <h4 className="font-medium text-gray-900">{platforms.find(p => p.id === selectedPlatform)?.name}</h4>
+                  <p className="text-sm text-gray-600">{platforms.find(p => p.id === selectedPlatform)?.description}</p>
+                </div>
+              </div>
             </div>
+          </div>
+          <div className="px-6 py-4 bg-gray-50 rounded-b-xl flex justify-end space-x-3">
+            <button
+              onClick={() => {
+                setSelectedAgent(null)
+                setSelectedPlatform(null)
+                setEditForm({ agent_id: 0, webhook_url: '', is_active: true, config: {} })
+              }}
+              className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => selectedPlatform && handleCreateIntegration(selectedPlatform)}
+              disabled={!selectedAgent || !selectedPlatform}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Create Integration
+            </button>
           </div>
         </div>
       )}
