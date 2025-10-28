@@ -403,7 +403,7 @@ class OrganizationIntegration(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
-    agent_id = Column(Integer, ForeignKey("agents.id"), nullable=False)
+    agent_id = Column(Integer, ForeignKey("organization_agents.id"), nullable=False)
     platform = Column(String, nullable=False)  # whatsapp, telegram, discord, etc.
     config = Column(JSON, nullable=False)  # Platform-specific configuration
     webhook_url = Column(String, nullable=True)
@@ -414,7 +414,7 @@ class OrganizationIntegration(Base):
     
     # Relationships
     organization = relationship("Organization")
-    agent = relationship("Agent")
+    agent = relationship("OrganizationAgent")
     created_by = relationship("User")
 
 class OrganizationAgent(Base):

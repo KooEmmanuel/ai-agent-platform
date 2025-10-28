@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 
 from app.core.auth import get_current_user
-from app.core.database import get_db, User, OrganizationIntegration, Agent, OrganizationMember
+from app.core.database import get_db, User, OrganizationIntegration, Agent, OrganizationAgent, OrganizationMember
 from app.api.v1.endpoints.organizations import check_organization_permission
 
 router = APIRouter()
@@ -54,17 +54,21 @@ async def create_organization_integration(
             detail="You don't have permission to create integrations for this organization"
         )
     
-    # Check if agent exists and belongs to organization (we'll need to create organization agents later)
-    # For now, let's check if agent exists
+    # Check if organization agent exists and belongs to organization
     result = await db.execute(
-        select(Agent).where(Agent.id == integration_data.agent_id)
+        select(OrganizationAgent).where(
+            and_(
+                OrganizationAgent.id == integration_data.agent_id,
+                OrganizationAgent.organization_id == organization_id
+            )
+        )
     )
     agent = result.scalar_one_or_none()
     
     if not agent:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Agent not found"
+            detail="Organization agent not found"
         )
     
     # Check if integration already exists for this agent and platform
@@ -234,6 +238,23 @@ async def update_organization_integration(
     
     # Update fields
     if integration_data.agent_id is not None:
+        # Validate that the new agent exists and belongs to organization
+        agent_result = await db.execute(
+            select(OrganizationAgent).where(
+                and_(
+                    OrganizationAgent.id == integration_data.agent_id,
+                    OrganizationAgent.organization_id == organization_id
+                )
+            )
+        )
+        agent = agent_result.scalar_one_or_none()
+        
+        if not agent:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Organization agent not found"
+            )
+        
         integration.agent_id = integration_data.agent_id
     if integration_data.config is not None:
         integration.config = integration_data.config
