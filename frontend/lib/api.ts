@@ -1015,7 +1015,7 @@ class ApiClient {
     if (agent_id) params.append('agent_id', agent_id.toString())
     if (platform) params.append('platform', platform)
     
-    return this.request<Integration[]>(`/organizations/${organizationId}/integrations?${params.toString()}`)
+    return this.request<Integration[]>(`/integrations/organizations/${organizationId}/integrations?${params.toString()}`)
   }
 
   async createOrganizationIntegration(organizationId: number, data: {
@@ -1024,14 +1024,14 @@ class ApiClient {
     config: Record<string, any>
     webhook_url?: string
   }): Promise<Integration> {
-    return this.request<Integration>(`/organizations/${organizationId}/integrations`, {
+    return this.request<Integration>(`/integrations/organizations/${organizationId}/integrations`, {
       method: 'POST',
       body: JSON.stringify(data),
     })
   }
 
   async getOrganizationIntegration(organizationId: number, integrationId: number): Promise<Integration> {
-    return this.request<Integration>(`/organizations/${organizationId}/integrations/${integrationId}`)
+    return this.request<Integration>(`/integrations/organizations/${organizationId}/integrations/${integrationId}`)
   }
 
   async updateOrganizationIntegration(organizationId: number, integrationId: number, data: {
@@ -1040,14 +1040,14 @@ class ApiClient {
     webhook_url?: string
     is_active?: boolean
   }): Promise<Integration> {
-    return this.request(`/organizations/${organizationId}/integrations/${integrationId}`, {
+    return this.request(`/integrations/organizations/${organizationId}/integrations/${integrationId}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     })
   }
 
   async deleteOrganizationIntegration(organizationId: number, integrationId: number): Promise<{ message: string }> {
-    return this.request(`/organizations/${organizationId}/integrations/${integrationId}`, {
+    return this.request(`/integrations/organizations/${organizationId}/integrations/${integrationId}`, {
       method: 'DELETE',
     })
   }

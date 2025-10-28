@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 
 from app.core.auth import get_current_user
-from app.core.database import get_db, User, OrganizationIntegration, OrganizationAgent, OrganizationMember
+from app.core.database import get_db, User, OrganizationIntegration, Agent, OrganizationMember
 from app.api.v1.endpoints.organizations import check_organization_permission
 
 router = APIRouter()
@@ -54,21 +54,17 @@ async def create_organization_integration(
             detail="You don't have permission to create integrations for this organization"
         )
     
-    # Check if organization agent exists and belongs to organization
+    # Check if agent exists and belongs to organization (we'll need to create organization agents later)
+    # For now, let's check if agent exists
     result = await db.execute(
-        select(OrganizationAgent).where(
-            and_(
-                OrganizationAgent.id == integration_data.agent_id,
-                OrganizationAgent.organization_id == organization_id
-            )
-        )
+        select(Agent).where(Agent.id == integration_data.agent_id)
     )
     agent = result.scalar_one_or_none()
     
     if not agent:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Organization agent not found"
+            detail="Agent not found"
         )
     
     # Check if integration already exists for this agent and platform
