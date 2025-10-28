@@ -246,26 +246,6 @@ export default function OrganizationDetailPage() {
             </div>
           )}
 
-          {/* Coming Soon Items */}
-          <div className="flex items-center space-x-3 p-4 rounded-lg bg-gray-50 border border-gray-200 opacity-50">
-            <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-              <UserGroupIcon className="w-5 h-5 text-gray-400" />
-            </div>
-            <div>
-              <h4 className="text-sm font-medium text-gray-500">Agents</h4>
-              <p className="text-xs text-gray-400">Coming soon</p>
-            </div>
-          </div>
-
-          <div className="flex items-center space-x-3 p-4 rounded-lg bg-gray-50 border border-gray-200 opacity-50">
-            <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-              <GlobeAltIcon className="w-5 h-5 text-gray-400" />
-            </div>
-            <div>
-              <h4 className="text-sm font-medium text-gray-500">Workflows</h4>
-              <p className="text-xs text-gray-400">Coming soon</p>
-            </div>
-          </div>
         </div>
       </div>
 
