@@ -56,6 +56,48 @@ const organizationNavigation = [
   { name: 'Settings', href: '/dashboard/settings', icon: Cog6ToothIcon },
 ]
 
+// Get the correct playground URL based on context
+const getPlaygroundUrl = (selectedView: 'personal' | 'organization', organizationId?: string) => {
+  if (selectedView === 'organization' && organizationId) {
+    return `/dashboard/organizations/${organizationId}/playground`
+  }
+  return '/dashboard/playground'
+}
+
+// Get navigation items based on context
+const getNavigationItems = (selectedView: 'personal' | 'organization', organizationId?: string) => {
+  // If we're in a specific organization context, show organization-specific navigation
+  if (organizationId && selectedView === 'organization') {
+    return getOrganizationSpecificNavigation(organizationId)
+  }
+  
+  // Personal navigation - always show playground
+  if (selectedView === 'personal') {
+    return [
+      { name: 'Overview', href: '/dashboard', icon: HomeIcon },
+      { name: 'My Agents', href: '/dashboard/agents', icon: CpuChipIcon },
+      { name: 'Agent Tools', href: '/dashboard/tools', icon: WrenchScrewdriverIcon },
+      { name: 'My Knowledge Base', href: '/dashboard/knowledge-base', icon: DocumentTextIcon },
+      { name: 'Integrations', href: '/dashboard/integrations', icon: LinkIcon },
+      { name: 'Playground', href: '/dashboard/playground', icon: SparklesIcon },
+      { name: 'Analytics', href: '/dashboard/analytics', icon: ChartBarIcon },
+      { name: 'Billing', href: '/dashboard/billing', icon: CreditCardIcon },
+      { name: 'Settings', href: '/dashboard/settings', icon: Cog6ToothIcon },
+    ]
+  }
+  
+  // Organization navigation - show playground but disabled until organization is selected
+  return [
+    { name: 'Overview', href: '/dashboard', icon: HomeIcon },
+    { name: 'My Organizations', href: '/dashboard/organizations', icon: BuildingOfficeIcon },
+    { name: 'Create Organization', href: '/dashboard/organizations/create', icon: PlusIcon },
+    { name: 'Playground', href: '/dashboard/playground', icon: SparklesIcon, disabled: true },
+    { name: 'Analytics', href: '/dashboard/analytics', icon: ChartBarIcon },
+    { name: 'Billing', href: '/dashboard/billing', icon: CreditCardIcon },
+    { name: 'Settings', href: '/dashboard/settings', icon: Cog6ToothIcon },
+  ]
+}
+
 // Organization-specific navigation (when inside an organization)
 const getOrganizationSpecificNavigation = (orgId: string) => [
   { name: 'Overview', href: `/dashboard/organizations/${orgId}`, icon: HomeIcon },
@@ -176,6 +218,22 @@ export default function DashboardLayout({
     }
   }, [pathname, isInOrganization])
 
+  // Handle playground route redirection
+  useEffect(() => {
+    if (pathname === '/dashboard/playground' && selectedView === 'organization') {
+      if (organizationId) {
+        // If in organization view and have organization ID, redirect to organization playground
+        const correctPlaygroundUrl = getPlaygroundUrl(selectedView, organizationId)
+        console.log('🔄 Redirecting to organization playground:', { from: pathname, to: correctPlaygroundUrl })
+        window.location.href = correctPlaygroundUrl
+      } else {
+        // If in organization view but no organization selected, redirect to organizations list
+        console.log('🔄 Redirecting to organizations list - no organization selected')
+        window.location.href = '/dashboard/organizations'
+      }
+    }
+  }, [pathname, selectedView, organizationId])
+
   // Scroll-based navigation highlighting
   useEffect(() => {
     const handleScroll = () => {
@@ -224,6 +282,24 @@ export default function DashboardLayout({
       if (element) {
         element.scrollIntoView({ behavior: 'smooth', block: 'start' })
       }
+      return
+    }
+    
+    // Handle playground navigation based on context
+    if (href === '/dashboard/playground') {
+      if (selectedView === 'organization' && !organizationId) {
+        // If in organization view but no organization selected, redirect to organizations list
+        console.log('🔄 Redirecting to organizations list - no organization selected')
+        window.location.href = '/dashboard/organizations'
+        return
+      }
+      
+      const correctPlaygroundUrl = getPlaygroundUrl(selectedView, organizationId)
+      if (correctPlaygroundUrl !== href) {
+        console.log('🔄 Redirecting playground navigation:', { from: href, to: correctPlaygroundUrl })
+        window.location.href = correctPlaygroundUrl
+        return
+      }
     }
   }
 
@@ -245,25 +321,39 @@ export default function DashboardLayout({
 
   const renderNavItem = (item: any, isMobile: boolean = false) => {
     const isActive = pathname === item.href || activeSection === item.href
+    const isDisabled = item.disabled || (item.name === 'Playground' && selectedView === 'organization' && !organizationId)
     
     return (
       <Link
         key={item.name}
-        href={item.href}
+        href={isDisabled ? '#' : item.href}
         className={`group flex items-center py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
           isActive
             ? 'bg-blue-50 text-blue-700 shadow-sm border-l-4 border-blue-500'
+            : isDisabled
+            ? 'text-gray-400 cursor-not-allowed'
             : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
         } ${isMobile ? 'px-2' : desktopSidebarVisible ? 'px-2' : 'px-0 justify-center'}`}
-        title={!isMobile && !desktopSidebarVisible ? item.name : undefined}
-        onClick={() => handleNavClick(item.href)}
+        title={!isMobile && !desktopSidebarVisible ? (isDisabled ? 'Select an organization first' : item.name) : undefined}
+        onClick={(e) => {
+          if (isDisabled) {
+            e.preventDefault()
+            // Redirect to organizations list
+            window.location.href = '/dashboard/organizations'
+            return
+          }
+          handleNavClick(item.href)
+        }}
       >
-        <item.icon className={`h-4 w-4 flex-shrink-0 ${isMobile || desktopSidebarVisible ? 'mr-2' : ''}`} />
+        <item.icon className={`h-4 w-4 flex-shrink-0 ${isMobile || desktopSidebarVisible ? 'mr-2' : ''} ${isDisabled ? 'opacity-50' : ''}`} />
         {(isMobile || desktopSidebarVisible) && (
           <>
-            <span className="font-medium">{item.name}</span>
-            {isActive && (
+            <span className={`font-medium ${isDisabled ? 'opacity-50' : ''}`}>{item.name}</span>
+            {isActive && !isDisabled && (
               <div className="ml-auto w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></div>
+            )}
+            {isDisabled && (
+              <div className="ml-auto text-xs text-gray-400">→</div>
             )}
           </>
         )}
@@ -347,12 +437,11 @@ export default function DashboardLayout({
 
             {/* Navigation Items */}
             {(() => {
-              const navItems = isInOrganization && selectedView === 'organization'
-                ? getOrganizationSpecificNavigation(organizationId!) 
-                : (selectedView === 'personal' ? personalNavigation : organizationNavigation)
+              const navItems = getNavigationItems(selectedView, organizationId)
               console.log('📋 Mobile Navigation Items:', {
                 isInOrganization,
                 selectedView,
+                organizationId,
                 navItems: navItems.map(item => item.name)
               })
               return navItems.map((item) => renderNavItem(item, true))
@@ -465,12 +554,11 @@ export default function DashboardLayout({
 
                 {/* Navigation Items */}
                 {(() => {
-                  const navItems = isInOrganization && selectedView === 'organization'
-                    ? getOrganizationSpecificNavigation(organizationId!) 
-                    : (selectedView === 'personal' ? personalNavigation : organizationNavigation)
+                  const navItems = getNavigationItems(selectedView, organizationId)
                   console.log('📋 Desktop Navigation Items:', {
                     isInOrganization,
                     selectedView,
+                    organizationId,
                     navItems: navItems.map(item => item.name)
                   })
                   return navItems.map((item) => renderNavItem(item, false))
@@ -480,10 +568,7 @@ export default function DashboardLayout({
             
             {!desktopSidebarVisible && (
               <div className="flex flex-col items-center space-y-1">
-                {(isInOrganization && selectedView === 'organization'
-                  ? getOrganizationSpecificNavigation(organizationId!) 
-                  : (selectedView === 'personal' ? personalNavigation : organizationNavigation)
-                ).map((item) => (
+                {getNavigationItems(selectedView, organizationId).map((item) => (
                   <Link
                     key={item.name}
                     href={item.href}
