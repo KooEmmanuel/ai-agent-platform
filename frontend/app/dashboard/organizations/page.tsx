@@ -25,7 +25,6 @@ interface Organization {
   created_at: string
   updated_at: string
   member_count: number
-  project_count: number
 }
 
 export default function OrganizationsPage() {
@@ -142,13 +141,6 @@ export default function OrganizationsPage() {
                       <span className="text-sm font-medium">{org.member_count}</span>
                     </div>
                     <p className="text-xs text-gray-500 mt-1">Members</p>
-                  </div>
-                  <div className="text-center">
-                    <div className="flex items-center justify-center space-x-1 text-gray-600">
-                      <FolderIcon className="w-4 h-4" />
-                      <span className="text-sm font-medium">{org.project_count}</span>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">Projects</p>
                   </div>
                 </div>
 

@@ -7,13 +7,13 @@ import { motion } from 'framer-motion'
 import {
   BuildingOfficeIcon,
   UserGroupIcon,
-  FolderIcon,
-  PlusIcon,
   Cog6ToothIcon,
-  ChartBarIcon,
-  EnvelopeIcon,
   ArrowLeftIcon,
-  EllipsisVerticalIcon
+  PlusIcon,
+  ChatBubbleLeftRightIcon,
+  GlobeAltIcon,
+  FolderIcon,
+  CogIcon
 } from '@heroicons/react/24/outline'
 import { apiClient } from '../../../../lib/api'
 
@@ -28,20 +28,19 @@ interface Organization {
   created_at: string
   updated_at: string
   member_count: number
-  project_count: number
 }
 
-interface OrganizationProject {
+interface OrganizationIntegration {
   id: number
   organization_id: number
-  name: string
-  description?: string
-  status: string
-  settings?: any
-  created_by: number
+  agent_id: number
+  platform: string
+  config: Record<string, any>
+  webhook_url?: string
+  is_active: boolean
+  created_by_id: number
   created_at: string
-  updated_at: string
-  member_count: number
+  updated_at?: string
 }
 
 export default function OrganizationDetailPage() {
@@ -50,9 +49,12 @@ export default function OrganizationDetailPage() {
   const organizationId = parseInt(params.id as string)
   
   const [organization, setOrganization] = useState<Organization | null>(null)
-  const [projects, setProjects] = useState<OrganizationProject[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [showCreateDropdown, setShowCreateDropdown] = useState(false)
+  const [integrations, setIntegrations] = useState<OrganizationIntegration[]>([])
+  const [projects, setProjects] = useState<any[]>([])
+  const [showCreateModal, setShowCreateModal] = useState(false)
 
   useEffect(() => {
     if (organizationId) {
@@ -63,12 +65,21 @@ export default function OrganizationDetailPage() {
   const fetchOrganizationData = async () => {
     try {
       setLoading(true)
-      const [orgData, projectsData] = await Promise.all([
+      const [orgData, integrationsData] = await Promise.all([
         apiClient.getOrganization(organizationId),
-        apiClient.getOrganizationProjects(organizationId)
+        apiClient.getOrganizationIntegrations(organizationId)
       ])
       setOrganization(orgData as Organization)
-      setProjects(projectsData as OrganizationProject[])
+      setIntegrations(integrationsData as OrganizationIntegration[])
+
+      // Fetch organization projects
+      try {
+        const organizationProjects = await apiClient.getOrganizationProjects(organizationId)
+        setProjects(organizationProjects)
+      } catch (error) {
+        console.log('No projects found or project management not set up')
+        setProjects([])
+      }
     } catch (err: any) {
       console.error('Error fetching organization data:', err)
       setError(err.response?.data?.detail || 'Failed to load organization')
@@ -133,13 +144,13 @@ export default function OrganizationDetailPage() {
           </div>
         </div>
         <div className="flex items-center space-x-3">
-          <Link
-            href={`/dashboard/organizations/${organizationId}/invitations`}
-            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          <button
+            onClick={() => setShowCreateDropdown(true)}
+            className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
           >
-            <EnvelopeIcon className="w-5 h-5 mr-2" />
-            Manage Invitations
-          </Link>
+            <PlusIcon className="w-5 h-5 mr-2" />
+            Create
+          </button>
           <Link
             href={`/dashboard/organizations/${organizationId}/settings`}
             className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
@@ -151,7 +162,7 @@ export default function OrganizationDetailPage() {
       </div>
 
       {/* Organization Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -172,23 +183,6 @@ export default function OrganizationDetailPage() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.1 }}
-          className="bg-white rounded-xl p-6 shadow-sm shadow-blue-200/20"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Projects</p>
-              <p className="text-3xl font-bold text-gray-900">{organization.project_count}</p>
-            </div>
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <FolderIcon className="w-6 h-6 text-green-600" />
-            </div>
-          </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.2 }}
           className="bg-white rounded-xl p-6 shadow-sm shadow-blue-200/20"
         >
@@ -198,121 +192,145 @@ export default function OrganizationDetailPage() {
               <p className="text-lg font-semibold text-green-600">Active</p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <ChartBarIcon className="w-6 h-6 text-green-600" />
+              <BuildingOfficeIcon className="w-6 h-6 text-green-600" />
             </div>
           </div>
         </motion.div>
       </div>
 
-      {/* Projects Section */}
-      <div className="bg-white rounded-xl p-6 shadow-sm shadow-blue-200/20">
+      {/* Organization Hub */}
+      <div className="p-6">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-gray-900">Projects</h2>
-          <Link
-            href={`/dashboard/organizations/${organizationId}/projects/create`}
-            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <PlusIcon className="w-5 h-5 mr-2" />
-            Create Project
-          </Link>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Organization Hub</h3>
+            <p className="text-sm text-gray-600 mt-1">Manage your organization's resources and integrations</p>
+          </div>
         </div>
 
-        {projects.length === 0 ? (
-          <div className="text-center py-12">
-            <FolderIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No projects yet</h3>
-            <p className="text-gray-600 mb-6">
-              Create your first project to start collaborating
-            </p>
-            <Link
-              href={`/dashboard/organizations/${organizationId}/projects/create`}
-              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <PlusIcon className="w-5 h-5 mr-2" />
-              Create Project
-            </Link>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {projects.map((project) => (
-              <motion.div
-                key={project.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
-                className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-md transition-all duration-200"
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Integrations */}
+          {integrations.length > 0 ? (
+            integrations.map((integration) => (
+              <Link
+                key={integration.id}
+                href={`/dashboard/organizations/${organizationId}/integrations`}
+                className="flex items-center space-x-3 p-4 rounded-lg hover:bg-gray-50 transition-colors border border-gray-200"
               >
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">{project.name}</h3>
-                    {project.description && (
-                      <p className="text-sm text-gray-600 mt-1">{project.description}</p>
-                    )}
-                  </div>
-                  <button className="p-1 text-gray-400 hover:text-gray-600">
-                    <EllipsisVerticalIcon className="w-4 h-4" />
-                  </button>
+                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                  {integration.platform === 'project_management' ? (
+                    <FolderIcon className="w-5 h-5 text-green-600" />
+                  ) : (
+                    <ChatBubbleLeftRightIcon className="w-5 h-5 text-blue-600" />
+                  )}
                 </div>
+                <div>
+                  <h4 className="text-sm font-medium text-gray-900">
+                    {integration.platform === 'project_management' ? 'Project Management' : integration.platform}
+                  </h4>
+                  <p className="text-xs text-gray-500">Integration • {integration.is_active ? 'Active' : 'Inactive'}</p>
+                </div>
+              </Link>
+            ))
+          ) : (
+            <div className="col-span-full text-center py-8">
+              <ChatBubbleLeftRightIcon className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+              <h4 className="text-sm font-medium text-gray-900 mb-1">No integrations yet</h4>
+              <p className="text-xs text-gray-500 mb-4">Create your first integration to get started</p>
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="inline-flex items-center px-3 py-2 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100"
+              >
+                <PlusIcon className="w-3 h-3 mr-1" />
+                Create Integration
+              </button>
+            </div>
+          )}
 
-                <div className="flex items-center justify-between text-sm text-gray-500">
-                  <span>{project.member_count} members</span>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    project.status === 'active' 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-gray-100 text-gray-800'
-                  }`}>
-                    {project.status}
-                  </span>
-                </div>
-
-                <div className="mt-4 flex space-x-2">
-                  <Link
-                    href={`/dashboard/organizations/${organizationId}/projects/${project.id}`}
-                    className="flex-1 text-center px-3 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium"
-                  >
-                    View Details
-                  </Link>
-                </div>
-              </motion.div>
-            ))}
+          {/* Coming Soon Items */}
+          <div className="flex items-center space-x-3 p-4 rounded-lg bg-gray-50 border border-gray-200 opacity-50">
+            <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+              <UserGroupIcon className="w-5 h-5 text-gray-400" />
+            </div>
+            <div>
+              <h4 className="text-sm font-medium text-gray-500">Agents</h4>
+              <p className="text-xs text-gray-400">Coming soon</p>
+            </div>
           </div>
-        )}
-      </div>
 
-      {/* Quick Actions */}
-      <div className="bg-white rounded-xl p-6 shadow-sm shadow-blue-200/20">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Link
-            href={`/dashboard/organizations/${organizationId}/projects/create`}
-            className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <FolderIcon className="w-5 h-5 text-blue-600" />
-            <span className="text-sm font-medium">Create Project</span>
-          </Link>
-          <Link
-            href={`/dashboard/organizations/${organizationId}/invitations`}
-            className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <EnvelopeIcon className="w-5 h-5 text-green-600" />
-            <span className="text-sm font-medium">Invite Members</span>
-          </Link>
-          <Link
-            href={`/dashboard/organizations/${organizationId}/members`}
-            className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <UserGroupIcon className="w-5 h-5 text-purple-600" />
-            <span className="text-sm font-medium">Manage Members</span>
-          </Link>
-          <Link
-            href={`/dashboard/organizations/${organizationId}/analytics`}
-            className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <ChartBarIcon className="w-5 h-5 text-orange-600" />
-            <span className="text-sm font-medium">View Analytics</span>
-          </Link>
+          <div className="flex items-center space-x-3 p-4 rounded-lg bg-gray-50 border border-gray-200 opacity-50">
+            <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+              <GlobeAltIcon className="w-5 h-5 text-gray-400" />
+            </div>
+            <div>
+              <h4 className="text-sm font-medium text-gray-500">Workflows</h4>
+              <p className="text-xs text-gray-400">Coming soon</p>
+            </div>
+          </div>
         </div>
       </div>
+
+      {/* Create Modal */}
+      {showCreateDropdown && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Create New Resource</h3>
+              
+              <div className="space-y-3">
+                <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-100">
+                  Available Now
+                </div>
+                
+                <button
+                  onClick={() => {
+                    setShowCreateDropdown(false)
+                    router.push(`/dashboard/organizations/${organizationId}/integrations`)
+                  }}
+                  className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 rounded-lg border border-gray-200"
+                >
+                  <ChatBubbleLeftRightIcon className="w-5 h-5 mr-3 text-blue-600" />
+                  <div className="text-left">
+                    <div className="font-medium">Integration</div>
+                    <div className="text-xs text-gray-500">Connect to external platforms</div>
+                  </div>
+                </button>
+
+                
+                <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider border-t border-gray-100 mt-3">
+                  Coming Soon
+                </div>
+                
+                <div className="w-full flex items-center px-4 py-3 text-sm text-gray-400 bg-gray-50 rounded-lg border border-gray-200 cursor-not-allowed">
+                  <UserGroupIcon className="w-5 h-5 mr-3 text-gray-400" />
+                  <div className="text-left">
+                    <div className="font-medium">Agent</div>
+                    <div className="text-xs text-gray-400">AI assistant for your organization</div>
+                  </div>
+                  <span className="ml-auto text-xs bg-gray-200 text-gray-500 px-2 py-1 rounded">Soon</span>
+                </div>
+                
+                <div className="w-full flex items-center px-4 py-3 text-sm text-gray-400 bg-gray-50 rounded-lg border border-gray-200 cursor-not-allowed">
+                  <GlobeAltIcon className="w-5 h-5 mr-3 text-gray-400" />
+                  <div className="text-left">
+                    <div className="font-medium">Workflow</div>
+                    <div className="text-xs text-gray-400">Automate business processes</div>
+                  </div>
+                  <span className="ml-auto text-xs bg-gray-200 text-gray-500 px-2 py-1 rounded">Soon</span>
+                </div>
+              </div>
+              
+              <div className="flex justify-end mt-6">
+                <button
+                  onClick={() => setShowCreateDropdown(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

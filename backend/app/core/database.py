@@ -398,6 +398,194 @@ class Integration(Base):
     user = relationship("User", back_populates="integrations")
     agent = relationship("Agent")
 
+class OrganizationIntegration(Base):
+    __tablename__ = "organization_integrations"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    agent_id = Column(Integer, ForeignKey("agents.id"), nullable=False)
+    platform = Column(String, nullable=False)  # whatsapp, telegram, discord, etc.
+    config = Column(JSON, nullable=False)  # Platform-specific configuration
+    webhook_url = Column(String, nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)  # Who created this integration
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    organization = relationship("Organization")
+    agent = relationship("Agent")
+    created_by = relationship("User")
+
+# Organization Project Management Models
+class OrganizationProject(Base):
+    """Organization Project Management - Projects"""
+    __tablename__ = "organization_projects"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    integration_id = Column(Integer, ForeignKey("organization_integrations.id"), nullable=False)
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    status = Column(String, default='active')  # 'active', 'completed', 'paused', 'cancelled'
+    priority = Column(String, default='medium')  # 'low', 'medium', 'high', 'urgent'
+    start_date = Column(DateTime, nullable=True)
+    end_date = Column(DateTime, nullable=True)
+    budget = Column(Float, nullable=True)
+    progress = Column(Float, default=0.0)  # 0-100 percentage
+    color = Column(String, nullable=True)  # UI color
+    icon = Column(String, nullable=True)  # UI icon
+    settings = Column(JSON, nullable=True)  # Project-specific settings
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)  # Who created this project
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    organization = relationship("Organization")
+    integration = relationship("OrganizationIntegration")
+    created_by = relationship("User")
+    tasks = relationship("OrganizationProjectTask", back_populates="project", cascade="all, delete-orphan")
+    team_members = relationship("OrganizationProjectTeamMember", back_populates="project", cascade="all, delete-orphan")
+    time_entries = relationship("OrganizationTimeEntry", back_populates="project", cascade="all, delete-orphan")
+    milestones = relationship("OrganizationProjectMilestone", back_populates="project", cascade="all, delete-orphan")
+
+class OrganizationProjectTask(Base):
+    """Organization Project Management - Tasks"""
+    __tablename__ = "organization_project_tasks"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("organization_projects.id"), nullable=False)
+    parent_task_id = Column(Integer, ForeignKey("organization_project_tasks.id"), nullable=True)  # For subtasks
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    status = Column(String, default='pending')  # 'pending', 'in_progress', 'completed', 'closed', 'achieved'
+    priority = Column(String, default='medium')  # 'low', 'medium', 'high', 'urgent'
+    assignee_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    due_date = Column(DateTime, nullable=True)
+    estimated_hours = Column(Float, nullable=True)
+    actual_hours = Column(Float, default=0.0)
+    progress = Column(Float, default=0.0)  # 0-100 percentage
+    tags = Column(JSON, nullable=True)  # Array of tags
+    attachments = Column(JSON, nullable=True)  # Array of file attachments
+    custom_fields = Column(JSON, nullable=True)  # Custom field values
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    project = relationship("OrganizationProject", back_populates="tasks")
+    parent_task = relationship("OrganizationProjectTask", remote_side=[id], back_populates="subtasks")
+    subtasks = relationship("OrganizationProjectTask", back_populates="parent_task", cascade="all, delete-orphan")
+    assignee = relationship("User")
+    time_entries = relationship("OrganizationTimeEntry", back_populates="task", cascade="all, delete-orphan")
+    comments = relationship("OrganizationProjectComment", back_populates="task", cascade="all, delete-orphan")
+    documents = relationship("OrganizationTaskDocument", back_populates="task", cascade="all, delete-orphan")
+
+class OrganizationProjectTeamMember(Base):
+    """Organization Project Management - Team Members"""
+    __tablename__ = "organization_project_team_members"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("organization_projects.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    role = Column(String, nullable=False)  # 'owner', 'manager', 'member', 'viewer'
+    permissions = Column(JSON, nullable=True)  # Specific permissions
+    joined_at = Column(DateTime, default=func.now())
+    
+    # Relationships
+    project = relationship("OrganizationProject", back_populates="team_members")
+    user = relationship("User")
+
+class OrganizationTimeEntry(Base):
+    """Organization Project Management - Time Tracking"""
+    __tablename__ = "organization_time_entries"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("organization_projects.id"), nullable=False)
+    task_id = Column(Integer, ForeignKey("organization_project_tasks.id"), nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    description = Column(Text, nullable=True)
+    hours = Column(Float, nullable=False)  # Manual time entry in hours
+    date = Column(DateTime, nullable=False)  # Date when time was logged
+    is_billable = Column(Boolean, default=True)
+    hourly_rate = Column(Float, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    project = relationship("OrganizationProject", back_populates="time_entries")
+    task = relationship("OrganizationProjectTask", back_populates="time_entries")
+    user = relationship("User")
+
+class OrganizationProjectMilestone(Base):
+    """Organization Project Management - Milestones"""
+    __tablename__ = "organization_project_milestones"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("organization_projects.id"), nullable=False)
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    due_date = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+    is_completed = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    project = relationship("OrganizationProject", back_populates="milestones")
+
+class OrganizationProjectComment(Base):
+    """Organization Project Management - Comments"""
+    __tablename__ = "organization_project_comments"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    task_id = Column(Integer, ForeignKey("organization_project_tasks.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    content = Column(Text, nullable=False)
+    attachments = Column(JSON, nullable=True)  # Array of file attachments
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    task = relationship("OrganizationProjectTask", back_populates="comments")
+    user = relationship("User")
+
+class OrganizationProjectTemplate(Base):
+    """Organization Project Management - Templates"""
+    __tablename__ = "organization_project_templates"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    template_data = Column(JSON, nullable=False)  # Project structure, tasks, etc.
+    is_public = Column(Boolean, default=False)
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    organization = relationship("Organization")
+    created_by = relationship("User")
+
+class OrganizationTaskDocument(Base):
+    """Organization Project Management - Task Documents"""
+    __tablename__ = "organization_task_documents"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    task_id = Column(Integer, ForeignKey("organization_project_tasks.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    filename = Column(String, nullable=False)  # Unique filename (UUID)
+    original_filename = Column(String, nullable=False)  # Original filename
+    file_size = Column(Integer, nullable=True)
+    file_type = Column(String, nullable=True)
+    blob_url = Column(String, nullable=True)  # Vercel Blob URL
+    blob_key = Column(String, nullable=True)  # Vercel Blob key
+    uploaded_at = Column(DateTime, default=func.now())
+    
+    # Relationships
+    task = relationship("OrganizationProjectTask", back_populates="documents")
+    user = relationship("User")
+
 class Workspace(Base):
     __tablename__ = "workspaces"
     
@@ -895,7 +1083,6 @@ class Organization(Base):
     # Relationships
     owner = relationship("User", foreign_keys=[owner_id])
     members = relationship("OrganizationMember", back_populates="organization")
-    projects = relationship("OrganizationProject", back_populates="organization")
 
 
 class OrganizationMember(Base):
@@ -941,46 +1128,3 @@ class OrganizationInvitation(Base):
     organization = relationship("Organization")
     inviter = relationship("User")
 
-
-class OrganizationProject(Base):
-    """Organization Projects - Projects within organizations"""
-    __tablename__ = "organization_projects"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
-    name = Column(String, nullable=False)
-    description = Column(Text, nullable=True)
-    status = Column(String, default='active')  # 'active', 'archived', 'completed'
-    settings = Column(JSON, nullable=True)  # Project-specific settings
-    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
-    created_at = Column(DateTime, default=func.now())
-    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
-    
-    # Relationships
-    organization = relationship("Organization", back_populates="projects")
-    creator = relationship("User", foreign_keys=[created_by])
-    members = relationship("OrganizationProjectMember", back_populates="project")
-
-
-class OrganizationProjectMember(Base):
-    """Organization Project Members - Users assigned to organization projects"""
-    __tablename__ = "organization_project_members"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    project_id = Column(Integer, ForeignKey("organization_projects.id"), nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    role = Column(String, nullable=False)  # 'manager', 'member', 'viewer'
-    permissions = Column(JSON, nullable=True)  # Project-specific permissions
-    status = Column(String, default='active')  # 'active', 'inactive'
-    assigned_by = Column(Integer, ForeignKey("users.id"), nullable=True)
-    joined_at = Column(DateTime, default=func.now())
-    created_at = Column(DateTime, default=func.now())
-    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
-    
-    # Ensure unique user per project
-    __table_args__ = (UniqueConstraint('project_id', 'user_id', name='unique_project_user'),)
-    
-    # Relationships
-    project = relationship("OrganizationProject", back_populates="members")
-    user = relationship("User", foreign_keys=[user_id])
-    assigner = relationship("User", foreign_keys=[assigned_by]) 

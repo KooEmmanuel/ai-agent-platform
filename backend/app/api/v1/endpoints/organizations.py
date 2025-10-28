@@ -14,7 +14,7 @@ import os
 import logging
 
 from app.core.database import get_db
-from app.core.database import Organization, OrganizationMember, OrganizationInvitation, OrganizationProject, OrganizationProjectMember, User
+from app.core.database import Organization, OrganizationMember, OrganizationInvitation, User
 from app.core.auth import get_current_user
 from app.core.email import email_service
 from pydantic import BaseModel
@@ -44,7 +44,6 @@ class OrganizationResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     member_count: int = 0
-    project_count: int = 0
     
     class Config:
         from_attributes = True
@@ -56,26 +55,6 @@ class OrganizationMemberCreate(BaseModel):
 class OrganizationInvitationCreate(BaseModel):
     email: str
     role: str = "member"  # 'admin', 'member', 'guest'
-
-class OrganizationProjectCreate(BaseModel):
-    name: str
-    description: Optional[str] = None
-    settings: Optional[dict] = None
-
-class OrganizationProjectResponse(BaseModel):
-    id: int
-    organization_id: int
-    name: str
-    description: Optional[str]
-    status: str
-    settings: Optional[dict]
-    created_by: int
-    created_at: datetime
-    updated_at: datetime
-    member_count: int = 0
-    
-    class Config:
-        from_attributes = True
 
 class OrganizationMemberResponse(BaseModel):
     id: int
@@ -142,6 +121,19 @@ async def check_organization_permission(
     """Check if user has required permission in organization"""
     logger.info(f"🔐 Checking permission: user {user_id}, org {organization_id}, required role: {required_role}")
     
+    # First check if user is the organization owner
+    org_result = await db.execute(
+        select(Organization).where(Organization.id == organization_id)
+    )
+    org = org_result.scalar_one_or_none()
+    
+    if org and org.owner_id == user_id:
+        logger.info(f"🔐 User {user_id} is the organization owner - granting permission")
+        return True
+    
+    logger.info(f"🔐 User {user_id} is NOT the organization owner (owner_id: {org.owner_id if org else 'org not found'})")
+    
+    # Then check organization membership
     result = await db.execute(
         select(OrganizationMember)
         .where(
@@ -156,6 +148,13 @@ async def check_organization_permission(
     
     if not member:
         logger.warning(f"🔐 User {user_id} not found as active member in organization {organization_id}")
+        logger.info(f"🔐 Organization {organization_id} members:")
+        all_members_result = await db.execute(
+            select(OrganizationMember).where(OrganizationMember.organization_id == organization_id)
+        )
+        all_members = all_members_result.scalars().all()
+        for m in all_members:
+            logger.info(f"🔐   - User {m.user_id}: {m.role} ({m.status})")
         return False
     
     logger.info(f"🔐 Found member: {member.role} (user {user_id} in org {organization_id})")
@@ -222,16 +221,10 @@ async def create_organization(
             )
         )
     )
-    project_count = await db.execute(
-        select(OrganizationProject).where(
-            OrganizationProject.organization_id == organization.id
-        )
-    )
     
     return OrganizationResponse(
         **organization.__dict__,
         member_count=len(member_count.scalars().all()),
-        project_count=len(project_count.scalars().all())
     )
 
 @router.get("/", response_model=List[OrganizationResponse])
@@ -253,16 +246,10 @@ async def get_organizations(
                 )
             )
         )
-        project_count = await db.execute(
-            select(OrganizationProject).where(
-                OrganizationProject.organization_id == org.id
-            )
-        )
         
         result.append(OrganizationResponse(
             **org.__dict__,
-            member_count=len(member_count.scalars().all()),
-            project_count=len(project_count.scalars().all())
+            member_count=len(member_count.scalars().all())
         ))
     
     return result
@@ -301,16 +288,10 @@ async def get_organization(
             )
         )
     )
-    project_count = await db.execute(
-        select(OrganizationProject).where(
-            OrganizationProject.organization_id == organization.id
-        )
-    )
     
     return OrganizationResponse(
         **organization.__dict__,
         member_count=len(member_count.scalars().all()),
-        project_count=len(project_count.scalars().all())
     )
 
 @router.put("/{organization_id}", response_model=OrganizationResponse)
@@ -361,113 +342,11 @@ async def update_organization(
             )
         )
     )
-    project_count = await db.execute(
-        select(OrganizationProject).where(
-            OrganizationProject.organization_id == organization.id
-        )
-    )
     
     return OrganizationResponse(
         **organization.__dict__,
         member_count=len(member_count.scalars().all()),
-        project_count=len(project_count.scalars().all())
     )
-
-# Organization Projects endpoints
-@router.post("/{organization_id}/projects", response_model=OrganizationProjectResponse)
-async def create_organization_project(
-    organization_id: int,
-    project_data: OrganizationProjectCreate,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """Create a new project in organization"""
-    # Check if user has permission to create projects
-    if not await check_organization_permission(organization_id, current_user.id, 'member', db):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You don't have permission to create projects in this organization"
-        )
-    
-    # Create project
-    project = OrganizationProject(
-        organization_id=organization_id,
-        name=project_data.name,
-        description=project_data.description,
-        settings=project_data.settings or {},
-        created_by=current_user.id,
-        status='active'
-    )
-    
-    db.add(project)
-    await db.commit()
-    await db.refresh(project)
-    
-    # Add creator as project manager
-    project_member = OrganizationProjectMember(
-        project_id=project.id,
-        user_id=current_user.id,
-        role='manager',
-        status='active',
-        assigned_by=current_user.id
-    )
-    db.add(project_member)
-    await db.commit()
-    
-    # Get member count
-    member_count = await db.execute(
-        select(OrganizationProjectMember).where(
-            and_(
-                OrganizationProjectMember.project_id == project.id,
-                OrganizationProjectMember.status == 'active'
-            )
-        )
-    )
-    
-    return OrganizationProjectResponse(
-        **project.__dict__,
-        member_count=len(member_count.scalars().all())
-    )
-
-@router.get("/{organization_id}/projects", response_model=List[OrganizationProjectResponse])
-async def get_organization_projects(
-    organization_id: int,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """Get all projects in organization"""
-    # Check if user has access to organization
-    if not await check_organization_permission(organization_id, current_user.id, 'guest', db):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You don't have access to this organization"
-        )
-    
-    result = await db.execute(
-        select(OrganizationProject).where(
-            OrganizationProject.organization_id == organization_id
-        )
-    )
-    projects = result.scalars().all()
-    
-    # Get member counts for each project
-    result_list = []
-    for project in projects:
-        member_count = await db.execute(
-            select(OrganizationProjectMember).where(
-                and_(
-                    OrganizationProjectMember.project_id == project.id,
-                    OrganizationProjectMember.status == 'active'
-                )
-            )
-        )
-        
-        result_list.append(OrganizationProjectResponse(
-            **project.__dict__,
-            member_count=len(member_count.scalars().all())
-        ))
-    
-    return result_list
 
 # Organization Members endpoints
 @router.get("/{organization_id}/members", response_model=List[OrganizationMemberResponse])
@@ -716,8 +595,8 @@ async def get_organization_invitations(
     db: AsyncSession = Depends(get_db)
 ):
     """Get all invitations for an organization"""
-    # Check if user has permission to view invitations (admin or owner)
-    if not await check_organization_permission(organization_id, current_user.id, 'admin', db):
+    # Check if user has permission to view invitations (any member can view)
+    if not await check_organization_permission(organization_id, current_user.id, 'member', db):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have permission to view invitations for this organization"

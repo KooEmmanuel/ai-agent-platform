@@ -46,7 +46,29 @@ export interface Tool {
   is_in_user_collection?: boolean
 }
 
-export interface Integration {
+export interface Project {
+  id: number
+  organization_id: number
+  integration_id: number
+  name: string
+  description?: string
+  status: string
+  priority: string
+  start_date?: string
+  end_date?: string
+  budget?: number
+  progress: number
+  color?: string
+  icon?: string
+  settings?: Record<string, any>
+  created_by_id: number
+  created_at: string
+  updated_at?: string
+  task_count?: number
+  team_member_count?: number
+}
+
+interface Integration {
   id: number
   agent_id: number
   platform: string
@@ -899,6 +921,218 @@ class ApiClient {
     })
   }
 
+  // Organization Integrations
+  async getOrganizationIntegrations(organizationId: number, agent_id?: number, platform?: string): Promise<Integration[]> {
+    const params = new URLSearchParams()
+    if (agent_id) params.append('agent_id', agent_id.toString())
+    if (platform) params.append('platform', platform)
+    
+    return this.request<Integration[]>(`/integrations/organizations/${organizationId}/integrations?${params.toString()}`)
+  }
+
+  async createOrganizationIntegration(organizationId: number, data: {
+    agent_id: number
+    platform: string
+    config: Record<string, any>
+    webhook_url?: string
+  }): Promise<Integration> {
+    return this.request<Integration>(`/integrations/organizations/${organizationId}/integrations`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async getOrganizationIntegration(organizationId: number, integrationId: number): Promise<Integration> {
+    return this.request<Integration>(`/integrations/organizations/${organizationId}/integrations/${integrationId}`)
+  }
+
+  async updateOrganizationIntegration(organizationId: number, integrationId: number, data: {
+    config?: Record<string, any>
+    webhook_url?: string
+    is_active?: boolean
+  }): Promise<Integration> {
+    return this.request(`/integrations/organizations/${organizationId}/integrations/${integrationId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteOrganizationIntegration(organizationId: number, integrationId: number): Promise<{ message: string }> {
+    return this.request(`/integrations/organizations/${organizationId}/integrations/${integrationId}`, {
+      method: 'DELETE',
+    })
+  }
+
+  // Organization Project Management
+  async getOrganizationProjects(organizationId: number, integration_id?: number, status?: string): Promise<Project[]> {
+    const params = new URLSearchParams()
+    if (integration_id) params.append('integration_id', integration_id.toString())
+    if (status) params.append('status', status)
+    
+    return this.request<Project[]>(`/project-management/organizations/${organizationId}/projects?${params.toString()}`)
+  }
+
+  async createOrganizationProject(organizationId: number, data: {
+    integration_id: number
+    name: string
+    description?: string
+    priority?: string
+    start_date?: string
+    end_date?: string
+    budget?: number
+    color?: string
+    icon?: string
+    settings?: Record<string, any>
+  }): Promise<Project> {
+    return this.request<Project>(`/project-management/organizations/${organizationId}/projects`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async getOrganizationProject(organizationId: number, projectId: number): Promise<Project> {
+    return this.request<Project>(`/project-management/organizations/${organizationId}/projects/${projectId}`)
+  }
+
+  async updateOrganizationProject(organizationId: number, projectId: number, data: {
+    name?: string
+    description?: string
+    status?: string
+    priority?: string
+    start_date?: string
+    end_date?: string
+    budget?: number
+    progress?: number
+    color?: string
+    icon?: string
+    settings?: Record<string, any>
+  }): Promise<Project> {
+    return this.request<Project>(`/project-management/organizations/${organizationId}/projects/${projectId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteOrganizationProject(organizationId: number, projectId: number): Promise<{ message: string }> {
+    return this.request(`/project-management/organizations/${organizationId}/projects/${projectId}`, {
+      method: 'DELETE',
+    })
+  }
+
+  async createOrganizationProjectFromTemplate(organizationId: number, data: {
+    integration_id: number
+    name: string
+    template_id: string
+    start_date?: string
+    custom_settings?: Record<string, any>
+  }): Promise<Project> {
+    return this.request<Project>(`/project-management/organizations/${organizationId}/projects/from-template`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  // Organization Project Task Management
+  async createOrganizationProjectTask(organizationId: number, projectId: number, data: {
+    parent_task_id?: number
+    title: string
+    description?: string
+    status?: string
+    priority?: string
+    assignee_id?: number
+    due_date?: string
+    estimated_hours?: number
+    tags?: string[]
+    custom_fields?: Record<string, any>
+  }): Promise<any> {
+    return this.request(`/project-management/organizations/${organizationId}/projects/${projectId}/tasks`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async getOrganizationProjectTasks(organizationId: number, projectId: number, task_status?: string, assignee_id?: number): Promise<any[]> {
+    const params = new URLSearchParams()
+    if (task_status) params.append('task_status', task_status)
+    if (assignee_id) params.append('assignee_id', assignee_id.toString())
+    
+    return this.request<any[]>(`/project-management/organizations/${organizationId}/projects/${projectId}/tasks?${params.toString()}`)
+  }
+
+  async updateOrganizationProjectTask(organizationId: number, projectId: number, taskId: number, data: {
+    title?: string
+    description?: string
+    status?: string
+    priority?: string
+    assignee_id?: number
+    due_date?: string
+    estimated_hours?: number
+    actual_hours?: number
+    progress?: number
+    tags?: string[]
+    custom_fields?: Record<string, any>
+  }): Promise<any> {
+    return this.request(`/project-management/organizations/${organizationId}/projects/${projectId}/tasks/${taskId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+    async deleteOrganizationProjectTask(organizationId: number, projectId: number, taskId: number): Promise<{ message: string }> {
+        return this.request(`/project-management/organizations/${organizationId}/projects/${projectId}/tasks/${taskId}`, {
+            method: 'DELETE',
+        })
+    }
+
+    // Organization Task File Management
+  async uploadOrganizationTaskFile(organizationId: number, projectId: number, taskId: number, formData: FormData): Promise<any> {
+    return this.request(`/project-management/organizations/${organizationId}/projects/${projectId}/tasks/${taskId}/files`, {
+      method: 'POST',
+      body: formData,
+    })
+  }
+
+  async getOrganizationTaskFiles(organizationId: number, projectId: number, taskId: number): Promise<any[]> {
+    return this.request<any[]>(`/project-management/organizations/${organizationId}/projects/${projectId}/tasks/${taskId}/files`)
+  }
+
+  async deleteOrganizationTaskFile(organizationId: number, projectId: number, taskId: number, fileId: number): Promise<{ message: string }> {
+    return this.request(`/project-management/organizations/${organizationId}/projects/${projectId}/tasks/${taskId}/files/${fileId}`, {
+      method: 'DELETE',
+    })
+  }
+
+  // Organization Time Entry Management
+  async createOrganizationTimeEntry(organizationId: number, projectId: number, data: {
+    project_id: number
+    task_id?: number
+    description?: string
+    hours: number
+    date: string
+    is_billable?: boolean
+    hourly_rate?: number
+  }): Promise<any> {
+    return this.request(`/project-management/organizations/${organizationId}/projects/${projectId}/time-entries`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async getOrganizationProjectTimeEntries(organizationId: number, projectId: number, taskId?: number, startDate?: string, endDate?: string): Promise<any[]> {
+    const params = new URLSearchParams()
+    if (taskId) params.append('task_id', taskId.toString())
+    if (startDate) params.append('start_date', startDate)
+    if (endDate) params.append('end_date', endDate)
+    
+    return this.request<any[]>(`/project-management/organizations/${organizationId}/projects/${projectId}/time-entries?${params.toString()}`)
+  }
+
+  async deleteOrganizationTimeEntry(organizationId: number, projectId: number, timeEntryId: number): Promise<{ message: string }> {
+    return this.request(`/project-management/organizations/${organizationId}/projects/${projectId}/time-entries/${timeEntryId}`, {
+      method: 'DELETE',
+    })
+  }
+
   // Analytics
   async getAnalyticsOverview(): Promise<{
     total_agents: number
@@ -1291,23 +1525,6 @@ class ApiClient {
   }) {
     return this.request(`/organizations/${id}`, {
       method: 'PUT',
-      body: JSON.stringify(data)
-    })
-  }
-
-  async getOrganizationProjects(organizationId: number) {
-    return this.request(`/organizations/${organizationId}/projects`, {
-      method: 'GET'
-    })
-  }
-
-  async createOrganizationProject(organizationId: number, data: {
-    name: string
-    description?: string
-    settings?: any
-  }) {
-    return this.request(`/organizations/${organizationId}/projects`, {
-      method: 'POST',
       body: JSON.stringify(data)
     })
   }
