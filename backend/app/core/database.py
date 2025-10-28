@@ -417,6 +417,27 @@ class OrganizationIntegration(Base):
     agent = relationship("Agent")
     created_by = relationship("User")
 
+class OrganizationAgent(Base):
+    """Organization-level agents accessible to all members"""
+    __tablename__ = "organization_agents"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    instructions = Column(Text, nullable=False)
+    model = Column(String, default="gpt-4o-mini")  # AI model to use
+    tools = Column(JSON, default=list)  # Array of tool configurations
+    context_config = Column(JSON, nullable=True)  # Context and memory configuration
+    is_active = Column(Boolean, default=True)
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)  # Who created this agent
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    organization = relationship("Organization")
+    created_by = relationship("User")
+
 # Organization Project Management Models
 class OrganizationProject(Base):
     """Organization Project Management - Projects"""
@@ -1127,4 +1148,96 @@ class OrganizationInvitation(Base):
     # Relationships
     organization = relationship("Organization")
     inviter = relationship("User")
+
+
+# Organization Playground Models (separate from personal playground)
+class OrganizationConversation(Base):
+    """Organization-level conversations for playground"""
+    __tablename__ = "organization_conversations"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    agent_id = Column(Integer, ForeignKey("organization_agents.id"), nullable=False)
+    title = Column(String, nullable=True)
+    title_status = Column(String, default="provisional")  # 'provisional', 'final', 'custom'
+    title_generated_at = Column(DateTime, nullable=True)
+    title_generation_method = Column(String, default="auto")  # 'auto', 'manual'
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    last_message_at = Column(DateTime, nullable=True)
+    message_count = Column(Integer, default=0)
+    meta_data = Column(JSON, nullable=True)
+    
+    # Relationships
+    organization = relationship("Organization")
+    agent = relationship("OrganizationAgent")
+    created_by = relationship("User")
+    messages = relationship("OrganizationMessage", back_populates="conversation")
+
+
+class OrganizationMessage(Base):
+    """Organization-level messages for playground conversations"""
+    __tablename__ = "organization_messages"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    conversation_id = Column(Integer, ForeignKey("organization_conversations.id"), nullable=False)
+    role = Column(String, nullable=False)  # 'user', 'assistant', 'system'
+    content = Column(Text, nullable=False)
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # Null for assistant messages
+    created_at = Column(DateTime, default=func.now())
+    meta_data = Column(JSON, nullable=True)
+    tool_calls = Column(JSON, nullable=True)
+    parent_message_id = Column(Integer, ForeignKey("organization_messages.id"), nullable=True)
+    token_count = Column(Integer, nullable=True)
+    cost_cents = Column(Integer, nullable=True)  # Cost in cents
+    
+    # Relationships
+    conversation = relationship("OrganizationConversation", back_populates="messages")
+    created_by = relationship("User")
+    parent_message = relationship("OrganizationMessage", remote_side=[id])
+    attachments = relationship("OrganizationAttachment", back_populates="message")
+
+
+class OrganizationAttachment(Base):
+    """Organization-level file attachments for playground conversations"""
+    __tablename__ = "organization_attachments"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    conversation_id = Column(Integer, ForeignKey("organization_conversations.id"), nullable=False)
+    message_id = Column(Integer, ForeignKey("organization_messages.id"), nullable=True)
+    blob_key = Column(String, nullable=False)
+    blob_url = Column(String, nullable=False)
+    filename = Column(String, nullable=False)
+    file_size = Column(Integer, nullable=True)
+    mime_type = Column(String, nullable=True)
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=func.now())
+    
+    # Relationships
+    conversation = relationship("OrganizationConversation")
+    message = relationship("OrganizationMessage", back_populates="attachments")
+    created_by = relationship("User")
+
+
+class OrganizationPlaygroundPolicy(Base):
+    """Organization playground policies and settings"""
+    __tablename__ = "organization_playground_policies"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, unique=True)
+    default_model = Column(String, default="gpt-4o-mini")
+    temperature = Column(Float, default=0.7)
+    max_tokens = Column(Integer, default=4000)
+    rate_limit_per_hour = Column(Integer, default=100)  # Messages per hour per user
+    cost_limit_per_month = Column(Integer, default=10000)  # Cost in cents per month
+    allow_model_override = Column(Boolean, default=True)
+    allow_temperature_override = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    
+    # Relationships
+    organization = relationship("Organization")
+    created_by = relationship("User")
 

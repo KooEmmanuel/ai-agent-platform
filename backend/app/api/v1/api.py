@@ -3,7 +3,7 @@ Main API router for v1 endpoints
 """
 
 from fastapi import APIRouter
-from app.api.v1.endpoints import auth, agents, tools, integrations, playground, credits, whatsapp, email, telegram, web_widget, analytics, users, notifications, billing, conversations, knowledge_base, files, admin, admin_auth, support, project_management, organizations, file_notifications, organization_integrations, organization_project_management
+from app.api.v1.endpoints import auth, agents, tools, integrations, playground, credits, whatsapp, email, telegram, web_widget, analytics, users, notifications, billing, conversations, knowledge_base, files, admin, admin_auth, support, project_management, organizations, file_notifications, organization_integrations, organization_project_management, organization_agents, organization_playground
 
 api_router = APIRouter()
 
@@ -13,6 +13,8 @@ api_router.include_router(tools.router, prefix="/tools", tags=["tools"])
 api_router.include_router(integrations.router, prefix="/integrations", tags=["integrations"])
 api_router.include_router(organization_integrations.router, prefix="/integrations", tags=["organization-integrations"])
 api_router.include_router(organization_project_management.router, prefix="/project-management", tags=["organization-project-management"])
+api_router.include_router(organization_agents.router, prefix="/organization-agents", tags=["organization-agents"])
+api_router.include_router(organization_playground.router, prefix="/playground", tags=["organization-playground"])
 api_router.include_router(playground.router, prefix="/playground", tags=["playground"])
 api_router.include_router(credits.router, prefix="/credits", tags=["credits"])
 api_router.include_router(whatsapp.router, prefix="/whatsapp", tags=["whatsapp"])

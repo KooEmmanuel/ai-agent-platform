@@ -208,6 +208,20 @@ export default function OrganizationDetailPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Agents */}
+          <Link
+            href={`/dashboard/organizations/${organizationId}/agents`}
+            className="flex items-center space-x-3 p-4 rounded-lg hover:bg-gray-50 transition-colors border border-gray-200"
+          >
+            <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+              <UserGroupIcon className="w-5 h-5 text-purple-600" />
+            </div>
+            <div>
+              <h4 className="text-sm font-medium text-gray-900">Agents</h4>
+              <p className="text-xs text-gray-500">AI Agents • Organization</p>
+            </div>
+          </Link>
+
           {/* Integrations */}
           {integrations.length > 0 ? (
             integrations.map((integration) => (
@@ -275,18 +289,23 @@ export default function OrganizationDetailPage() {
                   </div>
                 </button>
 
+                <button
+                  onClick={() => {
+                    setShowCreateDropdown(false)
+                    router.push(`/dashboard/organizations/${organizationId}/agents`)
+                  }}
+                  className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 rounded-lg border border-gray-200"
+                >
+                  <UserGroupIcon className="w-5 h-5 mr-3 text-purple-600" />
+                  <div className="text-left">
+                    <div className="font-medium">Agent</div>
+                    <div className="text-xs text-gray-500">AI assistant for your organization</div>
+                  </div>
+                </button>
+
                 
                 <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider border-t border-gray-100 mt-3">
                   Coming Soon
-                </div>
-                
-                <div className="w-full flex items-center px-4 py-3 text-sm text-gray-400 bg-gray-50 rounded-lg border border-gray-200 cursor-not-allowed">
-                  <UserGroupIcon className="w-5 h-5 mr-3 text-gray-400" />
-                  <div className="text-left">
-                    <div className="font-medium">Agent</div>
-                    <div className="text-xs text-gray-400">AI assistant for your organization</div>
-                  </div>
-                  <span className="ml-auto text-xs bg-gray-200 text-gray-500 px-2 py-1 rounded">Soon</span>
                 </div>
                 
                 <div className="w-full flex items-center px-4 py-3 text-sm text-gray-400 bg-gray-50 rounded-lg border border-gray-200 cursor-not-allowed">

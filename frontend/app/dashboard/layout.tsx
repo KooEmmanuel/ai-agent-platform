@@ -24,7 +24,8 @@ import {
   PlusIcon,
   FolderIcon,
   UserGroupIcon,
-  LinkIcon
+  LinkIcon,
+  ChevronDownIcon
 } from '@heroicons/react/24/outline'
 import { LuPanelLeftClose, LuPanelRightClose } from "react-icons/lu"
 import { LogOut } from 'lucide-react'
@@ -32,6 +33,38 @@ import { signOut, auth } from '../../lib/firebase'
 import { onAuthStateChanged } from 'firebase/auth'
 import DrixaiLogo from '../../components/ui/drixai-logo'
 import { initializeApiClient } from '../../lib/api'
+
+const personalNavigation = [
+  { name: 'Overview', href: '/dashboard', icon: HomeIcon },
+  { name: 'My Agents', href: '/dashboard/agents', icon: CpuChipIcon },
+  { name: 'Agent Tools', href: '/dashboard/tools', icon: WrenchScrewdriverIcon },
+  { name: 'My Knowledge Base', href: '/dashboard/knowledge-base', icon: DocumentTextIcon },
+  { name: 'Integrations', href: '/dashboard/integrations', icon: LinkIcon },
+  { name: 'Playground', href: '/dashboard/playground', icon: SparklesIcon },
+  { name: 'Analytics', href: '/dashboard/analytics', icon: ChartBarIcon },
+  { name: 'Billing', href: '/dashboard/billing', icon: CreditCardIcon },
+  { name: 'Settings', href: '/dashboard/settings', icon: Cog6ToothIcon },
+]
+
+const organizationNavigation = [
+  { name: 'Overview', href: '/dashboard', icon: HomeIcon },
+  { name: 'My Organizations', href: '/dashboard/organizations', icon: BuildingOfficeIcon },
+  { name: 'Create Organization', href: '/dashboard/organizations/create', icon: PlusIcon },
+  { name: 'Playground', href: '/dashboard/playground', icon: SparklesIcon },
+  { name: 'Analytics', href: '/dashboard/analytics', icon: ChartBarIcon },
+  { name: 'Billing', href: '/dashboard/billing', icon: CreditCardIcon },
+  { name: 'Settings', href: '/dashboard/settings', icon: Cog6ToothIcon },
+]
+
+// Organization-specific navigation (when inside an organization)
+const getOrganizationSpecificNavigation = (orgId: string) => [
+  { name: 'Overview', href: `/dashboard/organizations/${orgId}`, icon: HomeIcon },
+  { name: 'Agents', href: `/dashboard/organizations/${orgId}/agents`, icon: CpuChipIcon },
+  { name: 'Integrations', href: `/dashboard/organizations/${orgId}/integrations`, icon: LinkIcon },
+  { name: 'Project Management', href: `/dashboard/organizations/${orgId}/project-management`, icon: ChartBarIcon },
+  { name: 'Playground', href: `/dashboard/organizations/${orgId}/playground`, icon: SparklesIcon },
+  { name: 'Settings', href: `/dashboard/organizations/${orgId}/settings`, icon: Cog6ToothIcon },
+]
 
 const navigation = [
   { name: 'Overview', href: '/dashboard', icon: HomeIcon },
@@ -50,7 +83,7 @@ const navigation = [
     icon: UserCircleIcon,
     children: [
       { name: 'My Agents', href: '/dashboard/agents', icon: CpuChipIcon },
-      { name: 'My Tools', href: '/dashboard/tools', icon: WrenchScrewdriverIcon },
+      { name: 'Agent Tools', href: '/dashboard/tools', icon: WrenchScrewdriverIcon },
       { name: 'My Knowledge Base', href: '/dashboard/knowledge-base', icon: DocumentTextIcon },
       { name: 'Integrations', href: '/dashboard/integrations', icon: LinkIcon }
     ]
@@ -72,7 +105,13 @@ export default function DashboardLayout({
   const [user, setUser] = useState<any>(null)
   const [activeSection, setActiveSection] = useState<string>('')
   const [expandedItems, setExpandedItems] = useState<string[]>([])
+  const [selectedView, setSelectedView] = useState<'personal' | 'organization'>('personal')
+  const [showDropdown, setShowDropdown] = useState(false)
   const pathname = usePathname()
+  
+  // Extract organization ID from pathname
+  const organizationId = pathname.match(/\/organizations\/(\d+)/)?.[1]
+  const isInOrganization = Boolean(organizationId)
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -170,87 +209,29 @@ export default function DashboardLayout({
 
   const renderNavItem = (item: any, isMobile: boolean = false) => {
     const isActive = pathname === item.href || activeSection === item.href
-    const hasChildren = item.children && item.children.length > 0
-    const isExpanded = expandedItems.includes(item.name)
     
     return (
-      <div key={item.name}>
-        {hasChildren ? (
-          <div>
-            <button
-              onClick={() => toggleExpanded(item.name)}
-              className={`group flex items-center w-full px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${
-                isActive
-                  ? 'bg-blue-50 text-blue-700 shadow-sm border-l-4 border-blue-500'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-              } ${isMobile ? '' : desktopSidebarVisible ? '' : 'px-0 justify-center'}`}
-            >
-              <item.icon className={`h-5 w-5 flex-shrink-0 ${isMobile || desktopSidebarVisible ? 'mr-3' : ''}`} />
-              {(isMobile || desktopSidebarVisible) && (
-                <>
-                  <span className="font-medium">{item.name}</span>
-                  <div className="ml-auto">
-                    <svg 
-                      className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} 
-                      fill="none" 
-                      stroke="currentColor" 
-                      viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                </>
-              )}
-            </button>
-            {isExpanded && (isMobile || desktopSidebarVisible) && (
-              <div className="ml-4 mt-1 space-y-1">
-                {item.children.map((child: any) => {
-                  const isChildActive = pathname === child.href
-                  return (
-                    <Link
-                      key={child.name}
-                      href={child.href}
-                      className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
-                        isChildActive
-                          ? 'bg-blue-50 text-blue-700 shadow-sm border-l-4 border-blue-500'
-                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                      }`}
-                      onClick={() => handleNavClick(child.href)}
-                    >
-                      <child.icon className="mr-3 h-4 w-4 flex-shrink-0" />
-                      <span className="font-medium">{child.name}</span>
-                      {isChildActive && (
-                        <div className="ml-auto w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                      )}
-                    </Link>
-                  )
-                })}
-              </div>
+      <Link
+        key={item.name}
+        href={item.href}
+        className={`group flex items-center py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
+          isActive
+            ? 'bg-blue-50 text-blue-700 shadow-sm border-l-4 border-blue-500'
+            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+        } ${isMobile ? 'px-2' : desktopSidebarVisible ? 'px-2' : 'px-0 justify-center'}`}
+        title={!isMobile && !desktopSidebarVisible ? item.name : undefined}
+        onClick={() => handleNavClick(item.href)}
+      >
+        <item.icon className={`h-4 w-4 flex-shrink-0 ${isMobile || desktopSidebarVisible ? 'mr-2' : ''}`} />
+        {(isMobile || desktopSidebarVisible) && (
+          <>
+            <span className="font-medium">{item.name}</span>
+            {isActive && (
+              <div className="ml-auto w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></div>
             )}
-          </div>
-        ) : (
-          <Link
-            href={item.href}
-            className={`group flex items-center py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${
-              isActive
-                ? 'bg-blue-50 text-blue-700 shadow-sm border-l-4 border-blue-500'
-                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-            } ${isMobile ? 'px-3' : desktopSidebarVisible ? 'px-3' : 'px-0 justify-center'}`}
-            title={!isMobile && !desktopSidebarVisible ? item.name : undefined}
-            onClick={() => handleNavClick(item.href)}
-          >
-            <item.icon className={`h-5 w-5 flex-shrink-0 ${isMobile || desktopSidebarVisible ? 'mr-3' : ''}`} />
-            {(isMobile || desktopSidebarVisible) && (
-              <>
-                <span className="font-medium">{item.name}</span>
-                {isActive && (
-                  <div className="ml-auto w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                )}
-              </>
-            )}
-          </Link>
+          </>
         )}
-      </div>
+      </Link>
     )
   }
 
@@ -284,8 +265,55 @@ export default function DashboardLayout({
               <XMarkIcon className="w-6 h-6" />
             </button>
           </div>
-          <nav className="flex-1 space-y-1 px-2 py-4 ml-2">
-            {navigation.map((item) => renderNavItem(item, true))}
+          <nav className="flex-1 space-y-0.5 px-2 py-4 ml-2">
+            {/* View Selector Dropdown */}
+            <div className="relative mb-3">
+              <button
+                onClick={() => setShowDropdown(!showDropdown)}
+                className="w-full flex items-center justify-between px-2 py-1.5 text-xs font-medium text-gray-700 bg-gray-50 rounded-lg hover:bg-gray-100 border border-gray-200"
+              >
+                <div className="flex items-center">
+                  <UserCircleIcon className="w-3 h-3 mr-1.5 text-gray-500" />
+                  <span>{selectedView === 'personal' ? 'Personal' : 'Organization'}</span>
+                </div>
+                <ChevronDownIcon className={`w-3 h-3 transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
+              </button>
+              
+              {showDropdown && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                  <button
+                    onClick={() => {
+                      setSelectedView('personal')
+                      setShowDropdown(false)
+                    }}
+                    className={`w-full flex items-center px-2 py-1.5 text-xs hover:bg-gray-50 ${
+                      selectedView === 'personal' ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
+                    }`}
+                  >
+                    <UserCircleIcon className="w-3 h-3 mr-1.5" />
+                    Personal
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedView('organization')
+                      setShowDropdown(false)
+                    }}
+                    className={`w-full flex items-center px-2 py-1.5 text-xs hover:bg-gray-50 ${
+                      selectedView === 'organization' ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
+                    }`}
+                  >
+                    <BuildingOfficeIcon className="w-3 h-3 mr-1.5" />
+                    Organization
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Navigation Items */}
+            {(isInOrganization 
+              ? getOrganizationSpecificNavigation(organizationId!) 
+              : (selectedView === 'personal' ? personalNavigation : organizationNavigation)
+            ).map((item) => renderNavItem(item, true))}
           </nav>
           <div className="border-t border-gray-100 p-4">
             <div className="flex items-center justify-between">
@@ -346,8 +374,78 @@ export default function DashboardLayout({
               </div>
             )}
           </div>
-          <nav className={`flex-1 space-y-1 py-4 ${desktopSidebarVisible ? 'px-2 ml-2' : 'px-0'}`}>
-            {navigation.map((item) => renderNavItem(item, false))}
+          <nav className={`flex-1 space-y-0.5 py-4 ${desktopSidebarVisible ? 'px-2 ml-2' : 'px-0'}`}>
+            {desktopSidebarVisible && (
+              <>
+                {/* View Selector Dropdown */}
+                <div className="relative mb-3">
+                  <button
+                    onClick={() => setShowDropdown(!showDropdown)}
+                    className="w-full flex items-center justify-between px-2 py-1.5 text-xs font-medium text-gray-700 bg-gray-50 rounded-lg hover:bg-gray-100 border border-gray-200"
+                  >
+                    <div className="flex items-center">
+                      <UserCircleIcon className="w-3 h-3 mr-1.5 text-gray-500" />
+                      <span>{selectedView === 'personal' ? 'Personal' : 'Organization'}</span>
+                    </div>
+                    <ChevronDownIcon className={`w-3 h-3 transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
+                  </button>
+                  
+                  {showDropdown && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                      <button
+                        onClick={() => {
+                          setSelectedView('personal')
+                          setShowDropdown(false)
+                        }}
+                        className={`w-full flex items-center px-2 py-1.5 text-xs hover:bg-gray-50 ${
+                          selectedView === 'personal' ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
+                        }`}
+                      >
+                        <UserCircleIcon className="w-3 h-3 mr-1.5" />
+                        Personal
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedView('organization')
+                          setShowDropdown(false)
+                        }}
+                        className={`w-full flex items-center px-2 py-1.5 text-xs hover:bg-gray-50 ${
+                          selectedView === 'organization' ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
+                        }`}
+                      >
+                        <BuildingOfficeIcon className="w-3 h-3 mr-1.5" />
+                        Organization
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Navigation Items */}
+                {(isInOrganization 
+                  ? getOrganizationSpecificNavigation(organizationId!) 
+                  : (selectedView === 'personal' ? personalNavigation : organizationNavigation)
+                ).map((item) => renderNavItem(item, false))}
+              </>
+            )}
+            
+            {!desktopSidebarVisible && (
+              <div className="flex flex-col items-center space-y-1">
+                {(isInOrganization 
+                  ? getOrganizationSpecificNavigation(organizationId!) 
+                  : (selectedView === 'personal' ? personalNavigation : organizationNavigation)
+                ).map((item) => (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                    title={item.name}
+                    onClick={() => handleNavClick(item.href)}
+                  >
+                    <item.icon className="w-4 h-4" />
+                  </Link>
+                ))}
+              </div>
+            )}
           </nav>
           <div className={`border-t border-gray-100 ${desktopSidebarVisible ? 'p-4' : 'p-2'}`}>
             {desktopSidebarVisible ? (

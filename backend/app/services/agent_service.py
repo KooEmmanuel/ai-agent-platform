@@ -57,16 +57,26 @@ class AgentService:
         """
         Execute an agent with streaming response
         """
+        import time
+        stream_start = time.time()
+        print(f"🤖 AgentService.execute_agent_stream started at {time.strftime('%H:%M:%S')}.{int((stream_start % 1) * 1000):03d}")
+        
         if not self.openai_client:
             yield {"type": "error", "content": "OpenAI API not configured. Please set OPENAI_API_KEY."}
             return
 
         try:
             # Prepare conversation history
+            messages_start = time.time()
             messages = await self._prepare_messages(agent, user_message, conversation_history)
+            messages_time = time.time()
+            print(f"📝 Messages prepared in {(messages_time - messages_start)*1000:.1f}ms")
             
             # Prepare tools if agent has any
+            tools_start = time.time()
             tools = await self._prepare_tools(agent)
+            tools_time = time.time()
+            print(f"🔧 Tools prepared in {(tools_time - tools_start)*1000:.1f}ms")
             
             # Check if agent has web search tools and add OpenAI web search
             has_web_search = any('web_search' in str(tool).lower() for tool in tools) if tools else False
@@ -107,6 +117,9 @@ class AgentService:
             else:
                 max_tokens = self._get_max_tokens_for_model(agent.model or "gpt-4o-mini")
                 logger.info(f"🤖 Using model: {agent.model or 'gpt-4o-mini'} with default max_tokens: {max_tokens}")
+            
+            api_call_start = time.time()
+            print(f"🌐 Making OpenAI API call at {time.strftime('%H:%M:%S')}.{int((api_call_start % 1) * 1000):03d}")
             stream = await self.openai_client.chat.completions.create(
                 model=agent.model or "gpt-4o-mini",
                 messages=messages,
@@ -116,20 +129,29 @@ class AgentService:
                 max_tokens=max_tokens,
                 stream=True
             )
+            api_call_time = time.time()
+            print(f"🌐 OpenAI API call completed in {(api_call_time - api_call_start)*1000:.1f}ms")
             
             # Process streaming response
             assistant_message = {"role": "assistant", "content": "", "tool_calls": []}
             tools_used = []
             full_response = ""
             
+            first_chunk_received = False
             async for chunk in stream:
+                if not first_chunk_received:
+                    first_chunk_time = time.time()
+                    print(f"📦 First chunk received at {time.strftime('%H:%M:%S')}.{int((first_chunk_time % 1) * 1000):03d} (took {(first_chunk_time - api_call_time)*1000:.1f}ms from API call)")
+                    first_chunk_received = True
                 if chunk.choices[0].delta.content:
                     content = chunk.choices[0].delta.content
                     assistant_message["content"] += content
                     full_response += content
                     
                     # Stream the content chunk
+                    content_yield_time = time.time()
                     yield {"type": "content", "content": content}
+                    print(f"  📤 Content chunk yielded: '{content}' (took {(time.time() - content_yield_time)*1000:.1f}ms)")
                 
                 # Handle tool calls in streaming
                 if chunk.choices[0].delta.tool_calls:
@@ -187,6 +209,8 @@ class AgentService:
                 full_response = final_response
             
             # Send completion status
+            completion_time = time.time()
+            print(f"✅ AgentService streaming completed at {time.strftime('%H:%M:%S')}.{int((completion_time % 1) * 1000):03d} - Total time: {(completion_time - stream_start)*1000:.1f}ms")
             yield {"type": "complete", "content": full_response, "tools_used": tools_used}
             
         except Exception as e:

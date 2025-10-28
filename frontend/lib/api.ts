@@ -29,6 +29,65 @@ export interface Agent {
   tool_count: number
 }
 
+export interface OrganizationAgent {
+  id: number
+  organization_id: number
+  name: string
+  description?: string
+  instructions: string
+  model: string
+  is_active: boolean
+  tools: any[]
+  context_config?: Record<string, any>
+  created_at: string
+  updated_at?: string
+  created_by_id: number
+}
+
+export interface OrganizationConversation {
+  id: number
+  organization_id: number
+  agent_id: number
+  title: string
+  title_status: 'provisional' | 'final' | 'custom'
+  title_generated_at?: string
+  title_generation_method: string
+  created_by_id: number
+  created_at: string
+  updated_at?: string
+  last_message_at?: string
+  message_count: number
+  meta_data?: Record<string, any>
+}
+
+export interface OrganizationMessage {
+  id: number
+  conversation_id: number
+  role: 'user' | 'assistant' | 'system'
+  content: string
+  created_by_id?: number
+  created_at: string
+  meta_data?: Record<string, any>
+  tool_calls?: any
+  parent_message_id?: number
+  token_count?: number
+  cost_cents?: number
+  attachments?: OrganizationAttachment[]
+}
+
+export interface OrganizationAttachment {
+  id?: number
+  conversation_id?: number
+  message_id?: number
+  blob_key: string
+  blob_url: string
+  filename: string
+  file_size?: number
+  mime_type?: string
+  created_by_id?: number
+  created_at?: string
+}
+
 export interface Tool {
   id: number
   name: string
@@ -313,6 +372,35 @@ class ApiClient {
   // Agents
   async getAgents(): Promise<Agent[]> {
     return this.request<Agent[]>('/agents/')
+  }
+
+  // Organization Agents
+  async getOrganizationAgents(organizationId: number): Promise<OrganizationAgent[]> {
+    return this.request<OrganizationAgent[]>(`/organization-agents/organizations/${organizationId}/agents`)
+  }
+
+  async getOrganizationAgent(organizationId: number, agentId: number): Promise<OrganizationAgent> {
+    return this.request<OrganizationAgent>(`/organization-agents/organizations/${organizationId}/agents/${agentId}`)
+  }
+
+  async createOrganizationAgent(organizationId: number, data: Partial<OrganizationAgent> & { name: string; instructions: string }): Promise<OrganizationAgent> {
+    return this.request<OrganizationAgent>(`/organization-agents/organizations/${organizationId}/agents`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateOrganizationAgent(organizationId: number, agentId: number, data: Partial<OrganizationAgent>): Promise<OrganizationAgent> {
+    return this.request<OrganizationAgent>(`/organization-agents/organizations/${organizationId}/agents/${agentId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteOrganizationAgent(organizationId: number, agentId: number): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/organization-agents/organizations/${organizationId}/agents/${agentId}`, {
+      method: 'DELETE',
+    })
   }
 
   async getConversations(): Promise<Array<{
@@ -1577,6 +1665,174 @@ class ApiClient {
     return this.request(`/organizations/invitations/${invitationId}`, {
       method: 'DELETE'
     })
+  }
+
+  // Organization Playground API methods
+  async getOrganizationPlaygroundAgents(organizationId: number): Promise<OrganizationAgent[]> {
+    return this.request<OrganizationAgent[]>(`/playground/organizations/${organizationId}/agents`)
+  }
+
+  async getOrganizationPlaygroundConversations(organizationId: number, agentId?: number): Promise<OrganizationConversation[]> {
+    const params = agentId ? `?agent_id=${agentId}` : ''
+    return this.request<OrganizationConversation[]>(`/playground/organizations/${organizationId}/conversations${params}`)
+  }
+
+  async createOrganizationConversation(organizationId: number, data: {
+    agent_id: number
+    first_user_message: string
+  }): Promise<OrganizationConversation> {
+    return this.request<OrganizationConversation>(`/playground/organizations/${organizationId}/conversations`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateOrganizationConversation(organizationId: number, conversationId: number, data: {
+    title: string
+  }): Promise<{ message: string }> {
+    return this.request(`/playground/organizations/${organizationId}/conversations/${conversationId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteOrganizationConversation(organizationId: number, conversationId: number): Promise<{ message: string }> {
+    return this.request(`/playground/organizations/${organizationId}/conversations/${conversationId}`, {
+      method: 'DELETE',
+    })
+  }
+
+  async getOrganizationConversationMessages(organizationId: number, conversationId: number): Promise<OrganizationMessage[]> {
+    return this.request<OrganizationMessage[]>(`/playground/organizations/${organizationId}/conversations/${conversationId}/messages`)
+  }
+
+  async sendOrganizationMessage(organizationId: number, conversationId: number, data: {
+    content: string
+    attachments?: any[]
+  }): Promise<{ message: OrganizationMessage; assistant: { id: number | null; stream: boolean } }> {
+    return this.request(`/playground/organizations/${organizationId}/conversations/${conversationId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async generateOrganizationConversationTitle(organizationId: number, conversationId: number): Promise<{ message: string; title?: string }> {
+    return this.request(`/playground/organizations/${organizationId}/conversations/${conversationId}/generate-title`, {
+      method: 'POST',
+    })
+  }
+
+  async deleteOrganizationPlaygroundConversation(organizationId: number, conversationId: number): Promise<{ message: string }> {
+    return this.request(`/playground/organizations/${organizationId}/conversations/${conversationId}`, {
+      method: 'DELETE',
+    })
+  }
+
+  async renameOrganizationConversation(organizationId: number, conversationId: number, newTitle: string): Promise<{ message: string }> {
+    return this.request(`/playground/organizations/${organizationId}/conversations/${conversationId}/rename`, {
+      method: 'PATCH',
+      body: JSON.stringify({ title: newTitle })
+    })
+  }
+
+  async streamOrganizationMessage(
+    organizationId: number,
+    conversationId: number,
+    message: string,
+    onChunk?: (chunk: any) => void,
+    onError?: (error: any) => void,
+    onComplete?: (data: any) => void
+  ): Promise<void> {
+    try {
+      if (!this.token) {
+        throw new Error('No valid authentication token')
+      }
+
+      const requestBody = { content: message, attachments: [] }
+      console.log('📤 Sending organization streaming request body:', requestBody)
+      
+      const response = await fetch(`${this.baseUrl}/api/v1/playground/organizations/${organizationId}/conversations/${conversationId}/messages/stream`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      })
+
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`
+        try {
+          const error = await response.json()
+          console.error('❌ Organization streaming error response:', error)
+          errorMessage = error.detail || error.message || error.error || errorMessage
+        } catch (parseError) {
+          console.error('❌ Failed to parse organization streaming error response:', parseError)
+          try {
+            const textResponse = await response.text()
+            console.error('❌ Organization streaming text error response:', textResponse)
+            errorMessage = textResponse || errorMessage
+          } catch (textError) {
+            console.error('❌ Failed to get organization streaming text response:', textError)
+          }
+        }
+        
+        throw new Error(errorMessage)
+      }
+
+      const reader = response.body?.getReader()
+      if (!reader) {
+        throw new Error('No response body reader available')
+      }
+
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read()
+          
+          if (done) {
+            console.log('✅ Organization streaming completed')
+            break
+          }
+
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop() || ''
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6))
+                console.log('📦 Received organization chunk:', data)
+                
+                if (data.type === 'error') {
+                  onError?.(data.content)
+                  return
+                } else if (data.type === 'complete') {
+                  onComplete?.(data)
+                  return
+                } else {
+                  onChunk?.(data)
+                }
+              } catch (parseError) {
+                console.warn('⚠️ Failed to parse organization chunk:', line, parseError)
+              }
+            }
+          }
+        }
+      } finally {
+        reader.releaseLock()
+      }
+    } catch (error) {
+      console.error('❌ Organization streaming error:', error)
+      if (onError) {
+        onError(error)
+      } else {
+        throw error
+      }
+    }
   }
 }
 

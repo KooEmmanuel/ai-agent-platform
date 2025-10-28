@@ -20,7 +20,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { useToast } from '../../../../../components/ui/Toast'
 import { apiClient } from '../../../../../lib/api'
-import type { Agent } from '../../../../../lib/api'
+import type { OrganizationAgent } from '../../../../../lib/api'
 
 interface Integration {
   id: number
@@ -96,7 +96,7 @@ export default function OrganizationIntegrationsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null)
-  const [agents, setAgents] = useState<Agent[]>([])
+  const [agents, setAgents] = useState<OrganizationAgent[]>([])
   const [loadingAgents, setLoadingAgents] = useState(true)
   const [selectedAgent, setSelectedAgent] = useState<number | null>(null)
   const [editingIntegrationId, setEditingIntegrationId] = useState<number | null>(null)
@@ -147,8 +147,8 @@ export default function OrganizationIntegrationsPage() {
   const fetchAgents = async () => {
     try {
       setLoadingAgents(true)
-      const agentsData = await apiClient.getAgents()
-      setAgents(agentsData.filter((agent: Agent) => agent.is_active))
+      const agentsData = await apiClient.getOrganizationAgents(organizationId)
+      setAgents(agentsData.filter((agent: OrganizationAgent) => agent.is_active))
     } catch (error) {
       console.error('Error fetching agents:', error)
       showToast({
