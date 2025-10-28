@@ -96,6 +96,7 @@ export default function CreateOrganizationAgentPage() {
       console.error('Error fetching tools:', error)
       showToast({
         type: 'error',
+        title: 'Error',
         message: 'Failed to load available tools'
       })
     } finally {
@@ -135,6 +136,7 @@ export default function CreateOrganizationAgentPage() {
     if (!formData.name.trim() || !formData.instructions.trim()) {
       showToast({
         type: 'error',
+        title: 'Validation Error',
         message: 'Name and instructions are required'
       })
       return
@@ -155,6 +157,7 @@ export default function CreateOrganizationAgentPage() {
       
       showToast({
         type: 'success',
+        title: 'Success',
         message: 'Organization agent created successfully!'
       })
       
@@ -163,6 +166,7 @@ export default function CreateOrganizationAgentPage() {
       console.error('Error creating organization agent:', error)
       showToast({
         type: 'error',
+        title: 'Error',
         message: 'Failed to create organization agent'
       })
     } finally {

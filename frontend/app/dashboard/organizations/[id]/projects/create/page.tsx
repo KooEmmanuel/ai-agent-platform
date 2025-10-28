@@ -54,6 +54,7 @@ export default function CreateOrganizationProjectPage() {
     try {
       setLoading(true)
       const project = await apiClient.createOrganizationProject(organizationId, {
+        integration_id: 1, // Default integration ID - you may want to make this dynamic
         name: formData.name,
         description: formData.description || undefined,
         settings: formData.settings

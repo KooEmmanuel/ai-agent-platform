@@ -54,6 +54,7 @@ export default function OrganizationAgentsPage() {
       setError('Failed to load organization agents')
       showToast({
         type: 'error',
+        title: 'Error',
         message: 'Failed to load organization agents'
       })
     } finally {
@@ -68,6 +69,7 @@ export default function OrganizationAgentsPage() {
       await apiClient.deleteOrganizationAgent(organizationId, agentId)
       showToast({
         type: 'success',
+        title: 'Success',
         message: 'Organization agent deleted successfully'
       })
       fetchAgents()
@@ -75,6 +77,7 @@ export default function OrganizationAgentsPage() {
       console.error('Error deleting organization agent:', error)
       showToast({
         type: 'error',
+        title: 'Error',
         message: 'Failed to delete organization agent'
       })
     }

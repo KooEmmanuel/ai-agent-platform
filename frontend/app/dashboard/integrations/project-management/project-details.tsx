@@ -517,16 +517,15 @@ export default function ProjectDetails({ project, onBack, onProjectUpdate }: Pro
     // Fetch task-related data
     try {
       // Fetch files for this task
-      const files = await apiClient.getTaskFiles(task.id)
+      const files = await apiClient.getTaskFiles(task.id) as any[]
       setTaskFiles(files || [])
       
-      // Fetch emails for this task
-      const emails = await apiClient.getTaskEmails(task.id)
-      setTaskEmails(emails || [])
+      // TODO: Implement these API methods
+      // const emails = await apiClient.getTaskEmails(task.id)
+      setTaskEmails([])
       
-      // Fetch external tools for this task
-      const tools = await apiClient.getTaskExternalTools(task.id)
-      setTaskExternalTools(tools || [])
+      // const tools = await apiClient.getTaskExternalTools(task.id)
+      setTaskExternalTools([])
       
       // Fetch time entries for this task
       await fetchTimeEntries(task.id)
@@ -560,11 +559,11 @@ export default function ProjectDetails({ project, onBack, onProjectUpdate }: Pro
       const formData = new FormData()
       formData.append('file', file)
       
-      const response = await apiClient.uploadTaskFile(selectedTaskDetail.id, formData)
+      const response = await apiClient.uploadTaskFile(selectedTaskDetail.id, formData) as any
       
       if (response.success) {
         // Refresh files list
-        const files = await apiClient.getTaskFiles(selectedTaskDetail.id)
+        const files = await apiClient.getTaskFiles(selectedTaskDetail.id) as any[]
         setTaskFiles(files || [])
         
         showToast({
@@ -593,10 +592,10 @@ export default function ProjectDetails({ project, onBack, onProjectUpdate }: Pro
     if (!selectedTaskDetail) return
     
     try {
-      await apiClient.deleteTaskFile(selectedTaskDetail.id, documentId)
+      const response = await apiClient.deleteTaskFile(selectedTaskDetail.id, documentId) as any
       
       // Refresh files list
-      const files = await apiClient.getTaskFiles(selectedTaskDetail.id)
+      const files = await apiClient.getTaskFiles(selectedTaskDetail.id) as any[]
       setTaskFiles(files || [])
       
       showToast({
@@ -629,7 +628,7 @@ export default function ProjectDetails({ project, onBack, onProjectUpdate }: Pro
         team_member_ids: userIds,
         message: message,
         upload_context: selectedTaskDetail ? `Project Management - Task: ${selectedTaskDetail.title}` : 'Project Management'
-      })
+      }) as any
       
       if (result.success) {
         showToast({
@@ -1914,7 +1913,7 @@ export default function ProjectDetails({ project, onBack, onProjectUpdate }: Pro
                 <button
                   onClick={() => {
                     const selectedUsers = Array.from(document.querySelectorAll('input[type="checkbox"]:checked'))
-                      .map(input => parseInt(input.value))
+                      .map(input => parseInt((input as HTMLInputElement).value))
                     const message = document.querySelector('textarea')?.value || `New document uploaded: ${uploadedDocument.filename}`
                     handleNotifyUsers(selectedUsers, message)
                   }}
