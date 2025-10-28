@@ -105,7 +105,13 @@ export default function DashboardLayout({
   const [user, setUser] = useState<any>(null)
   const [activeSection, setActiveSection] = useState<string>('')
   const [expandedItems, setExpandedItems] = useState<string[]>([])
-  const [selectedView, setSelectedView] = useState<'personal' | 'organization'>('personal')
+  const [selectedView, setSelectedView] = useState<'personal' | 'organization'>(() => {
+    // Initialize from localStorage or default to 'personal'
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('sidebarSelectedView') as 'personal' | 'organization') || 'personal'
+    }
+    return 'personal'
+  })
   const [showDropdown, setShowDropdown] = useState(false)
   const pathname = usePathname()
   
@@ -147,6 +153,28 @@ export default function DashboardLayout({
     document.addEventListener('keydown', handleKeydown)
     return () => document.removeEventListener('keydown', handleKeydown)
   }, [sidebarOpen, desktopSidebarVisible])
+
+  // Determine selected view based on current pathname
+  useEffect(() => {
+    // If we're in an organization context, default to organization view
+    if (isInOrganization) {
+      setSelectedView('organization')
+      return
+    }
+
+    // Determine view based on pathname for non-organization contexts
+    if (pathname.startsWith('/dashboard/organizations')) {
+      setSelectedView('organization')
+    } else if (pathname.startsWith('/dashboard/agents') || 
+               pathname.startsWith('/dashboard/tools') || 
+               pathname.startsWith('/dashboard/knowledge-base') || 
+               pathname.startsWith('/dashboard/integrations')) {
+      setSelectedView('personal')
+    } else if (pathname === '/dashboard' || pathname === '/dashboard/') {
+      // Default to personal for dashboard root
+      setSelectedView('personal')
+    }
+  }, [pathname, isInOrganization])
 
   // Scroll-based navigation highlighting
   useEffect(() => {
@@ -205,6 +233,14 @@ export default function DashboardLayout({
         ? prev.filter(name => name !== itemName)
         : [...prev, itemName]
     )
+  }
+
+  const updateSelectedView = (view: 'personal' | 'organization') => {
+    console.log('🔄 Updating selected view to:', view, 'isInOrganization:', isInOrganization)
+    setSelectedView(view)
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sidebarSelectedView', view)
+    }
   }
 
   const renderNavItem = (item: any, isMobile: boolean = false) => {
@@ -283,7 +319,7 @@ export default function DashboardLayout({
                 <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
                   <button
                     onClick={() => {
-                      setSelectedView('personal')
+                      updateSelectedView('personal')
                       setShowDropdown(false)
                     }}
                     className={`w-full flex items-center px-2 py-1.5 text-xs hover:bg-gray-50 ${
@@ -295,7 +331,7 @@ export default function DashboardLayout({
                   </button>
                   <button
                     onClick={() => {
-                      setSelectedView('organization')
+                      updateSelectedView('organization')
                       setShowDropdown(false)
                     }}
                     className={`w-full flex items-center px-2 py-1.5 text-xs hover:bg-gray-50 ${
@@ -310,10 +346,17 @@ export default function DashboardLayout({
             </div>
 
             {/* Navigation Items */}
-            {(isInOrganization 
-              ? getOrganizationSpecificNavigation(organizationId!) 
-              : (selectedView === 'personal' ? personalNavigation : organizationNavigation)
-            ).map((item) => renderNavItem(item, true))}
+            {(() => {
+              const navItems = isInOrganization && selectedView === 'organization'
+                ? getOrganizationSpecificNavigation(organizationId!) 
+                : (selectedView === 'personal' ? personalNavigation : organizationNavigation)
+              console.log('📋 Mobile Navigation Items:', {
+                isInOrganization,
+                selectedView,
+                navItems: navItems.map(item => item.name)
+              })
+              return navItems.map((item) => renderNavItem(item, true))
+            })()}
           </nav>
           <div className="border-t border-gray-100 p-4">
             <div className="flex items-center justify-between">
@@ -394,7 +437,7 @@ export default function DashboardLayout({
                     <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
                       <button
                         onClick={() => {
-                          setSelectedView('personal')
+                          updateSelectedView('personal')
                           setShowDropdown(false)
                         }}
                         className={`w-full flex items-center px-2 py-1.5 text-xs hover:bg-gray-50 ${
@@ -406,7 +449,7 @@ export default function DashboardLayout({
                       </button>
                       <button
                         onClick={() => {
-                          setSelectedView('organization')
+                          updateSelectedView('organization')
                           setShowDropdown(false)
                         }}
                         className={`w-full flex items-center px-2 py-1.5 text-xs hover:bg-gray-50 ${
@@ -421,16 +464,23 @@ export default function DashboardLayout({
                 </div>
 
                 {/* Navigation Items */}
-                {(isInOrganization 
-                  ? getOrganizationSpecificNavigation(organizationId!) 
-                  : (selectedView === 'personal' ? personalNavigation : organizationNavigation)
-                ).map((item) => renderNavItem(item, false))}
+                {(() => {
+                  const navItems = isInOrganization && selectedView === 'organization'
+                    ? getOrganizationSpecificNavigation(organizationId!) 
+                    : (selectedView === 'personal' ? personalNavigation : organizationNavigation)
+                  console.log('📋 Desktop Navigation Items:', {
+                    isInOrganization,
+                    selectedView,
+                    navItems: navItems.map(item => item.name)
+                  })
+                  return navItems.map((item) => renderNavItem(item, false))
+                })()}
               </>
             )}
             
             {!desktopSidebarVisible && (
               <div className="flex flex-col items-center space-y-1">
-                {(isInOrganization 
+                {(isInOrganization && selectedView === 'organization'
                   ? getOrganizationSpecificNavigation(organizationId!) 
                   : (selectedView === 'personal' ? personalNavigation : organizationNavigation)
                 ).map((item) => (
